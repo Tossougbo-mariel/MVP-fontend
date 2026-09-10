@@ -6,7 +6,7 @@ import Link from "next/link";
 import NextImage from "next/image";
 import { motion } from "framer-motion";
 import Cropper from "react-easy-crop";
-import { Sparkles, Eye, EyeOff, Camera, User, X, ZoomIn, CheckCircle2, Crop } from "lucide-react";
+import { Sparkles, Eye, EyeOff, Camera, User, X, ZoomIn, CheckCircle2 } from "lucide-react";
 import AuthCard from "../components/AuthCard";
 import { useAuthStore } from "@/app/store/authStore";
 
@@ -282,9 +282,12 @@ export default function InscriptionPage() {
               className="flex flex-col items-center gap-2 mb-2"
             >
               <div className="relative">
-                <div
-                  className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center text-white"
+<div
+                  className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center text-white${lastRaw ? " cursor-pointer" : ""}`}
                   style={{ background: "var(--gradient-primary)" }}
+                  onClick={lastRaw ? reopenCrop : undefined}
+                  role={lastRaw ? "button" : undefined}
+                  title={lastRaw ? "Cliquer pour recadrer la photo" : undefined}
                 >
                   {avatar ? (
                     <NextImage src={avatar} alt="Photo de profil" fill style={{ objectFit: "cover" }} />
@@ -301,20 +304,9 @@ export default function InscriptionPage() {
                 >
                   <Camera className="w-4 h-4" />
                 </button>
-                {lastRaw && avatar && (
-                  <button
-                    type="button"
-                    onClick={reopenCrop}
-                    aria-label="Recadrer la photo"
-                    title="Recadrer la photo actuelle sans la re-sélectionner"
-                    className="absolute -bottom-1 -left-1 w-8 h-8 rounded-full flex items-center justify-center text-white transition-transform hover:scale-110"
-                    style={{ background: "var(--surface)", border: "1px solid var(--chrome-border)", color: "var(--chrome-text-secondary)", boxShadow: "0 4px 10px rgba(0,0,0,0.3)" }}
-                  >
-                    <Crop className="w-4 h-4" />
-                  </button>
-                )}
+<input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
               </div>
-              <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+
               <div className="flex items-center gap-2">
                 <span className="text-xs" style={{ color: "var(--text-secondary)" }}>Photo de profil (optionnel)</span>
                 {avatar && (

@@ -8,7 +8,7 @@ import Cropper from "react-easy-crop";
 import {
   User, Mail, Briefcase, Pencil, Save, LogOut, CheckCircle2, ShieldCheck,
   Globe, Bell, Camera, Calendar, ClipboardList, Building2, ChevronRight, X, ZoomIn,
-  CheckSquare, AlertTriangle, Crop,
+  CheckSquare, AlertTriangle,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 
@@ -272,11 +272,17 @@ export default function ProfilPage() {
           <div className="flex flex-col md:flex-row items-center gap-6">
             <div className="relative">
               <div
-                className="w-28 h-28 rounded-full flex items-center justify-center overflow-hidden"
+                className={`w-28 h-28 rounded-full flex items-center justify-center overflow-hidden${lastRaw ? " cursor-pointer" : ""}`}
                 style={{ background: "var(--gradient-primary)", boxShadow: "0 8px 20px -8px rgba(37,99,235,0.4)" }}
+                onClick={lastRaw ? reopenCrop : undefined}
+                role={lastRaw ? "button" : undefined}
+                title={lastRaw ? "Cliquer pour recadrer la photo" : undefined}
               >
                 {avatarUrl ? (
-                  <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(${avatarUrl})` }} />
+                  <div
+                    className="w-full h-full bg-cover bg-center"
+                    style={{ backgroundImage: `url(${avatarUrl})` }}
+                  />
                 ) : (
                   <User className="w-14 h-14 text-white" />
                 )}
@@ -289,17 +295,6 @@ export default function ProfilPage() {
               >
                 <Camera className="w-4 h-4" />
               </button>
-              {lastRaw && (
-                <button
-                  onClick={reopenCrop}
-                  aria-label="Recadrer la photo"
-                  title="Recadrer la photo actuelle sans la re-sélectionner"
-                  className="absolute -bottom-1 -left-1 w-9 h-9 rounded-full flex items-center justify-center text-white transition-transform hover:scale-110"
-                  style={{ background: "var(--surface)", border: "1px solid var(--chrome-border)", color: "var(--chrome-text-secondary)", boxShadow: "0 4px 10px rgba(0,0,0,0.3)" }}
-                >
-                  <Crop className="w-4 h-4" />
-                </button>
-              )}
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
             </div>
 
