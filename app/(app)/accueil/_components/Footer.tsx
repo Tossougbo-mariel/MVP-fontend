@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import Link from "next/link";
 
 const productLinks = [
@@ -73,17 +73,23 @@ export default function Footer() {
             <h3 className="text-sm font-bold uppercase tracking-wider text-white">
               Langue
             </h3>
-            <div className="mt-4 flex gap-3">
-              {(["FR", "EN"] as const).map((l) => (
-                <button
-                  key={l}
-                  onClick={() => setLang(l)}
-                  className={`text-sm transition-colors duration-200 ${
-                    lang === l ? "text-[#9dc7ff]" : "text-[#ffffff99] hover:text-[#9dc7ff]"
-                  }`}
-                >
-                  {l}
-                </button>
+<div className="mt-4 flex items-center gap-2">
+              {(["FR", "EN"] as const).map((l, i) => (
+                <Fragment key={l}>
+                  {i > 0 && (
+                    <span className="text-sm" style={{ color: "#ffffff66" }}>
+                      |
+                    </span>
+                  )}
+                  <button
+                    onClick={() => setLang(l)}
+                    className={`text-sm transition-colors duration-200 ${
+                      lang === l ? "text-[#9dc7ff]" : "text-[#ffffff99] hover:text-[#9dc7ff]"
+                    }`}
+                  >
+                    {l}
+                  </button>
+                </Fragment>
               ))}
             </div>
           </div>
