@@ -8,7 +8,7 @@ import Cropper from "react-easy-crop";
 import {
   User, Mail, Briefcase, Pencil, Save, LogOut, CheckCircle2, ShieldCheck,
   Globe, Bell, Camera, Calendar, ClipboardList, Building2, ChevronRight, X, ZoomIn,
-  CheckSquare, AlertTriangle,
+  CheckSquare, AlertTriangle, Crop,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 
@@ -171,6 +171,7 @@ export default function ProfilPage() {
 
   // ====== États recadrage photo ======
   const [selectedImage, setSelectedImage] = useState<string | null>(null); // image brute choisie (data URL)
+  const [lastRaw, setLastRaw] = useState<string | null>(null);             // dernière image brute (pour re-recadrer sans la re-sélectionner)
   const [crop, setCrop] = useState({ x: 0, y: 0 }); // position de l'image dans le cadre
   const [zoom, setZoom] = useState(1);               // niveau de zoom
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropperArea | null>(null); // zone recadrée calculée
@@ -222,13 +223,22 @@ export default function ProfilPage() {
     try {
       const blob = await getCroppedImg(selectedImage, croppedAreaPixels);
       const url = await blobToDataURL(blob);
-      if (photo) URL.revokeObjectURL(photo);
       setPhoto(url);
       updateUser({ avatar: url });
+      // On garde l'image brute pour permettre de re-recadrer sans la re-sélectionner
+      setLastRaw(selectedImage);
       setSelectedImage(null);
     } finally {
       setCropping(false);
     }
+  };
+
+  // Rouvre la modale de recadrage sur la dernière image brute (re-zoom/re-positionnement)
+  const reopenCrop = () => {
+    if (!lastRaw) return;
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setSelectedImage(lastRaw);
   };
 
   const handleLogout = () => {
@@ -279,6 +289,17 @@ export default function ProfilPage() {
               >
                 <Camera className="w-4 h-4" />
               </button>
+              {lastRaw && (
+                <button
+                  onClick={reopenCrop}
+                  aria-label="Recadrer la photo"
+                  title="Recadrer la photo actuelle sans la re-sélectionner"
+                  className="absolute -bottom-1 -left-1 w-9 h-9 rounded-full flex items-center justify-center text-white transition-transform hover:scale-110"
+                  style={{ background: "var(--surface)", border: "1px solid var(--chrome-border)", color: "var(--chrome-text-secondary)", boxShadow: "0 4px 10px rgba(0,0,0,0.3)" }}
+                >
+                  <Crop className="w-4 h-4" />
+                </button>
+              )}
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
             </div>
 
