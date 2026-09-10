@@ -24,15 +24,15 @@ type Role = "admin" | "membre";
 
 const adminStats = [
   { label: "Total tâches", value: "24", icon: ListTodo, color: "var(--text-primary)" },
-  { label: "À faire", value: "6", icon: CalendarClock, color: "#0EA5E9" },
-  { label: "En cours", value: "9", icon: Clock, color: "#3B82F6" },
-  { label: "En révision", value: "4", icon: FolderKanban, color: "#6366F1" },
+  { label: "À faire", value: "6", icon: CalendarClock, color: "#0c79f2" },
+  { label: "En cours", value: "9", icon: Clock, color: "#056cf2" },
+  { label: "En révision", value: "4", icon: FolderKanban, color: "#589bff" },
   { label: "En retard", value: "2", icon: AlertTriangle, color: "#EF4444" },
 ];
 
 const memberTasks = [
-  { label: "À faire", value: 2, icon: CalendarClock, color: "#0EA5E9" },
-  { label: "En cours", value: 3, icon: Clock, color: "#3B82F6" },
+  { label: "À faire", value: 2, icon: CalendarClock, color: "#0c79f2" },
+  { label: "En cours", value: 3, icon: Clock, color: "#056cf2" },
   { label: "Terminées", value: 1, icon: CheckCircle2, color: "var(--color-success)" },
   { label: "En retard", value: 1, icon: AlertTriangle, color: "#EF4444" },
 ];
@@ -60,7 +60,7 @@ function AdminDashboard({ agencyId }: { agencyId: string }) {
           Tableau de bord
         </h1>
         <p className="flex items-center gap-1.5 mt-1" style={{ color: "var(--text-secondary)" }}>
-          <ShieldCheck className="w-4 h-4" style={{ color: "#3B82F6" }} />
+          <ShieldCheck className="w-4 h-4" style={{ color: "#056cf2" }} />
           Vue administrateur — accès complet
         </p>
       </motion.div>
@@ -85,7 +85,7 @@ function AdminDashboard({ agencyId }: { agencyId: string }) {
           <ul className="space-y-3">
             {activity.map((a) => (
               <li key={a.text} className="flex items-start gap-3 text-sm">
-                <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: "#3B82F6" }} />
+                <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: "#056cf2" }} />
                 <div>
                   <div style={{ color: "var(--text-primary)" }}>{a.text}</div>
                   <div className="text-xs" style={{ color: "var(--text-muted)" }}>{a.time}</div>
@@ -110,7 +110,7 @@ function AdminDashboard({ agencyId }: { agencyId: string }) {
                 className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:opacity-80"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
               >
-                <b.icon className="w-5 h-5" style={{ color: "#3B82F6" }} />
+                <b.icon className="w-5 h-5" style={{ color: "#056cf2" }} />
                 <span className="font-medium text-sm">{b.label}</span>
               </Link>
             ))}

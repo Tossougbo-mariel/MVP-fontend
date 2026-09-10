@@ -28,7 +28,7 @@ export default function AuthLayout({
       <div
         className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full opacity-20"
         style={{
-          background: "#0EA5E9",
+          background: "#056cf2",
           filter: "blur(120px)",
           animation: "aurora-drift 20s ease-in-out infinite",
         }}
@@ -36,7 +36,7 @@ export default function AuthLayout({
       <div
         className="absolute top-[30%] right-[-15%] w-[700px] h-[700px] rounded-full opacity-20"
         style={{
-          background: "#3B82F6",
+          background: "#0c79f2",
           filter: "blur(120px)",
           animation: "aurora-drift 25s ease-in-out infinite",
           animationDelay: "-5s",
@@ -45,7 +45,7 @@ export default function AuthLayout({
       <div
         className="absolute bottom-[-10%] left-[20%] w-[500px] h-[500px] rounded-full opacity-15"
         style={{
-          background: "#6366F1",
+          background: "#589bff",
           filter: "blur(120px)",
           animation: "aurora-drift 30s ease-in-out infinite",
           animationDelay: "-10s",

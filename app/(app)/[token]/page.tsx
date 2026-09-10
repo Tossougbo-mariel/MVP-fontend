@@ -17,7 +17,7 @@ export default function TokenPage() {
           href="/connexion"
           className="font-semibold"
           style={{
-            backgroundImage: "linear-gradient(135deg, #0EA5E9, #3B82F6)",
+            backgroundImage: "linear-gradient(135deg, #056cf2, #9dc7ff)",
             backgroundClip: "text",
             WebkitBackgroundClip: "text",
             color: "transparent",

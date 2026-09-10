@@ -37,11 +37,11 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
     <header
       className="sticky top-0 z-20 flex items-center gap-4 px-6 lg:px-8 py-4"
       style={{
-        background: "rgba(255,255,255,0.9)",
+        background: "var(--chrome-bar)",
         backdropFilter: "blur(14px)",
         WebkitBackdropFilter: "blur(14px)",
-        borderBottom: "1px solid #E2E8F0",
-        boxShadow: "0 10px 30px -20px rgba(15, 23, 42, 0.15)",
+        borderBottom: "1px solid var(--chrome-border)",
+        boxShadow: "0 10px 30px -20px rgba(0, 0, 0, 0.6)",
       }}
     >
       <button className="lg:hidden" onClick={onMenuClick} aria-label="Ouvrir le menu">
@@ -56,8 +56,8 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
         <div
           className="hidden md:flex items-center gap-2 rounded-lg px-3.5 py-2 w-60"
           style={{
-            background: "#FFFFFF",
-            border: "1.5px solid #E2E8F0",
+            background: "var(--chrome-card)",
+            border: "1px solid var(--chrome-border)",
           }}
         >
           <Search className="w-4 h-4" style={{ color: "var(--chrome-text-muted)" }} />
@@ -75,7 +75,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
           <Bell className="w-5 h-5" style={{ color: "var(--chrome-text-secondary)" }} />
           <span
             className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
-            style={{ background: "#2563EB" }}
+            style={{ background: "#0c79f2" }}
           />
         </button>
 
@@ -83,7 +83,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
           <button
             onClick={() => setOpen((v) => !v)}
             className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center transition-transform hover:scale-105 shrink-0"
-            style={{ border: "1.5px solid #E2E8F0" }}
+            style={{ border: "1px solid var(--chrome-border)" }}
           >
             {user?.avatar ? (
               <div
@@ -102,13 +102,14 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
 
           {open && (
             <div
-              className="absolute right-0 mt-2 w-56 rounded-xl overflow-hidden z-50 bg-white"
+              className="absolute right-0 mt-2 w-56 rounded-xl overflow-hidden z-50"
               style={{
-                border: "1px solid #E2E8F0",
-                boxShadow: "0 16px 40px -12px rgba(15, 23, 42, 0.25)",
+                background: "var(--chrome-card)",
+                border: "1px solid var(--chrome-border)",
+                boxShadow: "0 16px 40px -12px rgba(0, 0, 0, 0.6)",
               }}
             >
-              <div className="px-4 py-3 border-b" style={{ borderColor: "#EEF2F7" }}>
+              <div className="px-4 py-3 border-b" style={{ borderColor: "var(--chrome-border)" }}>
                 <p className="text-sm font-semibold truncate" style={{ color: "var(--chrome-text)" }}>
                   {user ? `${user.firstName} ${user.lastName}` : "Utilisateur"}
                 </p>

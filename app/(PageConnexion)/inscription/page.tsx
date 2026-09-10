@@ -70,7 +70,7 @@ export default function InscriptionPage() {
   };
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.currentTarget.style.borderColor = "#3B82F6";
+    e.currentTarget.style.borderColor = "#056cf2";
     e.currentTarget.style.boxShadow = "0 0 20px var(--glow-pink)";
   };
 
@@ -105,7 +105,7 @@ export default function InscriptionPage() {
           <h2
             className="text-3xl font-bold mb-2"
             style={{
-              backgroundImage: "linear-gradient(135deg, #0EA5E9, #3B82F6, #6366F1)",
+              backgroundImage: "linear-gradient(135deg, #0c79f2, #056cf2, #589bff)",
               backgroundClip: "text",
               WebkitBackgroundClip: "text",
               color: "transparent",
@@ -344,7 +344,7 @@ export default function InscriptionPage() {
               style={{
                 background: "var(--gradient-button)",
                 backgroundSize: "200% 200%",
-                boxShadow: "0 10px 30px -10px rgba(236,72,153,0.6)",
+                boxShadow: "0 10px 30px -10px rgba(5,108,242,0.55)",
                 animation: "gradient-shift 3s ease infinite",
               }}
             >
@@ -363,7 +363,7 @@ export default function InscriptionPage() {
                 href="/connexion"
                 className="font-semibold"
                 style={{
-                  backgroundImage: "linear-gradient(135deg, #0EA5E9, #3B82F6)",
+                  backgroundImage: "linear-gradient(135deg, #0c79f2, #056cf2)",
                   backgroundClip: "text",
                   WebkitBackgroundClip: "text",
                   color: "transparent",

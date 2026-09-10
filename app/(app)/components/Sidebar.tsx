@@ -263,7 +263,7 @@ export default function Sidebar({
         style={{
           background: "var(--chrome-bg)",
           borderRight: "1px solid var(--chrome-border)",
-          boxShadow: "10px 0 40px -15px rgba(15, 23, 42, 0.25)",
+          boxShadow: "10px 0 40px -15px rgba(0, 0, 0, 0.6)",
         }}
       >
         <div className="flex items-center justify-between">

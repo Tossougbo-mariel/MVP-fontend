@@ -60,7 +60,7 @@ const TACHES: Tache[] = [
 ];
 
 const STATUS_STYLE: Record<TacheStatus, React.CSSProperties> = {
-  "Assignée": { background: "rgba(37,99,235,0.10)", color: "#1D4ED8" },
+  "Assignée": { background: "rgba(5,108,242,0.15)", color: "#0c79f2" },
   "Terminée": { background: "rgba(16,185,129,0.12)", color: "var(--color-success)" },
   "En retard": { background: "rgba(239,68,68,0.12)", color: "var(--color-error)" },
 };
@@ -412,7 +412,7 @@ export default function ProfilPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             {[
-              { label: "Tâches assignées", count: TACHES.filter((t) => t.status === "Assignée").length, icon: CheckSquare, color: "#1D4ED8" },
+              { label: "Tâches assignées", count: TACHES.filter((t) => t.status === "Assignée").length, icon: CheckSquare, color: "#0c79f2" },
               { label: "Tâches terminées", count: TACHES.filter((t) => t.status === "Terminée").length, icon: CheckCircle2, color: "var(--color-success)" },
               { label: "Tâches en retard", count: TACHES.filter((t) => t.status === "En retard").length, icon: AlertTriangle, color: "var(--color-error)" },
             ].map((s) => (

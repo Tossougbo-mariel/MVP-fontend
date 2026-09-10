@@ -153,7 +153,7 @@ export default function ProfilPage() {
                   className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg"
                   style={{
                     background: "var(--gradient-button)",
-                    boxShadow: "0 5px 15px -5px rgba(236,72,153,0.5)",
+                    boxShadow: "0 5px 15px -5px rgba(5,108,242,0.45)",
                   }}
                 >
                   <Pencil size={14} />
@@ -229,7 +229,7 @@ export default function ProfilPage() {
                   background: "var(--gradient-button)",
                   backgroundSize: "200% 200%",
                   animation: "gradient-shift 3s ease infinite",
-                  boxShadow: "0 10px 30px -10px rgba(236,72,153,0.6)",
+                  boxShadow: "0 10px 30px -10px rgba(5,108,242,0.55)",
                 }}
               >
                 <span className="inline-flex items-center gap-2">
