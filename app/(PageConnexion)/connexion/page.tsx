@@ -1,13 +1,13 @@
 "use client";
 
 import { useAuthStore } from "@/app/store/authStore";
-import { useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, useMotionValue, useSpring, type Variants } from "framer-motion";
 import Image from "next/image";
 import {
-  Sparkles, Mail, Lock, Eye, EyeOff, CheckCircle2, Rocket, Users,
+  ArrowLeft, Sparkles, Mail, Lock, Eye, EyeOff, CheckCircle2, Rocket, Users,
 } from "lucide-react";
 import AuthCard from "../components/AuthCard";
 import MagneticButton from "../components/MagneticButton";
@@ -194,6 +194,14 @@ export default function ConnexionPage() {
 
       {/* ====== DROITE : formulaire avec carte 3D ====== */}
       <div className="w-full lg:w-[42%] min-h-screen flex items-center justify-center px-4 lg:px-8 relative">
+        <Link
+          href="/accueil"
+          className="absolute top-6 left-6 inline-flex items-center gap-2 text-sm font-semibold transition-opacity hover:opacity-70"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Retour à l&apos;accueil
+        </Link>
         {/* Halo derrière la carte */}
         <div
           className="absolute w-[340px] h-[340px] rounded-full blur-3xl pointer-events-none"
