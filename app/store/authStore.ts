@@ -74,6 +74,28 @@ export const useAuthStore = create<AuthState>()(
         );
         
         if (demoUser && password === MOCK_PASSWORD) {
+          // Si un enregistrement persistant existe (photo/infos modifiées via le
+          // profil), on l'utilise pour garder les changements après reconnexion.
+          const regUsers = useRegisteredUsersStore.getState();
+          const persisted = regUsers.findUser(trimmedEmail);
+          if (persisted) {
+            const user: User = {
+              id: demoUser.id,
+              firstName: persisted.firstName,
+              lastName: persisted.lastName,
+              email: persisted.email,
+              role: demoUser.role,
+              avatar: persisted.avatar ?? null,
+              phone: persisted.phone,
+              city: persisted.city,
+              bio: persisted.bio,
+              jobTitle: persisted.jobTitle ?? (demoUser.role === "admin" ? "Administrateur" : "Membre"),
+              createdAt: persisted.createdAt,
+            };
+            set({ user });
+            console.log("[authStore] Connexion démo (avec modifs persistées):", email);
+            return true;
+          }
           set({ user: demoUser });
           console.log("[authStore] Connexion avec compte démo:", email);
           return true;
@@ -161,6 +183,21 @@ export const useAuthStore = create<AuthState>()(
               city: nextUser.city,
               bio: nextUser.bio,
               jobTitle: nextUser.jobTitle,
+            });
+          } else {
+            // Comptes démo (ou sans enregistrement) : on crée un enregistrement
+            // persistant pour que les modifs restent après déconnexion.
+            regUsers.registerUser({
+              email: patch.email ?? state.user.email,
+              password: MOCK_PASSWORD,
+              firstName: nextUser.firstName,
+              lastName: nextUser.lastName,
+              avatar: nextUser.avatar,
+              phone: nextUser.phone,
+              city: nextUser.city,
+              bio: nextUser.bio,
+              jobTitle: nextUser.jobTitle,
+              createdAt: nextUser.createdAt ?? new Date().toISOString().slice(0, 10),
             });
           }
 
