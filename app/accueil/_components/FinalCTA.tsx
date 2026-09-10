@@ -44,14 +44,14 @@ export default function FinalCTA() {
 
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
-            href="/PageConnexion/inscription"
+            href="/inscription"
             className="inline-flex items-center justify-center gap-2 rounded-[100px] bg-[#056cf2] px-10 py-4 text-base font-bold text-white shadow-lg transition-all hover:brightness-110"
           >
             Créer mon compte gratuit
             <ArrowRight size={18} />
           </Link>
           <Link
-            href="/PageConnexion/connexion"
+            href="/connexion"
             className="rounded-[100px] border border-[#ffffff33] bg-[#ffffff0d] px-10 py-4 text-base font-bold text-white backdrop-blur transition-colors hover:bg-[#ffffff1a]"
           >
             J&apos;ai déjà un compte

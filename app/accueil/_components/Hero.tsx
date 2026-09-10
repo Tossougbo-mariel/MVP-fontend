@@ -79,7 +79,7 @@ export default function Hero() {
 
               <div className="mt-8 flex flex-col gap-4 sm:flex-row">
                 <Link
-                  href="/PageConnexion/inscription"
+                  href="/inscription"
                   className="inline-flex items-center justify-center gap-2 rounded-[100px] bg-[#056cf2] px-8 py-3.5 text-base font-bold text-white shadow-lg transition-all hover:brightness-110"
                 >
                   Démarrer gratuitement

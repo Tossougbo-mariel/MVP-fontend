@@ -57,14 +57,14 @@ export default function Navbar() {
 
         <div className="hidden items-center gap-2 md:flex">
           <Link
-            href="/PageConnexion/inscription"
+            href="/inscription"
             className="rounded-[100px] bg-[#056cf2] px-5 py-2.5 text-[15px] font-bold text-white transition-all hover:brightness-110"
             style={{ transitionDuration: "0.25s" }}
           >
             S&apos;inscrire
           </Link>
           <Link
-            href="/PageConnexion/connexion"
+            href="/connexion"
             className="rounded-lg px-4 py-2 text-[15px] font-semibold text-[#ffffffe0] transition-all hover:bg-[#ffffff1a]"
             style={{ transitionDuration: "0.25s" }}
             onMouseEnter={(e) => (e.currentTarget.style.color = "#9dc7ff")}
@@ -111,14 +111,14 @@ export default function Navbar() {
         ))}
         <div className="mt-4 flex flex-col gap-2">
           <Link
-            href="/PageConnexion/inscription"
+            href="/inscription"
             onClick={() => setOpen(false)}
             className="rounded-[100px] bg-[#056cf2] px-6 py-3 text-center text-[14px] font-bold text-white"
           >
             S&apos;inscrire
           </Link>
           <Link
-            href="/PageConnexion/connexion"
+            href="/connexion"
             onClick={() => setOpen(false)}
             className="rounded-[100px] border border-[#dfe5ed] px-6 py-3 text-center text-[14px] font-bold text-[#0b1521]"
           >
