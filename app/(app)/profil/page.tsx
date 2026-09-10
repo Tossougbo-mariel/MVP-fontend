@@ -1,16 +1,16 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
 import Cropper from "react-easy-crop";
 import {
-  User, Mail, Briefcase, Pencil, Save, LogOut, CheckCircle2, ShieldCheck,
+  User, Mail, Briefcase, Pencil, Save, CheckCircle2, ShieldCheck,
   Globe, Bell, Camera, Calendar, ClipboardList, Building2, ChevronRight, X, ZoomIn,
-  CheckSquare, AlertTriangle,
+  CheckSquare, AlertTriangle, Eye, Crop,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
+import AvatarViewer from "@/app/(app)/components/AvatarViewer";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -149,7 +149,6 @@ function Champ({
 }
 
 export default function ProfilPage() {
-  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
@@ -241,12 +240,7 @@ export default function ProfilPage() {
     setSelectedImage(lastRaw);
   };
 
-  const handleLogout = () => {
-    // TODO backend : POST /api/logout
-    localStorage.removeItem("token");
-    sessionStorage.clear();
-    router.push("/connexion");
-  };
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   const set = (key: keyof InfosPersonnelles) => (v: string) =>
     setDraft((d) => ({ ...d, [key]: v }));
@@ -270,32 +264,60 @@ export default function ProfilPage() {
         {/* ====== EN-TÊTE PROFIL ====== */}
         <motion.div variants={item} className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
           <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="relative">
-              <div
-                className={`w-28 h-28 rounded-full flex items-center justify-center overflow-hidden${lastRaw ? " cursor-pointer" : ""}`}
-                style={{ background: "var(--gradient-primary)", boxShadow: "0 8px 20px -8px rgba(37,99,235,0.4)" }}
-                onClick={lastRaw ? reopenCrop : undefined}
-                role={lastRaw ? "button" : undefined}
-                title={lastRaw ? "Cliquer pour recadrer la photo" : undefined}
-              >
-                {avatarUrl ? (
-                  <div
-                    className="w-full h-full bg-cover bg-center"
-                    style={{ backgroundImage: `url(${avatarUrl})` }}
-                  />
-                ) : (
-                  <User className="w-14 h-14 text-white" />
-                )}
+            <div className="flex flex-col items-center gap-2">
+              <div className="relative">
+                <div
+                  className={`w-28 h-28 rounded-full flex items-center justify-center overflow-hidden${avatarUrl ? " cursor-pointer" : ""}`}
+                  style={{ background: "var(--gradient-primary)", boxShadow: "0 8px 20px -8px rgba(37,99,235,0.4)" }}
+                  onClick={avatarUrl ? () => setViewerOpen(true) : undefined}
+                  role={avatarUrl ? "button" : undefined}
+                  title={avatarUrl ? "Voir la photo de profil" : undefined}
+                >
+                  {avatarUrl ? (
+                    <div
+                      className="w-full h-full bg-cover bg-center"
+                      style={{ backgroundImage: `url(${avatarUrl})` }}
+                    />
+                  ) : (
+                    <User className="w-14 h-14 text-white" />
+                  )}
+                </div>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  aria-label="Changer la photo"
+                  className="absolute -bottom-1 -right-1 w-9 h-9 rounded-full flex items-center justify-center text-white"
+                  style={{ background: "var(--gradient-button)", boxShadow: "0 4px 10px -4px rgba(37,99,235,0.4)" }}
+                >
+                  <Camera className="w-4 h-4" />
+                </button>
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
               </div>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                aria-label="Changer la photo"
-                className="absolute -bottom-1 -right-1 w-9 h-9 rounded-full flex items-center justify-center text-white"
-                style={{ background: "var(--gradient-button)", boxShadow: "0 4px 10px -4px rgba(37,99,235,0.4)" }}
-              >
-                <Camera className="w-4 h-4" />
-              </button>
-              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+
+              {avatarUrl && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setViewerOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105"
+                    style={{ background: "var(--surface)", border: "1px solid var(--chrome-border)", color: "var(--chrome-text-secondary)" }}
+                  >
+                    <Eye size={13} /> Voir
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (lastRaw) {
+                        setViewerOpen(false);
+                        reopenCrop();
+                      } else {
+                        fileInputRef.current?.click();
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:scale-105"
+                    style={{ background: "var(--gradient-button)", boxShadow: "0 4px 12px -4px rgba(37,99,235,0.5)" }}
+                  >
+                    <Crop size={13} /> Modifier
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="flex-1 text-center md:text-left">
@@ -312,14 +334,6 @@ export default function ProfilPage() {
                 <ShieldCheck size={13} /> {user?.role === "admin" ? "Administrateur" : "Membre"}
               </span>
             </div>
-
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
-              style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--color-error)" }}
-            >
-              <LogOut size={16} /> Déconnexion
-            </button>
           </div>
         </motion.div>
 
@@ -621,6 +635,20 @@ export default function ProfilPage() {
           </div>
         </div>
       )}
+
+      <AvatarViewer
+        open={viewerOpen}
+        src={avatarUrl}
+        onClose={() => setViewerOpen(false)}
+        onCrop={
+          lastRaw
+            ? () => {
+                setViewerOpen(false);
+                reopenCrop();
+              }
+            : undefined
+        }
+      />
     </>
   );
 }

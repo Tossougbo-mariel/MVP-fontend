@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Menu, Search, Bell, LogOut, User } from "lucide-react";
+import { Menu, Search, Bell, LogOut, User, ImageIcon } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
+import AvatarViewer from "./AvatarViewer";
 
 export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const pathname = usePathname();
@@ -15,6 +16,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const title = last ? last.replace(/-/g, " ") : "Accueil";
 
   const [open, setOpen] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = () => {
@@ -34,6 +36,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   }, [open]);
 
   return (
+    <>
     <header
       className="sticky top-0 z-20 flex items-center gap-4 px-6 lg:px-8 py-4"
       style={{
@@ -118,6 +121,19 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
                 </p>
               </div>
 
+              {user?.avatar && (
+                <button
+                  onClick={() => {
+                    setViewerOpen(true);
+                    setOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--chrome-hover)]"
+                  style={{ color: "var(--chrome-text)" }}
+                >
+                  <ImageIcon size={15} /> Voir ma photo
+                </button>
+              )}
+
               <Link
                 href="/profil"
                 onClick={() => setOpen(false)}
@@ -138,6 +154,13 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
           )}
         </div>
       </div>
-    </header>
+      </header>
+
+      <AvatarViewer
+        open={viewerOpen}
+        src={user?.avatar}
+        onClose={() => setViewerOpen(false)}
+      />
+    </>
   );
 }
