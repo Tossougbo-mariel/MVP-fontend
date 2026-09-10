@@ -6,6 +6,24 @@
   inherits: false;
 }
 
+:root {
+  --d-dark: #010b25;
+  --d-mid: #011648;
+  --d-deep: #002989;
+  --blue: #056cf2;
+  --blue-accent: #0c79f2;
+  --blue-light: #9dc7ff;
+  --blue-mid: #589bff;
+  --text: #0b1521;
+  --muted: #5e6773;
+  --border: #dfe5ed;
+  --bg: #ffffff;
+  --bg-light: #f4f6fa;
+  --nav-h: 88px;
+  --ease: cubic-bezier(.4, 0, .2, 1);
+  --t: .25s;
+}
+
 :root,
 [data-theme="light"] {
   color-scheme: light;
@@ -128,12 +146,58 @@
   background: rgba(220, 38, 38, 0.08);
 }
 
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-manrope);
   --font-mono: var(--font-geist-mono);
+  --color-d-dark: #010b25;
+  --color-d-mid: #011648;
+  --color-d-deep: #002989;
+  --color-blue: #056cf2;
+  --color-blue-accent: #0c79f2;
+  --color-blue-light: #9dc7ff;
+  --color-blue-mid: #589bff;
+  --color-anatext: #0b1521;
+  --color-anamuted: #5e6773;
+  --color-anaborder: #dfe5ed;
+  --color-anabg: #ffffff;
+  --color-anabg-light: #f4f6fa;
+}
+
+@theme {
+  --animate-carousel-scroll: carousel-scroll 30s linear infinite;
+  --animate-reviews-scroll: reviews-scroll 40s linear infinite;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-float-slow: float 11s ease-in-out infinite;
+  --animate-glow: glow 8s ease-in-out infinite;
+
+  @keyframes carousel-scroll {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  @keyframes reviews-scroll {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-18px);
+    }
+  }
+  @keyframes glow {
+    0%, 100% {
+      opacity: 0.45;
+    }
+    50% {
+      opacity: 0.9;
+    }
+  }
 }
 
 *,
@@ -146,6 +210,10 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-manrope), Arial, Helvetica, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 html[data-theme="dark"] .icon-theme-moon {
