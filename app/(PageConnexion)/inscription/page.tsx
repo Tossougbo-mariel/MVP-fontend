@@ -1,13 +1,64 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
+import NextImage from "next/image";
 import { motion } from "framer-motion";
-import { Sparkles, Eye, EyeOff, Camera, User } from "lucide-react";
+import Cropper from "react-easy-crop";
+import { Sparkles, Eye, EyeOff, Camera, User, X, ZoomIn, CheckCircle2 } from "lucide-react";
 import AuthCard from "../components/AuthCard";
 import { useAuthStore } from "@/app/store/authStore";
+
+type CropperArea = { x: number; y: number; width: number; height: number };
+
+function blobToDataURL(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function getCroppedImg(
+  imageSrc: string,
+  croppedAreaPixels: CropperArea,
+  width = 400,
+  height = 400,
+): Promise<Blob> {
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Impossible de charger l'image"));
+    img.src = imageSrc;
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas non supporté");
+
+  ctx.drawImage(
+    image,
+    croppedAreaPixels.x,
+    croppedAreaPixels.y,
+    croppedAreaPixels.width,
+    croppedAreaPixels.height,
+    0,
+    0,
+    width,
+    height,
+  );
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Échec de l'export de l'image"));
+    }, "image/png");
+  });
+}
 
 export default function InscriptionPage() {
   const [firstName, setFirstName] = useState("");
@@ -24,13 +75,47 @@ export default function InscriptionPage() {
   const router = useRouter();
   const register = useAuthStore((s) => s.register);
 
+  // ====== États recadrage photo ======
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropperArea | null>(null);
+  const [cropping, setCropping] = useState(false);
+
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => setAvatar(reader.result as string);
+    reader.onload = () => {
+      setSelectedImage(reader.result as string);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+    };
     reader.readAsDataURL(file);
     e.target.value = ""; // permet de re-sélectionner le même fichier
+  };
+
+  const onCropComplete = useCallback((_: CropperArea, croppedPixels: CropperArea) => {
+    setCroppedAreaPixels(croppedPixels);
+  }, []);
+
+  const handleApplyCrop = async () => {
+    if (!selectedImage || !croppedAreaPixels) return;
+    setCropping(true);
+    try {
+      const blob = await getCroppedImg(selectedImage, croppedAreaPixels);
+      const url = await blobToDataURL(blob);
+      if (avatar) URL.revokeObjectURL(avatar);
+      setAvatar(url);
+      setSelectedImage(null);
+    } finally {
+      setCropping(false);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setAvatar(null);
+    setSelectedImage(null);
   };
 
   // ✅ CORRIGÉ : pas de connexion auto — l'utilisateur retourne sur la page de connexion
@@ -88,7 +173,7 @@ export default function InscriptionPage() {
         transition={{ duration: 0.7, ease: "easeOut" }}
         className="hidden lg:block lg:w-[60%] relative overflow-hidden min-h-screen"
       >
-        <Image
+        <NextImage
           src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1600&auto=format&fit=crop"
           alt="Travail d'équipe"
           fill
@@ -192,7 +277,7 @@ export default function InscriptionPage() {
                   style={{ background: "var(--gradient-primary)" }}
                 >
                   {avatar ? (
-                    <Image src={avatar} alt="Photo de profil" fill style={{ objectFit: "cover" }} />
+                    <NextImage src={avatar} alt="Photo de profil" fill style={{ objectFit: "cover" }} />
                   ) : (
                     <User className="w-9 h-9 text-white/80" />
                   )}
@@ -213,7 +298,7 @@ export default function InscriptionPage() {
                 {avatar && (
                   <button
                     type="button"
-                    onClick={() => setAvatar(null)}
+                    onClick={handleRemovePhoto}
                     className="text-xs font-semibold transition-colors hover:text-red-500"
                     style={{ color: "var(--color-error)" }}
                   >
@@ -375,6 +460,69 @@ export default function InscriptionPage() {
           </form>
         </AuthCard>
       </div>
+
+      {/* ====== MODAL DE RECADRAGE PHOTO ====== */}
+      {selectedImage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div
+            className="w-full max-w-md rounded-2xl overflow-hidden"
+            style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)", boxShadow: "var(--shadow-card)" }}
+          >
+            <div className="flex items-center justify-between px-5 py-4">
+              <h3 className="font-bold" style={{ color: "var(--text-primary)" }}>Recadrer la photo</h3>
+              <button onClick={() => setSelectedImage(null)} aria-label="Fermer">
+                <X className="w-5 h-5" style={{ color: "var(--text-secondary)" }} />
+              </button>
+            </div>
+
+            <div className="relative h-72 md:h-80">
+              <Cropper
+                image={selectedImage}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            </div>
+
+            <div className="px-5 py-4 space-y-4">
+              <div className="flex items-center gap-3">
+                <ZoomIn size={18} style={{ color: "var(--text-secondary)" }} />
+                <input
+                  type="range"
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  value={zoom}
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                  className="flex-1"
+                />
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setSelectedImage(null)}
+                  className="px-4 py-2 rounded-xl text-sm font-medium"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleApplyCrop}
+                  disabled={cropping}
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-60"
+                  style={{ background: "var(--gradient-button)", boxShadow: "0 5px 14px -5px rgba(37,99,235,0.4)" }}
+                >
+                  <CheckCircle2 size={15} /> {cropping ? "Traitement..." : "Valider"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

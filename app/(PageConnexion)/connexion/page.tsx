@@ -219,13 +219,6 @@ export default function ConnexionPage() {
           >
             <AuthCard>
 
-              <div
-  className="mt-6 pt-4 border-t text-xs text-center space-y-1"
-  style={{ borderColor: "var(--border-subtle)", color: "var(--text-secondary)" }}
->
-  <p>Comptes de démonstration (mot de passe : secret123)</p>
-  <p>Admin : admin@demo.com | Membre : membre@demo.com</p>
-</div>
               <motion.div
                 variants={container}
                 initial="hidden"
