@@ -12,7 +12,7 @@ export default function ThemeToggle() {
       onClick={toggleTheme}
       aria-label="Changer de thème"
       title="Changer de thème"
-      className="fixed top-5 right-5 z-50 flex items-center justify-center w-11 h-11 rounded-full transition-transform duration-300 hover:scale-110"
+      className="fixed bottom-5 right-5 z-50 flex items-center justify-center w-11 h-11 rounded-full transition-transform duration-300 hover:scale-110"
       style={{
         background: "var(--card-bg)",
         color: "var(--text-primary)",

@@ -1,5 +1,19 @@
 "use client";
 
+// Généré une seule fois au chargement du module (pas pendant le rendu)
+const PARTICLES = Array.from({ length: 18 }).map(() => {
+  const size = Math.random() * 2 + 2;
+  return {
+    width: `${size}px`,
+    height: `${size}px`,
+    left: `${Math.random() * 100}%`,
+    top: `${Math.random() * 100}%`,
+    opacity: Math.random() * 0.1 + 0.05,
+    animation: `float-up ${Math.random() * 7 + 8}s linear infinite`,
+    animationDelay: `${Math.random() * 10}s`,
+  };
+});
+
 export default function AuthLayout({
   children,
 }: {
@@ -14,7 +28,7 @@ export default function AuthLayout({
       <div
         className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full opacity-20"
         style={{
-          background: "#F97316",
+          background: "#0EA5E9",
           filter: "blur(120px)",
           animation: "aurora-drift 20s ease-in-out infinite",
         }}
@@ -22,7 +36,7 @@ export default function AuthLayout({
       <div
         className="absolute top-[30%] right-[-15%] w-[700px] h-[700px] rounded-full opacity-20"
         style={{
-          background: "#EC4899",
+          background: "#3B82F6",
           filter: "blur(120px)",
           animation: "aurora-drift 25s ease-in-out infinite",
           animationDelay: "-5s",
@@ -31,7 +45,7 @@ export default function AuthLayout({
       <div
         className="absolute bottom-[-10%] left-[20%] w-[500px] h-[500px] rounded-full opacity-15"
         style={{
-          background: "#8B5CF6",
+          background: "#6366F1",
           filter: "blur(120px)",
           animation: "aurora-drift 30s ease-in-out infinite",
           animationDelay: "-10s",
@@ -48,20 +62,8 @@ export default function AuthLayout({
       />
 
       {/* Particules flottantes */}
-      {Array.from({ length: 18 }).map((_, i) => (
-        <div
-          key={i}
-          
-          style={{
-            width: `${Math.random() * 2 + 2}px`,
-            height: `${Math.random() * 2 + 2}px`,
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            opacity: Math.random() * 0.1 + 0.05,
-            animation: `float-up ${Math.random() * 7 + 8}s linear infinite`,
-            animationDelay: `${Math.random() * 10}s`,
-          }}
-        />
+      {PARTICLES.map((p, i) => (
+        <div key={i} style={p} />
       ))}
 
       {/* Contenu */}

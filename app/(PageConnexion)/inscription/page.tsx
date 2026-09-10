@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { Sparkles, Eye, EyeOff } from "lucide-react";
+import { Sparkles, Eye, EyeOff, Camera, User } from "lucide-react";
 import AuthCard from "../components/AuthCard";
+import { useAuthStore } from "@/app/store/authStore";
 
 export default function InscriptionPage() {
   const [firstName, setFirstName] = useState("");
@@ -13,11 +15,25 @@ export default function InscriptionPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [avatar, setAvatar] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+  const register = useAuthStore((s) => s.register);
 
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setAvatar(reader.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = ""; // permet de re-sélectionner le même fichier
+  };
+
+  // ✅ CORRIGÉ : pas de connexion auto — l'utilisateur retourne sur la page de connexion
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -32,9 +48,19 @@ export default function InscriptionPage() {
     }
 
     setLoading(true);
-    // TODO backend : appeler POST /api/register quand on branchera l'API
-    console.log("Inscription:", { firstName, lastName, email, password });
-    setTimeout(() => setLoading(false), 800);
+    
+    // ✅ Appeler register avec le password et vérifier le résultat
+    const result = register({ firstName, lastName, email, password, avatar });
+    
+    // Si result n'est pas true, c'est un message d'erreur
+    if (result !== true) {
+      setError(result as string);
+      setLoading(false);
+      return;
+    }
+    
+    // ✅ Succès : rediriger vers la page de connexion (l'utilisateur n'est PAS connecté)
+    router.push("/connexion?inscrit=1");
   };
 
   const inputStyle = {
@@ -44,7 +70,7 @@ export default function InscriptionPage() {
   };
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.currentTarget.style.borderColor = "#EC4899";
+    e.currentTarget.style.borderColor = "#3B82F6";
     e.currentTarget.style.boxShadow = "0 0 20px var(--glow-pink)";
   };
 
@@ -79,7 +105,7 @@ export default function InscriptionPage() {
           <h2
             className="text-3xl font-bold mb-2"
             style={{
-              backgroundImage: "linear-gradient(135deg, #F97316, #EC4899, #8B5CF6)",
+              backgroundImage: "linear-gradient(135deg, #0EA5E9, #3B82F6, #6366F1)",
               backgroundClip: "text",
               WebkitBackgroundClip: "text",
               color: "transparent",
@@ -88,7 +114,7 @@ export default function InscriptionPage() {
             Rejoignez votre équipe
           </h2>
           <p className="text-white/80">
-            Créez votre compte et commencez à gérer vos projets dès aujourd'hui.
+            {"Créez votre compte et commencez à gérer vos projets dès aujourd'hui."}
           </p>
         </div>
       </motion.div>
@@ -154,6 +180,49 @@ export default function InscriptionPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.25 }}
+              className="flex flex-col items-center gap-2 mb-2"
+            >
+              <div className="relative">
+                <div
+                  className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center text-white"
+                  style={{ background: "var(--gradient-primary)" }}
+                >
+                  {avatar ? (
+                    <Image src={avatar} alt="Photo de profil" fill style={{ objectFit: "cover" }} />
+                  ) : (
+                    <User className="w-9 h-9 text-white/80" />
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  aria-label="Choisir une photo de profil"
+                  className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center text-white transition-transform hover:scale-110"
+                  style={{ background: "var(--gradient-button)" }}
+                >
+                  <Camera className="w-4 h-4" />
+                </button>
+              </div>
+              <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+              <div className="flex items-center gap-2">
+                <span className="text-xs" style={{ color: "var(--text-secondary)" }}>Photo de profil (optionnel)</span>
+                {avatar && (
+                  <button
+                    type="button"
+                    onClick={() => setAvatar(null)}
+                    className="text-xs font-semibold transition-colors hover:text-red-500"
+                    style={{ color: "var(--color-error)" }}
+                  >
+                    Retirer
+                  </button>
+                )}
+              </div>
+            </motion.div>
+
             <div className="grid grid-cols-2 gap-4">
               <motion.div
                 initial={{ y: 20, opacity: 0 }}
@@ -229,7 +298,7 @@ export default function InscriptionPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:text-pink-500"
+                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:text-blue-500"
                 style={{ color: "var(--text-secondary)" }}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -256,7 +325,7 @@ export default function InscriptionPage() {
               <button
                 type="button"
                 onClick={() => setShowConfirm(!showConfirm)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:text-pink-500"
+                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:text-blue-500"
                 style={{ color: "var(--text-secondary)" }}
               >
                 {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -294,7 +363,7 @@ export default function InscriptionPage() {
                 href="/connexion"
                 className="font-semibold"
                 style={{
-                  backgroundImage: "linear-gradient(135deg, #F97316, #EC4899)",
+                  backgroundImage: "linear-gradient(135deg, #0EA5E9, #3B82F6)",
                   backgroundClip: "text",
                   WebkitBackgroundClip: "text",
                   color: "transparent",

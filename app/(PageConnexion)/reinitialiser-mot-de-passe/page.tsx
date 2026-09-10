@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -8,7 +8,24 @@ import { motion } from "framer-motion";
 import { Sparkles, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import AuthCard from "../components/AuthCard";
 
-export default function ModifierMotDePassePage() {
+export default function ReinitialiserMotDePassePage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          className="min-h-screen flex items-center justify-center"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          Chargement...
+        </div>
+      }
+    >
+      <ReinitialiserMotDePasseForm />
+    </Suspense>
+  );
+}
+
+function ReinitialiserMotDePasseForm() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
@@ -26,7 +43,7 @@ export default function ModifierMotDePassePage() {
     color: "var(--text-primary)",
   };
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.currentTarget.style.borderColor = "#EC4899";
+    e.currentTarget.style.borderColor = "#3B82F6";
     e.currentTarget.style.boxShadow = "0 0 20px var(--glow-pink)";
   };
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -86,7 +103,7 @@ export default function ModifierMotDePassePage() {
           <h2
             className="text-3xl font-bold mb-2"
             style={{
-              backgroundImage: "linear-gradient(135deg, #F97316, #EC4899, #8B5CF6)",
+              backgroundImage: "linear-gradient(135deg, #0EA5E9, #3B82F6, #6366F1)",
               backgroundClip: "text",
               WebkitBackgroundClip: "text",
               color: "transparent",
@@ -205,7 +222,7 @@ export default function ModifierMotDePassePage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:text-pink-500"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:text-blue-500"
                   style={{ color: "var(--text-secondary)" }}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -232,7 +249,7 @@ export default function ModifierMotDePassePage() {
                 <button
                   type="button"
                   onClick={() => setShowConfirm(!showConfirm)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:text-pink-500"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:text-blue-500"
                   style={{ color: "var(--text-secondary)" }}
                 >
                   {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -266,7 +283,7 @@ export default function ModifierMotDePassePage() {
               >
                 <Link
                   href="/connexion"
-                  className="text-sm transition-colors hover:text-pink-500"
+                  className="text-sm transition-colors hover:text-blue-500"
                   style={{ color: "var(--text-secondary)" }}
                 >
                   Retour à la connexion

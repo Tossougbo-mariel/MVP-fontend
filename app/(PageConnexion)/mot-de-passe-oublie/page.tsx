@@ -18,7 +18,7 @@ export default function MotDePasseOubliePage() {
     color: "var(--text-primary)",
   };
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.currentTarget.style.borderColor = "#EC4899";
+    e.currentTarget.style.borderColor = "#3B82F6";
     e.currentTarget.style.boxShadow = "0 0 20px var(--glow-pink)";
   };
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -63,7 +63,7 @@ export default function MotDePasseOubliePage() {
           <h2
             className="text-3xl font-bold mb-2"
             style={{
-              backgroundImage: "linear-gradient(135deg, #F97316, #EC4899, #8B5CF6)",
+              backgroundImage: "linear-gradient(135deg, #0EA5E9, #3B82F6, #6366F1)",
               backgroundClip: "text",
               WebkitBackgroundClip: "text",
               color: "transparent",
@@ -177,7 +177,7 @@ export default function MotDePasseOubliePage() {
           >
             <Link
               href="/connexion"
-              className="inline-flex items-center gap-2 text-sm transition-colors hover:text-pink-500"
+              className="inline-flex items-center gap-2 text-sm transition-colors hover:text-blue-500"
               style={{ color: "var(--text-secondary)" }}
             >
               <ArrowLeft size={16} />

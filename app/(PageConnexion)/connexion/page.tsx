@@ -1,17 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useAuthStore } from "@/app/store/authStore";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
-import AuthCard from "../components/AuthCard";
+import { motion, useMotionValue, useSpring, type Variants } from "framer-motion";
 import Image from "next/image";
+import {
+  Sparkles, Mail, Lock, Eye, EyeOff, CheckCircle2, Rocket, Users,
+} from "lucide-react";
+import AuthCard from "../components/AuthCard";
+import MagneticButton from "../components/MagneticButton";
+
 
 export default function ConnexionPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  // --- Tilt 3D de la carte (rotation douce, type "spring") ---
+  const rotateX = useSpring(useMotionValue(0), { stiffness: 200, damping: 22 });
+  const rotateY = useSpring(useMotionValue(0), { stiffness: 200, damping: 22 });
+
+  const handleTilt = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    rotateX.set(-((e.clientY - rect.top) / rect.height - 0.5) * 10);
+    rotateY.set(((e.clientX - rect.left) / rect.width - 0.5) * 10);
+  };
+  const resetTilt = () => { rotateX.set(0); rotateY.set(0); };
 
   const inputStyle = {
     background: "var(--input-bg)",
@@ -19,7 +38,7 @@ export default function ConnexionPage() {
     color: "var(--text-primary)",
   };
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.currentTarget.style.borderColor = "#EC4899";
+    e.currentTarget.style.borderColor = "#3B82F6";
     e.currentTarget.style.boxShadow = "0 0 20px var(--glow-pink)";
   };
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -27,210 +46,320 @@ export default function ConnexionPage() {
     e.currentTarget.style.boxShadow = "none";
   };
 
+  const login = useAuthStore((s) => s.login);
+  
+  // ✅ CORRIGÉ : Ajout de setLoading(false) après succès
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    // TODO backend : appeler POST /api/login quand on branchera l'API
-    console.log("Connexion tentée:", { email, password });
-    setTimeout(() => setLoading(false), 800);
+
+    const ok = login(email, password);
+    if (!ok) {
+      setError("Email ou mot de passe incorrect.");
+      setLoading(false);
+      return;
+    }
+    
+    // Petite délai avant redirection pour voir l'effet visuel
+    // (optionnel, mais améliore l'UX)
+    setTimeout(() => {
+      router.push("/mes-agences");
+    }, 300);
+  };
+
+  // --- Entrée en cascade : chaque enfant apparaît l'un après l'autre ---
+  const container: Variants = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.12, delayChildren: 0.15 } },
+  };
+  const item: Variants = {
+    hidden: { y: 26, opacity: 0 },
+    show: { y: 0, opacity: 1, transition: { duration: 0.6, ease: "easeOut" } },
   };
 
   return (
     <div className="flex w-full min-h-screen">
-      {/* Visuel gauche (image) */}
+      {/* ====== VISUEL GAUCHE : image + aurores + cartes flottantes ====== */}
       <motion.div
-        initial={{ x: -40, opacity: 0 }}
+        initial={{ x: -60, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.7, ease: "easeOut" }}
-        className="hidden lg:block lg:w-[60%] relative overflow-hidden min-h-screen"
+        className="hidden lg:block lg:w-[58%] relative overflow-hidden min-h-screen"
       >
-        <Image
-          src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=1600&auto=format&fit=crop"
-          alt="Gestion de tâches"
-          fill
-          style={{ objectFit: "cover" }}
+        {/* Aurores lumineuses qui respirent */}
+        <div
+          className="absolute -top-20 -left-20 w-[480px] h-[480px] rounded-full blur-3xl pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, rgba(139,92,246,0.5), transparent 60%)",
+            animation: "aurora-breathe 9s ease-in-out infinite",
+          }}
         />
+        <div
+          className="absolute top-1/3 -right-24 w-[420px] h-[420px] rounded-full blur-3xl pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, rgba(236,72,153,0.45), transparent 60%)",
+            animation: "aurora-breathe 11s ease-in-out infinite reverse",
+          }}
+        />
+        <div
+          className="absolute bottom-0 left-1/3 w-[380px] h-[380px] rounded-full blur-3xl pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, rgba(34,211,238,0.4), transparent 60%)",
+            animation: "aurora-breathe 8s ease-in-out infinite",
+          }}
+        />
+
+        {/* Image fixe */}
+        <div className="absolute inset-0">
+          <Image
+            src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=1600&auto=format&fit=crop"
+            alt="Gestion de tâches"
+            fill
+            style={{ objectFit: "cover" }}
+          />
+        </div>
         <div
           className="absolute inset-0"
           style={{
             background:
-              "linear-gradient(to top, rgba(5,5,10,0.95) 0%, rgba(5,5,10,0.2) 50%, rgba(5,5,10,0.1) 100%)",
+              "linear-gradient(to top, rgba(5,5,10,0.95) 0%, rgba(5,5,10,0.25) 50%, rgba(5,5,10,0.1) 100%)",
           }}
         />
-        <div className="absolute bottom-0 left-0 right-0 p-8">
-          <h2
-            className="text-3xl font-bold mb-2"
-            style={{
-              backgroundImage: "linear-gradient(135deg, #F97316, #EC4899, #8B5CF6)",
-              backgroundClip: "text",
-              WebkitBackgroundClip: "text",
-              color: "transparent",
-            }}
-          >
-            Organisez. Collaborez. Réalisez.
-          </h2>
-          <p className="text-white/80">
-            Gérez vos projets et vos tâches en équipe, simplement et efficacement.
-          </p>
-        </div>
-      </motion.div>
 
-      {/* Formulaire droite */}
-      <div className="w-full lg:w-[40%] min-h-screen flex items-center justify-center px-4 lg:px-8">
-        <AuthCard>
-          <div className="flex flex-col items-center">
-            {/* Logo */}
+        {/* Contenu du panneau */}
+        <div className="absolute bottom-0 left-0 right-0 p-10">
+          <motion.h2
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.7, delay: 0.3, ease: "easeOut" }}
+            className="text-gradient text-4xl font-black mb-3 leading-tight"
+          >
+            Organisez. Collaborez.
+            <br />
+            {"Réalisez l'extraordinaire."}
+          </motion.h2>
+          <motion.p
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.7, delay: 0.45, ease: "easeOut" }}
+            className="text-white/80 mb-8 max-w-md"
+          >
+            Gérez vos projets et vos tâches en équipe, simplement et efficacement.
+          </motion.p>
+
+          {/* Cartes flottantes */}
+          <div className="flex gap-4">
             <motion.div
-              initial={{ scale: 0.5, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-              className="flex items-center gap-2 mb-2"
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.6, ease: "easeOut" }}
+              className="glass rounded-2xl px-5 py-4 flex items-center gap-3"
             >
-              <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                style={{
-                  background: "var(--gradient-primary)",
-                  boxShadow: "0 0 30px var(--glow-pink)",
-                }}
-              >
-                <Sparkles className="w-6 h-6 text-white" />
+              <CheckCircle2 className="w-6 h-6" style={{ color: "var(--color-success)" }} />
+              <div>
+                <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>98%</p>
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>tâches à temps</p>
               </div>
             </motion.div>
 
-            <motion.h1
-              initial={{ y: 30, opacity: 0 }}
+            <motion.div
+              initial={{ y: 40, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
-              className="text-3xl font-bold text-center mb-1"
-              style={{
-                backgroundImage: "var(--gradient-primary)",
-                backgroundSize: "200% 200%",
-                backgroundClip: "text",
-                WebkitBackgroundClip: "text",
-                color: "transparent",
-                animation: "gradient-shift 4s ease infinite",
-              }}
+              transition={{ duration: 0.6, delay: 0.8, ease: "easeOut" }}
+              className="glass rounded-2xl px-5 py-4 flex items-center gap-3"
             >
-              Connexion
-            </motion.h1>
+              <Rocket className="w-6 h-6" style={{ color: "#3B82F6" }} />
+              <div>
+                <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Livraisons</p>
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>en avance</p>
+              </div>
+            </motion.div>
 
-            <motion.p
-              initial={{ y: 20, opacity: 0 }}
+            <motion.div
+              initial={{ y: 40, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
-              className="text-sm mb-8"
-              style={{ color: "var(--text-secondary)" }}
+              transition={{ duration: 0.6, delay: 1, ease: "easeOut" }}
+              className="glass rounded-2xl px-5 py-4 flex items-center gap-3"
             >
-              Connectez-vous à votre espace
-            </motion.p>
+              <Users className="w-6 h-6" style={{ color: "#22D3EE" }} />
+              <div>
+                <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Équipes</p>
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>synchronisées</p>
+              </div>
+            </motion.div>
           </div>
+        </div>
+      </motion.div>
 
-          {error && (
-            <motion.p
-              initial={{ y: -10, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              className="text-sm mb-4"
-              style={{ color: "var(--color-error)", animation: "shake 0.4s" }}
-            >
-              {error}
-            </motion.p>
-          )}
+      {/* ====== DROITE : formulaire avec carte 3D ====== */}
+      <div className="w-full lg:w-[42%] min-h-screen flex items-center justify-center px-4 lg:px-8 relative">
+        {/* Halo derrière la carte */}
+        <div
+          className="absolute w-[340px] h-[340px] rounded-full blur-3xl pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, var(--glow-pink), transparent 60%)",
+            animation: "glow-pulse 6s ease-in-out infinite",
+          }}
+        />
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.3, ease: "easeOut" }}
-            >
-              <input
-                type="email"
-                placeholder="Email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl px-4 py-3 transition-all focus:outline-none"
-                style={inputStyle}
-                onFocus={handleFocus}
-                onBlur={handleBlur}
-              />
-            </motion.div>
+        <div style={{ perspective: 1200 }} className="w-full max-w-md">
+          <motion.div
+            onMouseMove={handleTilt}
+            onMouseLeave={resetTilt}
+            style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
+          >
+            <AuthCard>
 
-            <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.4, ease: "easeOut" }}
-            >
-              <input
-                type="password"
-                placeholder="Mot de passe"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl px-4 py-3 transition-all focus:outline-none"
-                style={inputStyle}
-                onFocus={handleFocus}
-                onBlur={handleBlur}
-              />
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.4, delay: 0.5 }}
-              className="flex justify-end"
-            >
-              <Link
-                href="/mot-de-passe-oublie"
-                className="text-sm transition-colors hover:text-pink-500"
-                style={{ color: "var(--text-secondary)" }}
+              <div
+  className="mt-6 pt-4 border-t text-xs text-center space-y-1"
+  style={{ borderColor: "var(--border-subtle)", color: "var(--text-secondary)" }}
+>
+  <p>Comptes de démonstration (mot de passe : secret123)</p>
+  <p>Admin : admin@demo.com | Membre : membre@demo.com</p>
+</div>
+              <motion.div
+                variants={container}
+                initial="hidden"
+                animate="show"
               >
-                Mot de passe oublié ?
-              </Link>
-            </motion.div>
+                {/* Logo */}
+                <motion.div variants={item} className="flex flex-col items-center mb-6">
+                  <div
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3"
+                    style={{
+                      background: "var(--gradient-primary)",
+                      boxShadow: "0 0 35px var(--glow-pink)",
+                    }}
+                  >
+                    <Sparkles className="w-7 h-7 text-white" />
+                  </div>
+                  <div className="text-center">
+                    <h1
+                      className="text-3xl font-black mb-1"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      Connexion
+                    </h1>
+                    <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                      Ravi de vous revoir ! Entrez dans votre espace.
+                    </p>
+                  </div>
+                </motion.div>
 
-            <motion.button
-              type="submit"
-              disabled={loading}
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.6, ease: "easeOut" }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full py-3 rounded-xl font-semibold text-white transition-all focus:outline-none"
-              style={{
-                background: "var(--gradient-button)",
-                backgroundSize: "200% 200%",
-                boxShadow: "0 10px 30px -10px rgba(236,72,153,0.6)",
-                animation: "gradient-shift 3s ease infinite",
-              }}
-            >
-              {loading ? "Connexion..." : "Se connecter"}
-            </motion.button>
+                {error && (
+                  <motion.p
+                    initial={{ y: -10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    className="text-sm mb-4"
+                    style={{ color: "var(--color-error)", animation: "shake 0.4s" }}
+                  >
+                    {error}
+                  </motion.p>
+                )}
 
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.4, delay: 0.7 }}
-              className="text-sm text-center pt-2"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              Pas encore de compte ?{" "}
-              <Link
-                href="/inscription"
-                className="font-semibold"
-                style={{
-                  backgroundImage: "linear-gradient(135deg, #F97316, #EC4899)",
-                  backgroundClip: "text",
-                  WebkitBackgroundClip: "text",
-                  color: "transparent",
-                }}
-              >
-                S'inscrire
-              </Link>
-            </motion.p>
-          </form>
-        </AuthCard>
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <motion.div variants={item}>
+                    <div className="relative">
+                      <Mail
+                        className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none"
+                        style={{ color: "var(--text-muted)" }}
+                      />
+                      <input
+                        type="email"
+                        placeholder="Adresse e-mail"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full rounded-xl pl-12 pr-4 py-3.5 transition-all focus:outline-none"
+                        style={inputStyle}
+                        onFocus={handleFocus}
+                        onBlur={handleBlur}
+                      />
+                    </div>
+                  </motion.div>
+
+                  <motion.div variants={item}>
+                    <div className="relative">
+                      <Lock
+                        className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none"
+                        style={{ color: "var(--text-muted)" }}
+                      />
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Mot de passe"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full rounded-xl pl-12 pr-12 py-3.5 transition-all focus:outline-none"
+                        style={inputStyle}
+                        onFocus={handleFocus}
+                        onBlur={handleBlur}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2"
+                        style={{ color: "var(--text-muted)" }}
+                        aria-label="Afficher ou masquer le mot de passe"
+                      >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                  </motion.div>
+
+                  <motion.div variants={item} className="flex justify-end">
+                    <Link
+                      href="/mot-de-passe-oublie"
+                      className="text-sm transition-colors hover:text-blue-500"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      Mot de passe oublié ?
+                    </Link>
+                  </motion.div>
+
+                  <motion.div variants={item}>
+                    <MagneticButton
+                      type="submit"
+                      disabled={loading}
+                      style={{
+                        background: "var(--gradient-button)",
+                        backgroundSize: "200% 200%",
+                        boxShadow: "0 10px 30px -10px rgba(236,72,153,0.6)",
+                        animation: "gradient-shift 3s ease infinite",
+                        color: "#fff",
+                        width: "100%",
+                      }}
+                      className="w-full py-3.5 rounded-xl font-semibold focus:outline-none"
+                    >
+                      {loading ? "Connexion..." : "Se connecter"}
+                    </MagneticButton>
+                  </motion.div>
+
+                  <motion.p
+                    variants={item}
+                    className="text-sm text-center pt-2"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Pas encore de compte ?{" "}
+                    <Link
+                      href="/inscription"
+                      className="font-semibold"
+                      style={{
+                        backgroundImage: "linear-gradient(135deg, #0EA5E9, #3B82F6)",
+                        backgroundClip: "text",
+                        WebkitBackgroundClip: "text",
+                        color: "transparent",
+                      }}
+                    >
+                      {"S'inscrire"}
+                    </Link>
+                  </motion.p>
+                </form>
+              </motion.div>
+            </AuthCard>
+          </motion.div>
+        </div>
       </div>
     </div>
   );
