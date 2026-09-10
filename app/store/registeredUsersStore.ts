@@ -10,6 +10,10 @@ export type RegisteredUser = {
   firstName: string;
   lastName: string;
   avatar?: string | null;
+  phone?: string;
+  city?: string;
+  bio?: string;
+  jobTitle?: string;
   createdAt: string;
 };
 
@@ -18,6 +22,7 @@ type RegisteredUsersState = {
   registerUser: (user: RegisteredUser) => boolean | string;
   findUser: (email: string) => RegisteredUser | undefined;
   userExists: (email: string) => boolean;
+  updateUser: (email: string, patch: Partial<RegisteredUser>) => void;
 };
 
 export const useRegisteredUsersStore = create<RegisteredUsersState>()(
@@ -58,6 +63,14 @@ export const useRegisteredUsersStore = create<RegisteredUsersState>()(
           (u) => u.email.toLowerCase() === email.toLowerCase()
         );
       },
+
+      // ✅ Mettre à jour un utilisateur enregistré (avatar, infos...)
+      updateUser: (email, patch) =>
+        set((s) => ({
+          users: s.users.map((u) =>
+            u.email.toLowerCase() === email.toLowerCase() ? { ...u, ...patch } : u
+          ),
+        })),
     }),
     {
       name: "mvp-registered-users",

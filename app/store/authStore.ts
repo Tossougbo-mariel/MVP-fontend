@@ -86,12 +86,16 @@ export const useAuthStore = create<AuthState>()(
         if (registeredUser && registeredUser.password === password) {
           // Créer un objet User à partir du RegisteredUser
           const user: User = {
-            id: `u_${Date.now()}`,
+            id: `reg-${registeredUser.email.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
             firstName: registeredUser.firstName,
             lastName: registeredUser.lastName,
             email: registeredUser.email,
             role: "membre",
             avatar: registeredUser.avatar ?? null,
+            phone: registeredUser.phone,
+            city: registeredUser.city,
+            bio: registeredUser.bio,
+            jobTitle: registeredUser.jobTitle ?? "Membre",
             createdAt: registeredUser.createdAt,
           };
           set({ user });
@@ -138,10 +142,31 @@ export const useAuthStore = create<AuthState>()(
         set({ user: null });
       },
 
-      updateUser: (patch) =>
-        set((state) => ({
-          user: state.user ? { ...state.user, ...patch } : null,
-        })),
+      updateUser: (patch) => {
+        set((state) => {
+          if (!state.user) return {};
+          const nextUser: User = { ...state.user, ...patch };
+
+          // ✅ Synchroniser l'enregistrement persistant (registeredUsers)
+          // pour que les modifs (avatar, prénom, nom, email...)
+          // survivent à la reconnexion.
+          const regUsers = useRegisteredUsersStore.getState();
+          if (regUsers.userExists(state.user.email)) {
+            regUsers.updateUser(state.user.email, {
+              firstName: nextUser.firstName,
+              lastName: nextUser.lastName,
+              email: nextUser.email,
+              avatar: nextUser.avatar,
+              phone: nextUser.phone,
+              city: nextUser.city,
+              bio: nextUser.bio,
+              jobTitle: nextUser.jobTitle,
+            });
+          }
+
+          return { user: nextUser };
+        });
+      },
     }),
     {
       name: "mvp-auth",
