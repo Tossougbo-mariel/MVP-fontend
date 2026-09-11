@@ -3,11 +3,12 @@
 import { motion, type Variants } from "framer-motion";
 import {
   FolderKanban, Users, CheckCircle2, Clock, AlertTriangle, Plus,
-  UserRound, ShieldCheck, CalendarClock, ListTodo,
+  UserRound, ShieldCheck, CalendarClock, ListTodo, ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useAgencyStore } from "@/app/store/agencyStore";
+import { useAgencyStore, userRoleInAgency } from "@/app/store/agencyStore";
+import { useAuthStore } from "@/app/store/authStore";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -45,9 +46,47 @@ const activity = [
 
 export default function AgencyDashboardPage() {
   const { agencyId } = useParams<{ agencyId: string }>();
-  const role =
-    (useAgencyStore((s) => s.agencies.find((a) => a.id === agencyId)?.role) as Role | undefined) ??
-    "membre";
+  const user = useAuthStore((s) => s.user);
+  const agency = useAgencyStore((s) => s.agencies.find((a) => a.id === agencyId));
+
+  // ✅ Rôle dérivé de la fiche membre
+  const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
+
+  // ✅ Si l'agence n'existe pas ou l'utilisateur n'en est pas membre
+  if (!agency) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
+          Agence introuvable
+        </p>
+        <Link
+          href="/mes-agences"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
+          style={{ background: "var(--gradient-button)" }}
+        >
+          <ArrowLeft size={16} /> Mes agences
+        </Link>
+      </div>
+    );
+  }
+
+  if (!user || !agency.members?.some((m) => m.email.toLowerCase() === user.email.toLowerCase())) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
+          Vous n&apos;êtes pas membre de cette agence.
+        </p>
+        <Link
+          href="/mes-agences"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
+          style={{ background: "var(--gradient-button)" }}
+        >
+          <ArrowLeft size={16} /> Retour à Mes agences
+        </Link>
+      </div>
+    );
+  }
+
   return role === "admin" ? <AdminDashboard agencyId={agencyId} /> : <MemberDashboard />;
 }
 

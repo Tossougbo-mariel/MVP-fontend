@@ -8,17 +8,19 @@ import {
   CheckSquare, FolderKanban, Users, Bell, Settings, ArrowLeft, Plus,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
-import { useAgencyStore } from "@/app/store/agencyStore";
+import { useAgencyStore, userAgencies, userRoleInAgency } from "@/app/store/agencyStore";
 
 const ADMIN_GLOBAL_ITEMS = [
   { href: "/mes-agences", label: "Mes agences", icon: Building2 },
   { href: "/agences/nouvelle", label: "Créer une agence", icon: Plus },
+  { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/profil", label: "Profil", icon: User },
 ];
 
 const MEMBER_GLOBAL_ITEMS = [
   { href: "/mes-agences", label: "Mes agences", icon: Building2 },
   { href: "/agences/nouvelle", label: "Créer une agence", icon: Plus },
+  { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/profil", label: "Profil", icon: User },
 ];
 
@@ -57,7 +59,15 @@ export default function Sidebar({
 
   const currentAgency = agencies.find((a) => a.id === agencyId);
   const agencyName = currentAgency?.name ?? "Agence";
-  const agencyRole = currentAgency?.role ?? "membre";
+  // ✅ Rôle dérivé de la fiche membre de l'utilisateur dans cette agence
+  const agencyRole = currentAgency && user
+    ? userRoleInAgency(currentAgency, user.email)
+    : "membre";
+
+  // ✅ Agences visibles : uniquement celles où l'utilisateur est membre/admin
+  const myAgencies = user
+    ? userAgencies(agencies, user.email)
+    : [];
 
   const handleLogout = () => {
     logout();
@@ -150,7 +160,7 @@ export default function Sidebar({
 
     return (
       <div className="space-y-0.5">
-        {agencies.length === 0 && (
+        {myAgencies.length === 0 && (
           <div
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg mb-2"
             style={{
@@ -182,9 +192,9 @@ export default function Sidebar({
             </Link>
           );
         })}
-        {agencies.length === 0 && (
+        {myAgencies.length === 0 && (
           <p className="px-3 pt-2 text-xs" style={{ color: "var(--chrome-text-muted)" }}>
-            Créez votre première agence pour gérer projets et tâches.
+            Créez votre première agence ou acceptez une invitation pour gérer des projets.
           </p>
         )}
       </div>

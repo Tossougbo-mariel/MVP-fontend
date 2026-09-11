@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
 import { Plus, Building2, ChevronRight } from "lucide-react";
-import { useAgencyStore } from "@/app/store/agencyStore";
+import { useAgencyStore, userAgencies, userRoleInAgency } from "@/app/store/agencyStore";
+import { useAuthStore } from "@/app/store/authStore";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -17,7 +18,10 @@ const item: Variants = {
 const MotionLink = motion(Link);
 
 export default function MesAgencesPage() {
-  const agencies = useAgencyStore((s) => s.agencies);
+  const user = useAuthStore((s) => s.user);
+  const allAgencies = useAgencyStore((s) => s.agencies);
+  // ✅ Uniquement les agences dont l'utilisateur est membre/admin
+  const agencies = userAgencies(allAgencies, user?.email ?? "");
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
@@ -83,7 +87,7 @@ export default function MesAgencesPage() {
                     <span
                       className="inline-flex mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
                       style={
-                        a.role === "admin"
+                        userRoleInAgency(a, user?.email ?? "") === "admin"
                           ? { background: "var(--gradient-button)", color: "#fff" }
                           : {
                               background: "var(--surface)",
@@ -92,7 +96,7 @@ export default function MesAgencesPage() {
                             }
                       }
                     >
-                      {a.role === "admin" ? "Administrateur" : "Membre"}
+                      {userRoleInAgency(a, user?.email ?? "") === "admin" ? "Administrateur" : "Membre"}
                     </span>
                   </div>
                 </div>

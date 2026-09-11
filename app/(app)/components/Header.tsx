@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Menu, Search, Bell, LogOut, User, ImageIcon } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
+import { useNotificationsStore } from "@/app/store/notificationsStore";
 import AvatarViewer from "./AvatarViewer";
 
 export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
@@ -12,6 +13,16 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const invitations = useNotificationsStore((s) => s.invitations);
+  const pendingCount = useMemo(
+    () =>
+      invitations.filter(
+        (i) =>
+          i.toEmail.toLowerCase() === (user?.email ?? "").toLowerCase() &&
+          i.status === "pending",
+      ).length,
+    [invitations, user?.email],
+  );
   const last = pathname.split("/").filter(Boolean).at(-1);
   const title = last ? last.replace(/-/g, " ") : "Accueil";
 
@@ -71,16 +82,19 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
           />
         </div>
 
-        <button
+        <Link
+          href="/notifications"
           className="relative p-2 rounded-lg transition-colors hover:bg-[var(--chrome-hover)]"
           aria-label="Notifications"
         >
           <Bell className="w-5 h-5" style={{ color: "var(--chrome-text-secondary)" }} />
-          <span
-            className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
-            style={{ background: "#0c79f2" }}
-          />
-        </button>
+          {pendingCount > 0 && (
+            <span
+              className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
+              style={{ background: "#0c79f2" }}
+            />
+          )}
+        </Link>
 
         <div className="relative" ref={menuRef}>
           <button

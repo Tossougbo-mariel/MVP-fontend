@@ -7,9 +7,10 @@ import Cropper from "react-easy-crop";
 import {
   User, Mail, Briefcase, Pencil, Save, CheckCircle2, ShieldCheck,
   Globe, Bell, Camera, Calendar, ClipboardList, Building2, ChevronRight, X, ZoomIn,
-  CheckSquare, AlertTriangle, Eye, Crop,
+  CheckSquare, AlertTriangle, Eye, Plus,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
+import { useAgencyStore, userAgencies, userRoleInAgency } from "@/app/store/agencyStore";
 import AvatarViewer from "@/app/(app)/components/AvatarViewer";
 
 const container: Variants = {
@@ -23,7 +24,6 @@ const item: Variants = {
 
 // ====== Types (TypeScript) ======
 // 🔮 MOCK — viendra du backend plus tard
-type Agency = { id: string; name: string; role: "admin" | "membre" };
 type InfosPersonnelles = {
   firstName: string;
   lastName: string;
@@ -35,12 +35,6 @@ type InfosPersonnelles = {
 };
 // Formes des données renvoyées par react-easy-crop
 type CropperArea = { x: number; y: number; width: number; height: number };
-
-// 🔮 MOCK — agences de l'utilisateur
-const AGENCES: Agency[] = [
-  { id: "a1", name: "MVP Studio", role: "admin" },
-  { id: "a2", name: "Studio Créatif", role: "membre" },
-];
 
 // 🔮 MOCK — tâches de l'utilisateur
 type TacheStatus = "Assignée" | "Terminée" | "En retard";
@@ -152,6 +146,9 @@ export default function ProfilPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
+  const agencies = useAgencyStore((s) => s.agencies); // enregistré dans le store
+  // ✅ Uniquement les agences dont l'utilisateur est membre/admin
+  const myAgencies = user ? userAgencies(agencies, user.email) : [];
 
   // ====== États profil ======
   const [photo, setPhoto] = useState<string | null>(null);
@@ -264,7 +261,6 @@ export default function ProfilPage() {
         {/* ====== EN-TÊTE PROFIL ====== */}
         <motion.div variants={item} className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
           <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="flex flex-col items-center gap-2">
               <div className="relative">
                 <div
                   className={`w-28 h-28 rounded-full flex items-center justify-center overflow-hidden${avatarUrl ? " cursor-pointer" : ""}`}
@@ -293,49 +289,32 @@ export default function ProfilPage() {
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
               </div>
 
+              <div className="flex-1 text-center md:text-left">
+                <h1 className="text-2xl md:text-3xl font-black" style={{ color: "var(--text-primary)" }}>
+                  {infos.firstName} {infos.lastName}
+                </h1>
+                <p className="mt-1 flex items-center justify-center md:justify-start gap-2" style={{ color: "var(--text-secondary)" }}>
+                  <Briefcase size={15} /> {infos.jobTitle}
+                </p>
+                <span
+                  className="inline-flex items-center gap-1.5 mt-3 text-xs font-semibold text-white px-3 py-1 rounded-full"
+                  style={{ background: "var(--gradient-button)", boxShadow: "0 4px 10px -4px rgba(37,99,235,0.4)" }}
+                >
+                  <ShieldCheck size={13} /> {user?.role === "admin" ? "Administrateur" : "Membre"}
+                </span>
+              </div>
+
               {avatarUrl && (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setViewerOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105"
-                    style={{ background: "var(--surface)", border: "1px solid var(--chrome-border)", color: "var(--chrome-text-secondary)" }}
-                  >
-                    <Eye size={13} /> Voir
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (lastRaw) {
-                        setViewerOpen(false);
-                        reopenCrop();
-                      } else {
-                        fileInputRef.current?.click();
-                      }
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:scale-105"
-                    style={{ background: "var(--gradient-button)", boxShadow: "0 4px 12px -4px rgba(37,99,235,0.5)" }}
-                  >
-                    <Crop size={13} /> Modifier
-                  </button>
-                </div>
+                <button
+                  onClick={() => setViewerOpen(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold shrink-0"
+                  style={{ background: "var(--surface)", border: "1px solid var(--chrome-border)", color: "var(--chrome-text-secondary)" }}
+                >
+                  <Eye size={16} /> Voir
+                </button>
               )}
             </div>
-
-            <div className="flex-1 text-center md:text-left">
-              <h1 className="text-2xl md:text-3xl font-black" style={{ color: "var(--text-primary)" }}>
-                {infos.firstName} {infos.lastName}
-              </h1>
-              <p className="mt-1 flex items-center justify-center md:justify-start gap-2" style={{ color: "var(--text-secondary)" }}>
-                <Briefcase size={15} /> {infos.jobTitle}
-              </p>
-              <span
-                className="inline-flex items-center gap-1.5 mt-3 text-xs font-semibold text-white px-3 py-1 rounded-full"
-                style={{ background: "var(--gradient-button)", boxShadow: "0 4px 10px -4px rgba(37,99,235,0.4)" }}
-              >
-                <ShieldCheck size={13} /> {user?.role === "admin" ? "Administrateur" : "Membre"}
-              </span>
-            </div>
-          </div>
-        </motion.div>
+          </motion.div>
 
         {/* ====== INFORMATIONS PERSONNELLES ====== */}
         <motion.div variants={item} className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
@@ -402,7 +381,24 @@ export default function ProfilPage() {
             </div>
 
             <div className="font-semibold text-sm" style={{ color: "var(--text-secondary)" }}>Mes agences</div>
-            {AGENCES.map((a) => (
+            {myAgencies.length === 0 && (
+              <div
+                className="flex flex-col items-start gap-3 px-4 py-3 rounded-xl"
+                style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
+              >
+                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                  {"Vous n'êtes dans aucune agence pour le moment."}
+                </p>
+                <Link
+                  href="/agences/nouvelle"
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold"
+                  style={{ color: "#056cf2" }}
+                >
+                  <Plus size={15} /> Créer une agence
+                </Link>
+              </div>
+            )}
+            {myAgencies.map((a) => (
               <Link
                 key={a.id}
                 href={`/agences/${a.id}/dashboard`}
@@ -416,12 +412,12 @@ export default function ProfilPage() {
                 <span
                   className="text-xs font-semibold px-2.5 py-1 rounded-full"
                   style={
-                    a.role === "admin"
+                    userRoleInAgency(a, user?.email ?? "") === "admin"
                       ? { background: "var(--gradient-button)", color: "#fff" }
                       : { background: "var(--surface)", color: "var(--text-secondary)", border: "1px solid var(--border-subtle)" }
                   }
                 >
-                  {a.role === "admin" ? "Admin" : "Membre"}
+                  {userRoleInAgency(a, user?.email ?? "") === "admin" ? "Admin" : "Membre"}
                 </span>
                 <ChevronRight className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
               </Link>
