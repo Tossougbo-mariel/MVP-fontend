@@ -10,9 +10,9 @@ const productLinks = [
 ];
 
 const accountLinks = [
-  { href: "/PageConnexion/connexion", label: "Se connecter" },
-  { href: "/PageConnexion/inscription", label: "Créer un compte" },
-  { href: "/PageConnexion/mot-de-passe-oublie", label: "Mot de passe oublié" },
+  { href: "/connexion", label: "Se connecter" },
+  { href: "/inscription", label: "Créer un compte" },
+  { href: "/mot-de-passe-oublie", label: "Mot de passe oublié" },
 ];
 
 export default function Footer() {

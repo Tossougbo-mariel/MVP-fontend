@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
 :root {
   --d-dark: #010b25;
   --d-mid: #011648;
@@ -18,7 +24,143 @@
   --t: .25s;
 }
 
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --background: #E8F0FC;
+  --foreground: #0A1B3C;
+  --bg-obsidian: #E8F0FC;
+  --surface: rgba(255, 255, 255, 0.92);
+  --border-subtle: rgba(10, 27, 60, 0.14);
+  --text-primary: #0A1B3C;
+  --text-secondary: #33466E;
+  --text-muted: #5B6E96;
+  --card-bg: rgba(255, 255, 255, 0.97);
+  --input-bg: #FFFFFF;
+  --input-border: rgba(10, 27, 60, 0.18);
+  --gradient-primary: linear-gradient(135deg, #056cf2, #0c79f2);
+  --gradient-button: linear-gradient(135deg, #056cf2, #0c79f2);
+  --glow-pink: rgba(5, 108, 242, 0.18);
+  --accent-soft: rgba(5, 108, 242, 0.10);
+  --accent-text: #056cf2;
+  --hover-soft: rgba(10, 27, 60, 0.05);
+  --color-error: #DC2626;
+  --color-success: #10B981;
+  --particle-color: rgba(255, 255, 255, 0.9);
+  --shadow-card: 0 10px 28px -12px rgba(10, 27, 60, 0.18);
+  --chrome-bg: linear-gradient(180deg, #F6FAFF 0%, #E8F0FC 100%);
+  --chrome-bar: rgba(255, 255, 255, 0.92);
+  --chrome-border: #C9D8F5;
+  --chrome-text: #0A1B3C;
+  --chrome-text-secondary: #33466E;
+  --chrome-text-muted: #5B6E96;
+  --chrome-hover: rgba(10, 27, 60, 0.06);
+  --chrome-card: #FFFFFF;
+  --chrome-accent-soft: rgba(5, 108, 242, 0.10);
+  --chrome-accent-text: #056cf2;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #010b25;
+  --foreground: #F4F7FF;
+  --bg-obsidian: #010b25;
+  --surface: rgba(7, 20, 48, 0.85);
+  --border-subtle: rgba(156, 199, 255, 0.16);
+  --text-primary: #F4F7FF;
+  --text-secondary: #BFD2F5;
+  --text-muted: #8FA7D8;
+  --card-bg: rgba(9, 26, 58, 0.95);
+  --input-bg: #0A1B3C;
+  --input-border: rgba(156, 199, 255, 0.22);
+  --gradient-primary: linear-gradient(135deg, #056cf2, #9dc7ff);
+  --gradient-button: linear-gradient(135deg, #056cf2, #0c79f2);
+  --glow-pink: rgba(5, 108, 242, 0.28);
+  --accent-soft: rgba(5, 108, 242, 0.18);
+  --accent-text: #9dc7ff;
+  --hover-soft: rgba(156, 199, 255, 0.08);
+  --color-error: #FF6B6B;
+  --color-success: #34D399;
+  --particle-color: rgba(156, 199, 255, 0.4);
+  --shadow-card: 0 12px 30px -12px rgba(0, 0, 0, 0.6);
+  --chrome-bg: linear-gradient(180deg, #021034 0%, #010b25 100%);
+  --chrome-bar: rgba(8, 22, 52, 0.92);
+  --chrome-border: rgba(156, 199, 255, 0.14);
+  --chrome-text: #F4F7FF;
+  --chrome-text-secondary: #BFD2F5;
+  --chrome-text-muted: #8FA7D8;
+  --chrome-hover: rgba(156, 199, 255, 0.08);
+  --chrome-card: #0A1B3C;
+  --chrome-accent-soft: rgba(5, 108, 242, 0.20);
+  --chrome-accent-text: #9dc7ff;
+}
+
+@keyframes aurora-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(80px, -60px) scale(1.1); }
+  50% { transform: translate(-40px, 80px) scale(0.95); }
+  75% { transform: translate(60px, 40px) scale(1.05); }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes float-up {
+  0% { transform: translateY(100vh); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(-10vh); opacity: 0; }
+}
+
+@keyframes border-spin {
+  from { --angle: 0deg; }
+  to { --angle: 360deg; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+@keyframes shimmer-slide {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes aurora-breathe {
+  0%, 100% { transform: translate(0, 0) scale(1);     opacity: 0.7; }
+  50%      { transform: translate(25px, -35px) scale(1.2); opacity: 1; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px var(--glow-color, rgba(5, 108, 242, 0.35)); }
+  50%      { box-shadow: 0 0 24px rgba(5, 108, 242, 0.28); }
+}
+
+@keyframes orbital {
+  from { transform: rotate(0deg)    translateX(0) rotate(0deg); }
+  to   { transform: rotate(360deg)  translateX(0) rotate(0deg); }
+}
+
+.logout-item {
+  color: var(--chrome-text-muted);
+}
+.logout-item:hover {
+  color: #FF6B6B;
+  background: rgba(255, 107, 107, 0.10);
+}
+
 @theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-manrope);
+  --font-mono: var(--font-geist-mono);
   --color-d-dark: #010b25;
   --color-d-mid: #011648;
   --color-d-deep: #002989;
@@ -31,7 +173,6 @@
   --color-anaborder: #dfe5ed;
   --color-anabg: #ffffff;
   --color-anabg-light: #f4f6fa;
-  --font-sans: var(--font-manrope);
 }
 
 @theme {
@@ -69,12 +210,60 @@
   }
 }
 
+*,
+*::before,
+*::after {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
 body {
-  background: var(--bg);
-  color: var(--text);
+  background: var(--background);
+  color: var(--foreground);
   font-family: var(--font-manrope), Arial, Helvetica, sans-serif;
 }
 
 html {
   scroll-behavior: smooth;
+}
+
+html[data-theme="dark"] .icon-theme-moon {
+  display: none;
+}
+
+html[data-theme="light"] .icon-theme-sun {
+  display: none;
+}
+
+input::placeholder {
+  color: var(--text-muted);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #056cf2, #9dc7ff);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.glass {
+  background: var(--card-bg);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--border-subtle);
+}
+
+.animated-border {
+  background:
+    linear-gradient(var(--card-bg), var(--card-bg)) padding-box,
+    conic-gradient(from var(--angle), #056cf2, #589bff, #9dc7ff, #0c79f2, #056cf2) border-box;
+  border: 2px solid transparent;
+  animation: border-spin 4s linear infinite;
+}
+
+.glow-hover {
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+.glow-hover:hover {
+  box-shadow: 0 8px 20px -8px rgba(5, 108, 242, 0.35);
+  transform: translateY(-2px);
 }
