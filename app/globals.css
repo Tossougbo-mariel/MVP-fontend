@@ -58,6 +58,10 @@
   --chrome-card: #FFFFFF;
   --chrome-accent-soft: rgba(5, 108, 242, 0.10);
   --chrome-accent-text: #056cf2;
+  --banner-gradient: linear-gradient(115deg, #1f4a96 0%, #4b55b8 40%, #7f3ec2 70%, #d3c6f5 100%);
+  --banner-glow: rgba(255, 255, 255, 0.35);
+  --banner-circle: rgba(255, 255, 255, 0.5);
+  --banner-shadow: 0 16px 40px -16px rgba(91, 60, 200, 0.55);
 }
 
 [data-theme="dark"] {
@@ -93,6 +97,10 @@
   --chrome-card: #0A1B3C;
   --chrome-accent-soft: rgba(5, 108, 242, 0.20);
   --chrome-accent-text: #9dc7ff;
+  --banner-gradient: linear-gradient(115deg, #3a1a06 0%, #7c2d12 45%, #b45309 75%, #e6b158 100%);
+  --banner-glow: rgba(255, 236, 200, 0.28);
+  --banner-circle: rgba(255, 214, 150, 0.4);
+  --banner-shadow: 0 16px 44px -16px rgba(180, 83, 9, 0.55);
 }
 
 @keyframes aurora-drift {

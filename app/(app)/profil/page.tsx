@@ -22,8 +22,6 @@ const item: Variants = {
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
 };
 
-// ====== Types (TypeScript) ======
-// 🔮 MOCK — viendra du backend plus tard
 type InfosPersonnelles = {
   firstName: string;
   lastName: string;
@@ -33,10 +31,8 @@ type InfosPersonnelles = {
   jobTitle: string;
   bio: string;
 };
-// Formes des données renvoyées par react-easy-crop
 type CropperArea = { x: number; y: number; width: number; height: number };
 
-// 🔮 MOCK — tâches de l'utilisateur
 type TacheStatus = "Assignée" | "Terminée" | "En retard";
 type Tache = {
   name: string;
@@ -65,7 +61,6 @@ const statusIcon = (status: TacheStatus) => {
   return <CheckSquare size={13} />;
 };
 
-// ====== Convertit un Blob en data URL (persistable en localStorage) ======
 function blobToDataURL(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -75,7 +70,6 @@ function blobToDataURL(blob: Blob): Promise<string> {
   });
 }
 
-// ====== Découpe l'image recadrée sur un canvas (React + HTML Canvas) ======
 async function getCroppedImg(
   imageSrc: string,
   croppedAreaPixels: CropperArea,
@@ -115,7 +109,6 @@ async function getCroppedImg(
   });
 }
 
-// ====== Petit composant champ réutilisable ======
 function Champ({
   label, value, onChange, editing, type = "text",
 }: {
@@ -146,34 +139,32 @@ export default function ProfilPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
-  const agencies = useAgencyStore((s) => s.agencies); // enregistré dans le store
-  // ✅ Uniquement les agences dont l'utilisateur est membre/admin
+  const agencies = useAgencyStore((s) => s.agencies);
   const myAgencies = user ? userAgencies(agencies, user.email) : [];
 
-  // ====== États profil ======
   const [photo, setPhoto] = useState<string | null>(null);
+  // ✅ CORRIGÉ : on reprend phone/city/bio/jobTitle déjà persistés dans `user`
+  // au lieu de les réinitialiser à vide à chaque montage du composant.
   const [infos, setInfos] = useState<InfosPersonnelles>({
     firstName: user?.firstName ?? "",
     lastName: user?.lastName ?? "",
     email: user?.email ?? "",
-    phone: "",
-    city: "",
-    jobTitle: user?.role === "admin" ? "Administrateur" : "Membre",
-    bio: "",
+    phone: user?.phone ?? "",
+    city: user?.city ?? "",
+    jobTitle: user?.jobTitle ?? (user?.role === "admin" ? "Administrateur" : "Membre"),
+    bio: user?.bio ?? "",
   });
   const [draft, setDraft] = useState<InfosPersonnelles>(infos);
   const [editing, setEditing] = useState<"personnel" | "professionnel" | null>(null);
   const [saved, setSaved] = useState(false);
 
-  // ====== États recadrage photo ======
-  const [selectedImage, setSelectedImage] = useState<string | null>(null); // image brute choisie (data URL)
-  const [lastRaw, setLastRaw] = useState<string | null>(null);             // dernière image brute (pour re-recadrer sans la re-sélectionner)
-  const [crop, setCrop] = useState({ x: 0, y: 0 }); // position de l'image dans le cadre
-  const [zoom, setZoom] = useState(1);               // niveau de zoom
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropperArea | null>(null); // zone recadrée calculée
-  const [cropping, setCropping] = useState(false);   // pendant le traitement
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [lastRaw, setLastRaw] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropperArea | null>(null);
+  const [cropping, setCropping] = useState(false);
 
-  // Préférences
   const [language, setLanguage] = useState("fr");
   const [notifEnabled, setNotifEnabled] = useState(true);
 
@@ -210,7 +201,7 @@ export default function ProfilPage() {
     reader.readAsDataURL(file);
     setCrop({ x: 0, y: 0 });
     setZoom(1);
-    e.target.value = ""; // permet de re-sélectionner le même fichier
+    e.target.value = "";
   };
 
   const handleApplyCrop = async () => {
@@ -221,7 +212,6 @@ export default function ProfilPage() {
       const url = await blobToDataURL(blob);
       setPhoto(url);
       updateUser({ avatar: url });
-      // On garde l'image brute pour permettre de re-recadrer sans la re-sélectionner
       setLastRaw(selectedImage);
       setSelectedImage(null);
     } finally {
@@ -229,7 +219,6 @@ export default function ProfilPage() {
     }
   };
 
-  // Rouvre la modale de recadrage sur la dernière image brute (re-zoom/re-positionnement)
   const reopenCrop = () => {
     if (!lastRaw) return;
     setCrop({ x: 0, y: 0 });
@@ -258,7 +247,6 @@ export default function ProfilPage() {
           </motion.div>
         )}
 
-        {/* ====== EN-TÊTE PROFIL ====== */}
         <motion.div variants={item} className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
           <div className="flex flex-col md:flex-row items-center gap-6">
               <div className="relative">
@@ -316,7 +304,6 @@ export default function ProfilPage() {
             </div>
           </motion.div>
 
-        {/* ====== INFORMATIONS PERSONNELLES ====== */}
         <motion.div variants={item} className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
@@ -359,7 +346,6 @@ export default function ProfilPage() {
           )}
         </motion.div>
 
-        {/* ====== INFORMATIONS PROFESSIONNELLES ====== */}
         <motion.div variants={item} className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
@@ -371,15 +357,6 @@ export default function ProfilPage() {
           </div>
 
           <div className="space-y-4">
-            <div
-              className="flex items-center gap-3 px-4 py-3 rounded-xl"
-              style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
-            >
-              <ClipboardList className="w-5 h-5" style={{ color: "var(--text-secondary)" }} />
-              <span className="flex-1" style={{ color: "var(--text-secondary)" }}>Poste occupé</span>
-              <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{infos.jobTitle}</span>
-            </div>
-
             <div className="font-semibold text-sm" style={{ color: "var(--text-secondary)" }}>Mes agences</div>
             {myAgencies.length === 0 && (
               <div
@@ -409,23 +386,28 @@ export default function ProfilPage() {
                   <Building2 className="w-4 h-4 text-white" />
                 </div>
                 <span className="flex-1 font-medium" style={{ color: "var(--text-primary)" }}>{a.name}</span>
-                <span
-                  className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                  style={
-                    userRoleInAgency(a, user?.email ?? "") === "admin"
-                      ? { background: "var(--gradient-button)", color: "#fff" }
-                      : { background: "var(--surface)", color: "var(--text-secondary)", border: "1px solid var(--border-subtle)" }
-                  }
-                >
-                  {userRoleInAgency(a, user?.email ?? "") === "admin" ? "Admin" : "Membre"}
-                </span>
+                {/* ✅ CORRIGÉ : distingue owner/admin/membre au lieu de tout réduire à "Membre" */}
+                {(() => {
+                  const role = userRoleInAgency(a, user?.email ?? "");
+                  return (
+                    <span
+                      className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                      style={
+                        role === "membre"
+                          ? { background: "var(--surface)", color: "var(--text-secondary)", border: "1px solid var(--border-subtle)" }
+                          : { background: "var(--gradient-button)", color: "#fff" }
+                      }
+                    >
+                      {role === "owner" ? "Propriétaire" : role === "admin" ? "Admin" : "Membre"}
+                    </span>
+                  );
+                })()}
                 <ChevronRight className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
               </Link>
             ))}
           </div>
         </motion.div>
 
-        {/* ====== MES TÂCHES ====== */}
         <motion.div variants={item} className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
           <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
             <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
@@ -501,7 +483,6 @@ export default function ProfilPage() {
           </div>
         </motion.div>
 
-        {/* ====== SÉCURITÉ & PRÉFÉRENCES ====== */}
         <motion.div variants={item} className="grid lg:grid-cols-2 gap-6">
           <div className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
             <h2 className="text-lg font-bold flex items-center gap-2 mb-4" style={{ color: "var(--text-primary)" }}>
@@ -569,7 +550,6 @@ export default function ProfilPage() {
         </motion.div>
       </motion.div>
 
-      {/* ====== MODAL DE RECADRAGE PHOTO ====== */}
       {selectedImage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div
