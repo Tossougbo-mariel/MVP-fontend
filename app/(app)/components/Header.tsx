@@ -62,18 +62,18 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
     <header
       className="sticky top-0 z-20 flex items-center gap-4 px-6 lg:px-8 py-4"
       style={{
-        background: "var(--chrome-bar)",
+        background: "var(--header-bar)",
         backdropFilter: "blur(14px)",
         WebkitBackdropFilter: "blur(14px)",
-        borderBottom: "1px solid var(--chrome-border)",
+        borderBottom: "1px solid var(--header-border)",
         boxShadow: "0 10px 30px -20px rgba(0, 0, 0, 0.6)",
       }}
     >
       <button className="lg:hidden" onClick={onMenuClick} aria-label="Ouvrir le menu">
-        <Menu className="w-6 h-6" style={{ color: "var(--chrome-text)" }} />
+        <Menu className="w-6 h-6" style={{ color: "var(--header-text)" }} />
       </button>
 
-      <h1 className="text-lg font-semibold capitalize" style={{ color: "var(--chrome-text)" }}>
+      <h1 className="text-lg font-semibold capitalize" style={{ color: "var(--header-text)" }}>
         {title}
       </h1>
 
@@ -95,10 +95,10 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
 
         <Link
           href="/notifications"
-          className="relative p-2 rounded-lg transition-colors hover:bg-[var(--chrome-hover)]"
+          className="relative p-2 rounded-lg transition-colors hover:bg-[var(--header-hover)]"
           aria-label="Notifications"
         >
-          <Bell className="w-5 h-5" style={{ color: "var(--chrome-text-secondary)" }} />
+          <Bell className="w-5 h-5" style={{ color: "var(--header-text-secondary)" }} />
           {notificationCount > 0 && (
             <span
               className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold text-white flex items-center justify-center"
@@ -113,7 +113,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
           <button
             onClick={() => setOpen((v) => !v)}
             className="flex items-center gap-2 rounded-full transition-transform hover:scale-105 shrink-0"
-            style={{ border: "1px solid var(--chrome-border)", paddingLeft: "2px", paddingRight: "10px", paddingTop: "2px", paddingBottom: "2px" }}
+            style={{ border: "1px solid var(--header-border)", paddingLeft: "2px", paddingRight: "10px", paddingTop: "2px", paddingBottom: "2px" }}
           >
             <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center shrink-0">
               {user?.avatar ? (
@@ -130,7 +130,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
                 </div>
               )}
             </div>
-            <span className="hidden sm:inline text-sm font-medium truncate max-w-[100px]" style={{ color: "var(--chrome-text)" }}>
+            <span className="hidden sm:inline text-sm font-medium truncate max-w-[100px]" style={{ color: "var(--header-text)" }}>
               {user ? `${user.firstName} ${user.lastName}` : "Profil"}
             </span>
           </button>

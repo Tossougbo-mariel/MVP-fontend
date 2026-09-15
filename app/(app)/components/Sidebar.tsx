@@ -29,7 +29,6 @@ const ADMIN_AGENCY_ITEMS = [
   { suffix: "mes-taches", label: "Mes tâches", icon: CheckSquare },
   { suffix: "projets", label: "Projets", icon: FolderKanban },
   { suffix: "equipe", label: "Équipe", icon: Users },
-  { suffix: "notifications", label: "Notifications", icon: Bell },
 ];
 
 const OWNER_AGENCY_ITEMS = [
@@ -41,7 +40,6 @@ const MEMBER_AGENCY_ITEMS = [
   { suffix: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { suffix: "mes-taches", label: "Mes tâches", icon: CheckSquare },
   { suffix: "projets", label: "Projets", icon: FolderKanban },
-  { suffix: "notifications", label: "Notifications", icon: Bell },
 ];
 
 export default function Sidebar({
@@ -86,7 +84,7 @@ export default function Sidebar({
       >
         <Sparkles className="w-4 h-4 text-white" />
       </div>
-      <span className="font-bold text-base tracking-tight" style={{ color: "var(--chrome-text)" }}>
+      <span className="font-bold text-base tracking-tight" style={{ color: "var(--sidebar-text)" }}>
         MVP Studio
       </span>
     </div>
@@ -95,11 +93,11 @@ export default function Sidebar({
   const linkStyle = (active: boolean) =>
     active
       ? {
-          background: "var(--chrome-accent-soft)",
-          color: "var(--chrome-accent-text)",
+          background: "var(--sidebar-accent-soft)",
+          color: "var(--sidebar-accent-text)",
           fontWeight: 600 as const,
         }
-      : { color: "var(--chrome-text-secondary)" };
+      : { color: "var(--sidebar-text-secondary)" };
 
   const nav = (mobile: boolean) => {
     if (isInAgency) {
@@ -114,8 +112,8 @@ export default function Sidebar({
           <Link
             href="/mes-agences"
             onClick={mobile ? onClose : undefined}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-[var(--chrome-hover)]"
-            style={{ color: "var(--chrome-text-muted)" }}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-[var(--sidebar-hover)]"
+            style={{ color: "var(--sidebar-text-muted)" }}
           >
             <ArrowLeft className="w-[18px] h-[18px]" />
             <span className="font-medium text-sm">Mes agences</span>
@@ -124,18 +122,18 @@ export default function Sidebar({
           <div
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg mt-2 mb-3"
             style={{
-              background: "var(--chrome-card)",
-              border: "1px solid var(--chrome-border)",
+              background: "var(--sidebar-card)",
+              border: "1px solid var(--sidebar-border)",
             }}
           >
-            <Building2 className="w-[18px] h-[18px] shrink-0" style={{ color: "var(--chrome-text-muted)" }} />
+            <Building2 className="w-[18px] h-[18px] shrink-0" style={{ color: "var(--sidebar-text-muted)" }} />
             <div className="flex-1 min-w-0">
-              <div className="font-medium text-sm truncate" style={{ color: "var(--chrome-text)" }}>
+              <div className="font-medium text-sm truncate" style={{ color: "var(--sidebar-text)" }}>
                 {agencyName}
               </div>
               <div
                 className="text-[10px] uppercase tracking-wide font-semibold"
-                style={{ color: agencyRole === "membre" ? "var(--chrome-text-muted)" : "var(--chrome-accent-text)" }}
+                style={{ color: agencyRole === "membre" ? "var(--sidebar-text-muted)" : "var(--sidebar-accent-text)" }}
               >
                 {agencyRole === "owner"
                   ? "Propriétaire"
@@ -144,7 +142,7 @@ export default function Sidebar({
                     : "Membre"}
               </div>
             </div>
-            <ChevronDown className="w-4 h-4" style={{ color: "var(--chrome-text-muted)" }} />
+            <ChevronDown className="w-4 h-4" style={{ color: "var(--sidebar-text-muted)" }} />
           </div>
 
           {items.map((item) => {
@@ -156,7 +154,7 @@ export default function Sidebar({
                 href={href}
                 onClick={mobile ? onClose : undefined}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                  active ? "" : "hover:bg-[var(--chrome-hover)]"
+                  active ? "" : "hover:bg-[var(--sidebar-hover)]"
                 }`}
                 style={linkStyle(active)}
               >
@@ -165,6 +163,23 @@ export default function Sidebar({
               </Link>
             );
           })}
+
+          <div
+            className="pt-3 mt-1 border-t"
+            style={{ borderColor: "var(--sidebar-border)" }}
+          >
+            <Link
+              href="/notifications"
+              onClick={mobile ? onClose : undefined}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                pathname.startsWith("/notifications") ? "" : "hover:bg-[var(--sidebar-hover)]"
+              }`}
+              style={linkStyle(pathname.startsWith("/notifications"))}
+            >
+              <Bell className="w-[18px] h-[18px]" />
+              <span className="text-sm">Notifications</span>
+            </Link>
+          </div>
         </div>
       );
     }
@@ -177,15 +192,15 @@ export default function Sidebar({
           <div
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg mb-2"
             style={{
-              background: "var(--chrome-card)",
-              border: "1px solid var(--chrome-border)",
+              background: "var(--sidebar-card)",
+              border: "1px solid var(--sidebar-border)",
             }}
           >
-            <Building2 className="w-[18px] h-[18px]" style={{ color: "var(--chrome-text-muted)" }} />
-            <span className="font-medium text-sm flex-1" style={{ color: "var(--chrome-text-muted)" }}>
+            <Building2 className="w-[18px] h-[18px]" style={{ color: "var(--sidebar-text-muted)" }} />
+            <span className="font-medium text-sm flex-1" style={{ color: "var(--sidebar-text-muted)" }}>
               Aucune agence
             </span>
-            <ChevronDown className="w-4 h-4" style={{ color: "var(--chrome-text-muted)" }} />
+            <ChevronDown className="w-4 h-4" style={{ color: "var(--sidebar-text-muted)" }} />
           </div>
         )}
         {items.map((item) => {
@@ -196,7 +211,7 @@ export default function Sidebar({
               href={item.href}
               onClick={mobile ? onClose : undefined}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                active ? "" : "hover:bg-[var(--chrome-hover)]"
+                active ? "" : "hover:bg-[var(--sidebar-hover)]"
               }`}
               style={linkStyle(active)}
             >
@@ -206,7 +221,7 @@ export default function Sidebar({
           );
         })}
         {myAgencies.length === 0 && (
-          <p className="px-3 pt-2 text-xs" style={{ color: "var(--chrome-text-muted)" }}>
+          <p className="px-3 pt-2 text-xs" style={{ color: "var(--sidebar-text-muted)" }}>
             Créez votre première agence ou acceptez une invitation pour gérer des projets.
           </p>
         )}
@@ -215,21 +230,21 @@ export default function Sidebar({
   };
 
   const footer = (
-    <div className="pt-3 mt-2 border-t" style={{ borderColor: "var(--chrome-border)" }}>
+    <div className="pt-3 mt-2 border-t" style={{ borderColor: "var(--sidebar-border)" }}>
       <button
         onClick={handleLogout}
         className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all hover:scale-[1.02] active:scale-95"
         style={{
-          background: "var(--chrome-card)",
-          border: "1px solid var(--chrome-border)",
-          color: "var(--chrome-text-secondary)",
+          background: "var(--sidebar-card)",
+          border: "1px solid var(--sidebar-border)",
+          color: "var(--sidebar-text-secondary)",
         }}
       >
         <div
           className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-all duration-300 group-hover:rotate-[-15deg]"
           style={{
-            background: "var(--chrome-accent-soft)",
-            border: "1px solid var(--chrome-accent-soft)",
+            background: "var(--sidebar-accent-soft)",
+            border: "1px solid var(--sidebar-accent-soft)",
             color: "var(--blue-accent)",
           }}
         >
@@ -259,8 +274,8 @@ export default function Sidebar({
       <aside
         className="hidden lg:flex fixed left-0 top-0 bottom-0 w-60 z-40 flex-col gap-5 p-4"
         style={{
-          background: "var(--chrome-bg)",
-          borderRight: "1px solid var(--chrome-border)",
+          background: "var(--sidebar-bg)",
+          borderRight: "1px solid var(--sidebar-border)",
         }}
       >
         {asideContent}
@@ -272,15 +287,15 @@ export default function Sidebar({
         transition={{ type: "spring", stiffness: 320, damping: 32 }}
         className="lg:hidden fixed left-0 top-0 bottom-0 w-64 z-50 flex flex-col gap-5 p-4"
         style={{
-          background: "var(--chrome-bg)",
-          borderRight: "1px solid var(--chrome-border)",
+          background: "var(--sidebar-bg)",
+          borderRight: "1px solid var(--sidebar-border)",
           boxShadow: "10px 0 40px -15px rgba(0, 0, 0, 0.6)",
         }}
       >
         <div className="flex items-center justify-between">
           {brand}
           <button onClick={onClose} aria-label="Fermer le menu">
-            <X className="w-5 h-5" style={{ color: "var(--chrome-text-secondary)" }} />
+            <X className="w-5 h-5" style={{ color: "var(--sidebar-text-secondary)" }} />
           </button>
         </div>
         <nav className="flex-1">{nav(true)}</nav>

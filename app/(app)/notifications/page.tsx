@@ -1,15 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion, type Variants } from "framer-motion";
 import {
   Bell, UserPlus, Check, X, ListPlus, UserMinus, MessageSquare,
-  Clock, AlertTriangle,
+  Clock, AlertTriangle, CheckCheck, Star, Mail, CheckCircle2,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAgencyStore } from "@/app/store/agencyStore";
 import { useNotificationsStore } from "@/app/store/notificationsStore";
-import type { TaskNotification, TaskNotificationType } from "@/app/store/notificationsStore";
+import type { TaskNotification, TaskNotificationType, Invitation } from "@/app/store/notificationsStore";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -71,11 +72,115 @@ const describe = (n: TaskNotification): string => {
   }
 };
 
+function InvitationEmailModal({
+  invitation,
+  onClose,
+}: {
+  invitation: Invitation | null;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  if (!invitation) return null;
+
+  const acceptLink =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/notifications?invitation=${invitation.id}`
+      : `/notifications?invitation=${invitation.id}`;
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(acceptLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      window.prompt("Copiez ce lien :", acceptLink);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0"
+        style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+        onClick={onClose}
+      />
+      <div
+        className="relative w-full max-w-lg rounded-2xl p-6 space-y-4"
+        style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)", boxShadow: "var(--shadow-card)" }}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: "rgba(16,185,129,0.15)" }}
+          >
+            <Mail className="w-5 h-5" style={{ color: "var(--color-success)" }} />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+              E-mail d&apos;invitation reçu
+            </h2>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              À {invitation.toEmail} · {invitation.createdAt}
+            </p>
+          </div>
+        </div>
+
+        <div
+          className="rounded-xl p-4 space-y-3"
+          style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
+        >
+          <p className="text-sm" style={{ color: "var(--text-primary)" }}>
+            <span className="font-semibold">Objet :</span> Invitation à rejoindre {invitation.agencyName}
+          </p>
+          <div className="text-sm space-y-1" style={{ color: "var(--text-secondary)" }}>
+            <p>
+              Bonjour, vous avez été invité(e) par{" "}
+              <span className="font-medium" style={{ color: "var(--text-primary)" }}>{invitation.fromEmail}</span>{" "}
+              à rejoindre l&apos;agence{" "}
+              <span className="font-medium" style={{ color: "var(--text-primary)" }}>{invitation.agencyName}</span>.
+            </p>
+            <p>Pour valider votre invitation, cliquez sur le bouton ci-dessous :</p>
+          </div>
+          <button
+            onClick={copyLink}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-[1.01] active:scale-[0.99]"
+            style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+          >
+            {copied ? <CheckCircle2 size={15} /> : <Mail size={15} />}
+            {copied ? "Lien copié !" : "Accepter l'invitation"}
+          </button>
+          <p className="text-xs leading-relaxed break-all" style={{ color: "var(--text-muted)" }}>
+            {acceptLink}
+          </p>
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80"
+            style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function NotificationsPage() {
-  const [tab, setTab] = useState<"invitations" | "taches">("invitations");
+  const searchParams = useSearchParams();
+  const linkedInvitationId = searchParams.get("invitation");
+
+  const [tab, setTab] = useState<"invitations" | "taches">(
+    linkedInvitationId ? "invitations" : "invitations",
+  );
   const user = useAuthStore((s) => s.user);
   const invitations = useNotificationsStore((s) => s.invitations);
   const taskNotifications = useNotificationsStore((s) => s.taskNotifications);
+  const markAllTaskNotificationsRead = useNotificationsStore(
+    (s) => s.markAllTaskNotificationsRead,
+  );
   const pending = useMemo(
     () =>
       invitations.filter(
@@ -100,10 +205,25 @@ export default function NotificationsPage() {
     [taskNotifications, user?.email],
   );
 
+  const unreadTasks = myTasks.filter((n) => !n.read).length;
+
+  // ✅ Si l'utilisateur vient de l'email d'invitation (?invitation=<id>),
+  // on met en évidence la carte concernée (le tab Invitations est déjà actif).
+  const [highlightInvitation, setHighlightInvitation] = useState<string | null>(
+    linkedInvitationId ?? null,
+  );
+
+  const [emailView, setEmailView] = useState<Invitation | null>(null);
+
+  useEffect(() => {
+    if (!linkedInvitationId) return;
+    const t = setTimeout(() => setHighlightInvitation(null), 6000);
+    return () => clearTimeout(t);
+  }, [linkedInvitationId]);
+
   const handleAccept = (id: string, agencyId: string) => {
     if (!user) return;
 
-    // ✅ CORRIGÉ : distingue "agence supprimée" de "déjà membre"
     const agencyStillExists = agencies.some((a) => a.id === agencyId);
     if (!agencyStillExists) {
       alert("Cette agence n'existe plus.");
@@ -149,8 +269,8 @@ export default function NotificationsPage() {
         </p>
       </motion.div>
 
-      {/* Onglets */}
-      <motion.div variants={item} className="flex gap-2">
+      {/* Onglets + tout marquer comme lu */}
+      <motion.div variants={item} className="flex flex-wrap items-center gap-2">
         <button
           onClick={() => setTab("invitations")}
           className="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
@@ -191,12 +311,26 @@ export default function NotificationsPage() {
           }
         >
           Tâches
-          {myTasks.filter((n) => !n.read).length > 0 && (
+          {unreadTasks > 0 && (
             <span className="ml-2 text-[11px] font-black px-1.5 py-0.5 rounded-full text-white" style={{ background: "#0c79f2" }}>
-              {myTasks.filter((n) => !n.read).length}
+              {unreadTasks}
             </span>
           )}
         </button>
+
+        {tab === "taches" && unreadTasks > 0 && (
+          <button
+            onClick={() => markAllTaskNotificationsRead(user?.email ?? "")}
+            className="ml-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-105 active:scale-95"
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border-subtle)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            <CheckCheck size={14} /> Tout marquer comme lu
+          </button>
+        )}
       </motion.div>
 
       {tab === "invitations" && (pending.length === 0 ? (
@@ -216,47 +350,70 @@ export default function NotificationsPage() {
         </motion.div>
       ) : (
         <div className="space-y-3">
-          {pending.map((inv) => (
-            <motion.div
-              key={inv.id}
-              variants={item}
-              className="glass rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-4"
-              style={{ boxShadow: "var(--shadow-card)" }}
-            >
-              <div
-                className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: "var(--gradient-primary)" }}
+          {pending.map((inv) => {
+            const isLinked = highlightInvitation === inv.id;
+            return (
+              <motion.div
+                key={inv.id}
+                variants={item}
+                animate={
+                  isLinked
+                    ? { boxShadow: "0 0 0 2px #0c79f2, 0 16px 40px -16px rgba(5,108,242,0.5)" }
+                    : {}
+                }
+                className="glass rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-4"
+                style={{ boxShadow: "var(--shadow-card)" }}
               >
-                <UserPlus className="w-5 h-5 text-white" />
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold" style={{ color: "var(--text-primary)" }}>
-                  Invitation à rejoindre {inv.agencyName}
-                </div>
-                <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                  Envoyée par {inv.fromEmail || "un administrateur"} le {inv.createdAt}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => handleAccept(inv.id, inv.agencyId)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white transition-transform hover:scale-105"
-                  style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+                <div
+                  className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: "var(--gradient-primary)" }}
                 >
-                  <Check size={14} /> Accepter
-                </button>
-                <button
-                  onClick={() => handleDecline(inv.id)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-opacity hover:opacity-80"
-                  style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--color-error)" }}
-                >
-                  <X size={14} /> Refuser
-                </button>
-              </div>
-            </motion.div>
-          ))}
+                  <UserPlus className="w-5 h-5 text-white" />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                    Invitation à rejoindre {inv.agencyName}
+                    {isLinked && (
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
+                        style={{ background: "var(--gradient-button)" }}
+                      >
+                        <Star size={10} /> Venue de votre e-mail
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                    Envoyée par {inv.fromEmail || "un administrateur"} le {inv.createdAt}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => setEmailView(inv)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-105"
+                    style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+                  >
+                    <Mail size={13} /> Voir l&apos;email
+                  </button>
+                  <button
+                    onClick={() => handleAccept(inv.id, inv.agencyId)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white transition-transform hover:scale-105"
+                    style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+                  >
+                    <Check size={14} /> Accepter
+                  </button>
+                  <button
+                    onClick={() => handleDecline(inv.id)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-opacity hover:opacity-80"
+                    style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--color-error)" }}
+                  >
+                    <X size={14} /> Refuser
+                  </button>
+                </div>
+              </motion.div>
+            );
+          })}
 
           <motion.p variants={item} className="text-xs px-2" style={{ color: "var(--text-muted)" }}>
             En acceptant, vous apparaîtrez automatiquement dans l&apos;équipe de cette agence.
@@ -322,6 +479,11 @@ export default function NotificationsPage() {
           })}
         </div>
       ))}
+
+      <InvitationEmailModal
+        invitation={emailView}
+        onClose={() => setEmailView(null)}
+      />
     </motion.div>
   );
 }

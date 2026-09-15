@@ -404,16 +404,16 @@ const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const confirmSendInvitation = () => {
     if (!agencyId || !confirmEmail) return;
-    const ok = sendInvitation({
+    const invitation = sendInvitation({
       agencyId,
       agencyName: agency?.name ?? "Agence",
       toEmail: confirmEmail,
       fromEmail: user?.email ?? "",
     });
-    if (ok) {
+    if (invitation) {
       setEmail("");
       setInviteSuccess(confirmEmail);
-      setTimeout(() => setInviteSuccess(null), 3000);
+      setTimeout(() => setInviteSuccess(null), 4000);
     } else {
       alert("Une invitation active existe déjà pour cet email.");
     }
@@ -505,7 +505,7 @@ const [actionSuccess, setActionSuccess] = useState<string | null>(null);
             <CheckCircle2 className="w-5 h-5 shrink-0" />
             <p className="text-sm">
               <span className="font-semibold">Invitation envoyée à {inviteSuccess}.</span>{" "}
-              Un e-mail lui a été réservé pour rejoindre {agency?.name}.
+              Un e-mail avec un lien d&apos;acceptation lui a été envoyé · la notification apparaît aussi dans ses notifications.
             </p>
           </motion.div>
         )}

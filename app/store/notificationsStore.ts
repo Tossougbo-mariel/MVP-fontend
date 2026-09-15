@@ -48,7 +48,7 @@ type NotificationsState = {
     agencyName: string;
     toEmail: string;
     fromEmail: string;
-  }) => boolean;
+  }) => Invitation | null;
   cancelInvitation: (id: string) => void;
   acceptInvitation: (id: string) => void;
   declineInvitation: (id: string) => void;
@@ -60,6 +60,7 @@ type NotificationsState = {
   ) => void;
   markAsRead: (id: string) => void;
   markAllAsRead: (agencyId: string, email: string) => void;
+  markAllTaskNotificationsRead: (email: string) => void;
   unreadCountForAgency: (agencyId: string, email: string) => number;
   notificationsForAgency: (agencyId: string, email: string) => TaskNotification[];
   syncDeadlineNotifications: (
@@ -94,7 +95,7 @@ export const useNotificationsStore = create<NotificationsState>()(
             i.toEmail.toLowerCase() === toEmail.toLowerCase() &&
             i.status === "pending",
         );
-        if (dup) return false;
+        if (dup) return null;
         const invitation: Invitation = {
           id: "inv" + Date.now(),
           agencyId,
@@ -105,7 +106,7 @@ export const useNotificationsStore = create<NotificationsState>()(
           createdAt: new Date().toISOString().slice(0, 10),
         };
         set((s) => ({ invitations: [invitation, ...s.invitations] }));
-        return true;
+        return invitation;
       },
 
       // Annule une invitation en attente (l'utilisateur ne pourra plus l'accepter)
@@ -161,6 +162,15 @@ export const useNotificationsStore = create<NotificationsState>()(
         set((s) => ({
           taskNotifications: s.taskNotifications.map((n) =>
             n.agencyId === agencyId &&
+            n.toEmail.toLowerCase() === email.toLowerCase()
+              ? { ...n, read: true }
+              : n,
+          ),
+        })),
+
+      markAllTaskNotificationsRead: (email) =>
+        set((s) => ({
+          taskNotifications: s.taskNotifications.map((n) =>
             n.toEmail.toLowerCase() === email.toLowerCase()
               ? { ...n, read: true }
               : n,
