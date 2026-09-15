@@ -106,7 +106,7 @@ export default function Sidebar({
             href="/mes-agences"
             onClick={mobile ? onClose : undefined}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-[var(--chrome-hover)]"
-            style={{ color: "var(--chrome-text-muted)" }}
+            style={{ color: "var(--chrome-text-secondary)" }}
           >
             <ArrowLeft className="w-[18px] h-[18px]" />
             <span className="font-medium text-sm">Mes agences</span>
@@ -126,7 +126,7 @@ export default function Sidebar({
               </div>
               <div
                 className="text-[10px] uppercase tracking-wide font-semibold"
-                style={{ color: agencyRole === "admin" ? "var(--chrome-accent-text)" : "var(--chrome-text-muted)" }}
+                style={{ color: agencyRole === "admin" ? "var(--chrome-accent-text)" : "var(--chrome-text-secondary)" }}
               >
                 {agencyRole === "admin" ? "Administrateur" : "Membre"}
               </div>
@@ -148,7 +148,7 @@ export default function Sidebar({
                 style={linkStyle(active)}
               >
                 <item.icon className="w-[18px] h-[18px]" />
-                <span className="text-sm">{item.label}</span>
+                <span className="text-sm font-medium">{item.label}</span>
               </Link>
             );
           })}
@@ -169,7 +169,7 @@ export default function Sidebar({
             }}
           >
             <Building2 className="w-[18px] h-[18px]" style={{ color: "var(--chrome-text-muted)" }} />
-            <span className="font-medium text-sm flex-1" style={{ color: "var(--chrome-text-muted)" }}>
+            <span className="font-medium text-sm flex-1" style={{ color: "var(--chrome-text-secondary)" }}>
               Aucune agence
             </span>
             <ChevronDown className="w-4 h-4" style={{ color: "var(--chrome-text-muted)" }} />
@@ -188,12 +188,12 @@ export default function Sidebar({
               style={linkStyle(active)}
             >
               <item.icon className="w-[18px] h-[18px]" />
-              <span className="text-sm">{item.label}</span>
+              <span className="text-sm font-medium">{item.label}</span>
             </Link>
           );
         })}
         {myAgencies.length === 0 && (
-          <p className="px-3 pt-2 text-xs" style={{ color: "var(--chrome-text-muted)" }}>
+          <p className="px-3 pt-2 text-[13px] font-medium" style={{ color: "var(--chrome-text-secondary)" }}>
             Créez votre première agence ou acceptez une invitation pour gérer des projets.
           </p>
         )}
@@ -225,7 +225,7 @@ export default function Sidebar({
         <div className="text-sm font-semibold truncate" style={{ color: "var(--chrome-text)" }}>
           {user ? `${user.firstName} ${user.lastName}` : "Non connecté"}
         </div>
-        <div className="text-xs truncate" style={{ color: "var(--chrome-text-muted)" }}>
+        <div className="text-xs font-medium truncate" style={{ color: "var(--chrome-text-secondary)" }}>
           {user?.email}
         </div>
       </div>

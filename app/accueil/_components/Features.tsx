@@ -58,7 +58,7 @@ export default function Features() {
             Tout ce qu&apos;il faut pour piloter vos projets
           </h2>
           <div className="mx-auto mt-4 h-1 w-16 rounded-full bg-[#056cf2]" />
-          <p className="mt-4 text-lg" style={{ color: "#5e6773" }}>
+          <p className="mt-4 text-lg font-medium" style={{ color: "#4B5767" }}>
             Un outil complet, pensé pour les agences et les équipes qui veulent
             avancer vite et bien.
           </p>
@@ -82,7 +82,7 @@ export default function Features() {
               <h3 className="mt-5 text-lg font-bold" style={{ color: "#0b1521" }}>
                 {title}
               </h3>
-              <p className="mt-2 text-sm leading-6" style={{ color: "#5e6773" }}>
+              <p className="mt-2 text-sm font-medium leading-6" style={{ color: "#4B5767" }}>
                 {description}
               </p>
             </div>

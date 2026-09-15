@@ -84,7 +84,7 @@ export default function Testimonials() {
             Ils utilisent MVP Manager au quotidien
           </h2>
           <div className="mx-auto mt-4 h-1 w-16 rounded-full bg-[#056cf2]" />
-          <p className="mt-4 text-lg" style={{ color: "#5e6773" }}>
+          <p className="mt-4 text-lg font-medium" style={{ color: "#4B5767" }}>
             Nos clients gèrent leurs agences, projets et équipes avec succès.
           </p>
         </div>
@@ -124,9 +124,9 @@ export default function Testimonials() {
                 <Stars />
               </div>
               <p
-                className="text-sm leading-[1.6]"
+                className="text-sm font-medium leading-[1.6]"
                 style={{
-                  color: "#5e6773",
+                  color: "#4B5767",
                   display: "-webkit-box",
                   WebkitLineClamp: 3,
                   WebkitBoxOrient: "vertical",

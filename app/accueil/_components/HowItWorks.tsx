@@ -36,7 +36,7 @@ export default function HowItWorks() {
             Lancez-vous en trois étapes simples
           </h2>
           <div className="mx-auto mt-4 h-1 w-16 rounded-full bg-[#056cf2]" />
-          <p className="mt-4 text-lg" style={{ color: "#5e6773" }}>
+          <p className="mt-4 text-lg font-medium" style={{ color: "#4B5767" }}>
             De la création de votre agence à la collaboration en équipe, vous
             êtes opérationnel en quelques minutes.
           </p>
@@ -61,7 +61,7 @@ export default function HowItWorks() {
                 <h3 className="mt-2 text-xl font-bold" style={{ color: "#0b1521" }}>
                   {title}
                 </h3>
-                <p className="mt-3 max-w-sm text-base leading-7" style={{ color: "#5e6773" }}>
+                <p className="mt-3 max-w-sm text-base font-medium leading-7" style={{ color: "#4B5767" }}>
                   {description}
                 </p>
               </div>

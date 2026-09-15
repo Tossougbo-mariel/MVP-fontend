@@ -27,7 +27,7 @@ export default function Footer() {
               MVP{" "}
               <span style={{ color: "#9dc7ff" }}>Manager</span>
             </span>
-            <p className="mt-4 max-w-xs text-sm leading-6" style={{ color: "#ffffff66" }}>
+            <p className="mt-4 max-w-xs text-sm font-medium leading-6" style={{ color: "#ffffff99" }}>
               La plateforme tout-en-un pour gérer vos agences, vos projets et
               vos équipes, simplement et efficacement.
             </p>
@@ -42,7 +42,7 @@ export default function Footer() {
                 <li key={link.label}>
                   <a
                     href={link.href}
-                    className="text-sm text-[#ffffff99] transition-colors duration-200 hover:text-[#9dc7ff]"
+                    className="text-sm font-medium text-[#ffffffB3] transition-colors duration-200 hover:text-[#9dc7ff]"
                   >
                     {link.label}
                   </a>
@@ -60,7 +60,7 @@ export default function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
-                    className="text-sm text-[#ffffff99] transition-colors duration-200 hover:text-[#9dc7ff]"
+                    className="text-sm font-medium text-[#ffffffB3] transition-colors duration-200 hover:text-[#9dc7ff]"
                   >
                     {link.label}
                   </Link>
@@ -96,7 +96,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-14 flex flex-col items-center justify-between gap-4 border-t pt-8 sm:flex-row" style={{ borderColor: "#ffffff1a" }}>
-          <p className="text-sm" style={{ color: "#ffffff66" }}>
+          <p className="text-sm font-medium" style={{ color: "#ffffff99" }}>
             &copy; {new Date().getFullYear()} MVP Manager. Tous droits réservés.
           </p>
         

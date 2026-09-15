@@ -25,6 +25,40 @@ export type Agency = {
   createdAt: string;
 };
 
+// ====== Type d'un projet appartenant à une agence ======
+export type ProjectStatus = "a_venir" | "en_cours" | "termine" | "archive";
+
+export type Project = {
+  id: string;
+  agencyId: string;
+  name: string;
+  description: string;
+  status: ProjectStatus;
+  startDate: string | null;
+  dueDate: string | null;
+  ownerId: string; // email du responsable
+  memberIds: string[]; // emails des membres assignés
+  createdAt: string;
+};
+
+// ====== Type d'une tâche appartenant à un projet ======
+export type TaskStatus = "a_faire" | "en_cours" | "en_revision" | "terminee";
+export type TaskPriority = "basse" | "moyenne" | "haute" | "urgente";
+
+export type Task = {
+  id: string;
+  projectId: string;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  startDate: string | null;
+  assignedTo: string | null; // email du membre assigné
+  createdBy: string; // email du créateur
+  dueDate: string | null;
+  createdAt: string;
+};
+
 // Utilitaire : construit le membre correspondant à l'utilisateur connecté
 const memberFromUser = (role: AgencyRole): AgencyMember => {
   const u = useAuthStore.getState().user;

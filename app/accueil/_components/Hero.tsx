@@ -69,7 +69,7 @@ export default function Hero() {
               </h1>
 
               <p
-                className="mt-5 max-w-[520px] text-justify text-base leading-relaxed md:text-lg"
+                className="mt-5 max-w-[520px] text-justify text-base font-medium leading-relaxed md:text-lg"
                 style={{ color: "#ffffffbf", lineHeight: 1.6 }}
               >
                 MVP Manager centralise vos agences, projets et tâches dans un

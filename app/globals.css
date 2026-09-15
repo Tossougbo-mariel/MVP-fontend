@@ -33,7 +33,7 @@
   --surface: rgba(255, 255, 255, 0.92);
   --border-subtle: rgba(10, 27, 60, 0.14);
   --text-primary: #0A1B3C;
-  --text-secondary: #33466E;
+  --text-secondary: #4B5767;
   --text-muted: #5B6E96;
   --card-bg: rgba(255, 255, 255, 0.97);
   --input-bg: #FFFFFF;
@@ -52,7 +52,7 @@
   --chrome-bar: rgba(255, 255, 255, 0.92);
   --chrome-border: #C9D8F5;
   --chrome-text: #0A1B3C;
-  --chrome-text-secondary: #33466E;
+  --chrome-text-secondary: #4B5767;
   --chrome-text-muted: #5B6E96;
   --chrome-hover: rgba(10, 27, 60, 0.06);
   --chrome-card: #FFFFFF;
@@ -68,7 +68,7 @@
   --surface: rgba(7, 20, 48, 0.85);
   --border-subtle: rgba(156, 199, 255, 0.16);
   --text-primary: #F4F7FF;
-  --text-secondary: #BFD2F5;
+  --text-secondary: #B7BFCB;
   --text-muted: #8FA7D8;
   --card-bg: rgba(9, 26, 58, 0.95);
   --input-bg: #0A1B3C;
@@ -87,7 +87,7 @@
   --chrome-bar: rgba(8, 22, 52, 0.92);
   --chrome-border: rgba(156, 199, 255, 0.14);
   --chrome-text: #F4F7FF;
-  --chrome-text-secondary: #BFD2F5;
+  --chrome-text-secondary: #B7BFCB;
   --chrome-text-muted: #8FA7D8;
   --chrome-hover: rgba(156, 199, 255, 0.08);
   --chrome-card: #0A1B3C;

@@ -36,7 +36,7 @@ export default function FinalCTA() {
           ?
         </h2>
 
-        <p className="mx-auto mt-5 max-w-xl text-lg leading-8" style={{ color: "#ffffff99" }}>
+        <p className="mx-auto mt-5 max-w-xl text-lg font-medium leading-8" style={{ color: "#ffffffC7" }}>
           Rejoignez des centaines d&apos;équipes qui organisent leurs agences,
           leurs projets et leurs tâches avec MVP Manager. C&apos;est gratuit
           pour commencer.
