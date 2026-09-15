@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
-  LayoutDashboard, Building2, User, LogOut, X, Sparkles, ChevronDown,
-  CheckSquare, FolderKanban, Users, Bell, Settings, ArrowLeft, Plus,
+  LayoutDashboard, Building2, LogOut, X, Sparkles, ChevronDown,
+  CheckSquare, FolderKanban, Users, Bell, Settings, ArrowLeft, Plus, User,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAgencyStore, userAgencies, userRoleInAgency } from "@/app/store/agencyStore";
@@ -14,14 +14,14 @@ const ADMIN_GLOBAL_ITEMS = [
   { href: "/mes-agences", label: "Mes agences", icon: Building2 },
   { href: "/agences/nouvelle", label: "Créer une agence", icon: Plus },
   { href: "/notifications", label: "Notifications", icon: Bell },
-  { href: "/profil", label: "Profil", icon: User },
+  { href: "/profil", label: "Mon profil", icon: User },
 ];
 
 const MEMBER_GLOBAL_ITEMS = [
   { href: "/mes-agences", label: "Mes agences", icon: Building2 },
   { href: "/agences/nouvelle", label: "Créer une agence", icon: Plus },
   { href: "/notifications", label: "Notifications", icon: Bell },
-  { href: "/profil", label: "Profil", icon: User },
+  { href: "/profil", label: "Mon profil", icon: User },
 ];
 
 const ADMIN_AGENCY_ITEMS = [
@@ -30,6 +30,10 @@ const ADMIN_AGENCY_ITEMS = [
   { suffix: "projets", label: "Projets", icon: FolderKanban },
   { suffix: "equipe", label: "Équipe", icon: Users },
   { suffix: "notifications", label: "Notifications", icon: Bell },
+];
+
+const OWNER_AGENCY_ITEMS = [
+  ...ADMIN_AGENCY_ITEMS,
   { suffix: "parametres", label: "Paramètres", icon: Settings },
 ];
 
@@ -99,7 +103,12 @@ export default function Sidebar({
 
   const nav = (mobile: boolean) => {
     if (isInAgency) {
-      const items = agencyRole === "admin" ? ADMIN_AGENCY_ITEMS : MEMBER_AGENCY_ITEMS;
+      const items =
+        agencyRole === "owner"
+          ? OWNER_AGENCY_ITEMS
+          : agencyRole === "admin"
+            ? ADMIN_AGENCY_ITEMS
+            : MEMBER_AGENCY_ITEMS;
       return (
         <div className="space-y-0.5">
           <Link
@@ -126,9 +135,13 @@ export default function Sidebar({
               </div>
               <div
                 className="text-[10px] uppercase tracking-wide font-semibold"
-                style={{ color: agencyRole === "admin" ? "var(--chrome-accent-text)" : "var(--chrome-text-muted)" }}
+                style={{ color: agencyRole === "membre" ? "var(--chrome-text-muted)" : "var(--chrome-accent-text)" }}
               >
-                {agencyRole === "admin" ? "Administrateur" : "Membre"}
+                {agencyRole === "owner"
+                  ? "Propriétaire"
+                  : agencyRole === "admin"
+                    ? "Administrateur"
+                    : "Membre"}
               </div>
             </div>
             <ChevronDown className="w-4 h-4" style={{ color: "var(--chrome-text-muted)" }} />
@@ -201,46 +214,34 @@ export default function Sidebar({
     );
   };
 
-  const userCard = (
-    <Link
-      href="/profil"
-      onClick={onClose}
-      className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-[var(--chrome-hover)]"
-      style={{ background: "var(--chrome-card)", border: "1px solid var(--chrome-border)" }}
-    >
-      {user?.avatar ? (
-        <div
-          className="w-8 h-8 rounded-full bg-cover bg-center shrink-0"
-          style={{ backgroundImage: `url(${user.avatar})` }}
-        />
-      ) : (
-        <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-          style={{ background: "var(--gradient-primary)" }}
-        >
-          {user ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}` : "?"}
-        </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold truncate" style={{ color: "var(--chrome-text)" }}>
-          {user ? `${user.firstName} ${user.lastName}` : "Non connecté"}
-        </div>
-        <div className="text-xs truncate" style={{ color: "var(--chrome-text-muted)" }}>
-          {user?.email}
-        </div>
-      </div>
-    </Link>
-  );
-
   const footer = (
-    <div className="space-y-1">
-      {userCard}
+    <div className="pt-3 mt-2 border-t" style={{ borderColor: "var(--chrome-border)" }}>
       <button
         onClick={handleLogout}
-        className="logout-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
+        className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all hover:scale-[1.02] active:scale-95"
+        style={{
+          background: "var(--chrome-card)",
+          border: "1px solid var(--chrome-border)",
+          color: "var(--chrome-text-secondary)",
+        }}
       >
-        <LogOut className="w-[18px] h-[18px]" />
-        <span className="font-medium text-sm">Se déconnecter</span>
+        <div
+          className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-all duration-300 group-hover:rotate-[-15deg]"
+          style={{
+            background: "var(--chrome-accent-soft)",
+            border: "1px solid var(--chrome-accent-soft)",
+            color: "var(--blue-accent)",
+          }}
+        >
+          <LogOut className="w-4 h-4" />
+        </div>
+        <span className="font-semibold text-sm transition-colors group-hover:text-[var(--blue-accent)]">
+          Se déconnecter
+        </span>
+        <LogOut
+          className="w-4 h-4 ml-auto opacity-0 -translate-x-1 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0"
+          style={{ color: "var(--blue-accent)" }}
+        />
       </button>
     </div>
   );

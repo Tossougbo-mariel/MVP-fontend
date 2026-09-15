@@ -14,6 +14,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const invitations = useNotificationsStore((s) => s.invitations);
+  const taskNotifications = useNotificationsStore((s) => s.taskNotifications);
   const pendingCount = useMemo(
     () =>
       invitations.filter(
@@ -23,6 +24,16 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
       ).length,
     [invitations, user?.email],
   );
+  const taskUnreadCount = useMemo(
+    () =>
+      taskNotifications.filter(
+        (n) =>
+          (n.toEmail ?? "").toLowerCase() ===
+            (user?.email ?? "").toLowerCase() && !n.read,
+      ).length,
+    [taskNotifications, user?.email],
+  );
+  const notificationCount = pendingCount + taskUnreadCount;
   const last = pathname.split("/").filter(Boolean).at(-1);
   const title = last ? last.replace(/-/g, " ") : "Accueil";
 
@@ -88,33 +99,40 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
           aria-label="Notifications"
         >
           <Bell className="w-5 h-5" style={{ color: "var(--chrome-text-secondary)" }} />
-          {pendingCount > 0 && (
+          {notificationCount > 0 && (
             <span
-              className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
+              className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold text-white flex items-center justify-center"
               style={{ background: "#0c79f2" }}
-            />
+            >
+              {notificationCount > 9 ? "9+" : notificationCount}
+            </span>
           )}
         </Link>
 
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setOpen((v) => !v)}
-            className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center transition-transform hover:scale-105 shrink-0"
-            style={{ border: "1px solid var(--chrome-border)" }}
+            className="flex items-center gap-2 rounded-full transition-transform hover:scale-105 shrink-0"
+            style={{ border: "1px solid var(--chrome-border)", paddingLeft: "2px", paddingRight: "10px", paddingTop: "2px", paddingBottom: "2px" }}
           >
-            {user?.avatar ? (
-              <div
-                className="w-full h-full bg-cover bg-center"
-                style={{ backgroundImage: `url(${user.avatar})` }}
-              />
-            ) : (
-              <div
-                className="w-full h-full flex items-center justify-center text-[11px] font-bold text-white"
-                style={{ background: "var(--gradient-primary)" }}
-              >
-                {user ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}` : "?"}
-              </div>
-            )}
+            <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center shrink-0">
+              {user?.avatar ? (
+                <div
+                  className="w-full h-full bg-cover bg-center"
+                  style={{ backgroundImage: `url(${user.avatar})` }}
+                />
+              ) : (
+                <div
+                  className="w-full h-full flex items-center justify-center text-[11px] font-bold text-white"
+                  style={{ background: "var(--gradient-primary)" }}
+                >
+                  {user ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}` : "?"}
+                </div>
+              )}
+            </div>
+            <span className="hidden sm:inline text-sm font-medium truncate max-w-[100px]" style={{ color: "var(--chrome-text)" }}>
+              {user ? `${user.firstName} ${user.lastName}` : "Profil"}
+            </span>
           </button>
 
           {open && (

@@ -63,47 +63,64 @@ export default function MesAgencesPage() {
         </motion.div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {agencies.map((a) => (
+          {agencies.map((a) => {
+            const role = userRoleInAgency(a, user?.email ?? "");
+            return (
             <MotionLink
               key={a.id}
               href={`/agences/${a.id}/dashboard`}
               variants={item}
-              whileHover={{ y: -4, scale: 1.01 }}
-              className="glass rounded-2xl p-5 flex flex-col gap-4 cursor-pointer"
+              whileHover={{ y: -6 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              className="glass relative rounded-3xl p-5 pt-7 flex flex-col gap-4 cursor-pointer overflow-hidden"
               style={{ boxShadow: "var(--shadow-card)" }}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
+              <div className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl" style={{ background: "var(--gradient-primary)" }} />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                   <div
-                    className="w-11 h-11 rounded-xl flex items-center justify-center"
-                    style={{ background: "var(--gradient-primary)", boxShadow: "0 4px 12px -4px rgba(37,99,235,0.35)" }}
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+                    style={{ background: "var(--gradient-primary)", boxShadow: "0 6px 16px -6px rgba(37,99,235,0.45)" }}
                   >
-                    <Building2 className="w-5 h-5 text-white" />
+                    <Building2 className="w-6 h-6 text-white" />
                   </div>
-                  <div>
-                    <div className="font-bold" style={{ color: "var(--text-primary)" }}>
+                  <div className="min-w-0">
+                    <div className="font-bold truncate text-lg" style={{ color: "var(--text-primary)" }}>
                       {a.name}
                     </div>
                     <span
-                      className="inline-flex mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                      className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
                       style={
-                        userRoleInAgency(a, user?.email ?? "") === "admin"
-                          ? { background: "var(--gradient-button)", color: "#fff" }
-                          : {
+                        role === "membre"
+                          ? {
                               background: "var(--surface)",
                               color: "var(--text-secondary)",
                               border: "1px solid var(--border-subtle)",
                             }
+                          : {
+                              background: "var(--gradient-button)",
+                              color: "#fff",
+                              boxShadow: "0 4px 10px -5px rgba(37,99,235,0.45)",
+                            }
                       }
                     >
-                      {userRoleInAgency(a, user?.email ?? "") === "admin" ? "Administrateur" : "Membre"}
+                      {role === "owner" ? "Propriétaire" : role === "admin" ? "Administrateur" : "Membre"}
                     </span>
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5" style={{ color: "var(--text-muted)" }} />
+                <ChevronRight className="w-5 h-5 shrink-0 transition-transform group-hover:translate-x-1" style={{ color: "var(--text-muted)" }} />
+              </div>
+
+              <div
+                className="flex items-center justify-between pt-3 text-xs"
+                style={{ borderTop: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}
+              >
+                <span>{(a.members ?? []).length} membre{(a.members ?? []).length > 1 ? "s" : ""}</span>
+                <span>Créée le {a.createdAt}</span>
               </div>
             </MotionLink>
-          ))}
+            );
+          })}
         </div>
       )}
     </motion.div>
