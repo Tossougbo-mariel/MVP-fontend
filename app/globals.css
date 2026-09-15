@@ -58,10 +58,25 @@
   --chrome-card: #FFFFFF;
   --chrome-accent-soft: rgba(5, 108, 242, 0.10);
   --chrome-accent-text: #056cf2;
-  --banner-gradient: linear-gradient(115deg, #1f4a96 0%, #4b55b8 40%, #7f3ec2 70%, #d3c6f5 100%);
-  --banner-glow: rgba(255, 255, 255, 0.35);
-  --banner-circle: rgba(255, 255, 255, 0.5);
-  --banner-shadow: 0 16px 40px -16px rgba(91, 60, 200, 0.55);
+  --sidebar-bg: linear-gradient(180deg, #DCEDFF 0%, #C4DEFF 100%);
+  --sidebar-border: #B9D6FA;
+  --sidebar-text: #0A2E6E;
+  --sidebar-text-secondary: #2E5FA8;
+  --sidebar-text-muted: #5C7FB8;
+  --sidebar-hover: rgba(255, 255, 255, 0.65);
+  --sidebar-card: #FFFFFF;
+  --sidebar-accent-soft: rgba(10, 99, 242, 0.14);
+  --sidebar-accent-text: #0a63f2;
+  --header-bar: linear-gradient(90deg, #FFFFFF 0%, #F2F6FD 100%);
+  --header-text: #0A2E6E;
+  --header-text-secondary: #3E5E93;
+  --header-text-muted: #6E86B0;
+  --header-border: #DBE6F7;
+  --header-hover: rgba(10, 46, 110, 0.07);
+  --banner-gradient: linear-gradient(135deg, #0f2557 0%, #4d72c4 100%);
+  --banner-glow: rgba(255, 255, 255, 0.18);
+  --banner-circle: rgba(156, 199, 255, 0.3);
+  --banner-shadow: 0 16px 40px -16px rgba(20, 60, 140, 0.55);
 }
 
 [data-theme="dark"] {
@@ -97,10 +112,25 @@
   --chrome-card: #0A1B3C;
   --chrome-accent-soft: rgba(5, 108, 242, 0.20);
   --chrome-accent-text: #9dc7ff;
-  --banner-gradient: linear-gradient(115deg, #3a1a06 0%, #7c2d12 45%, #b45309 75%, #e6b158 100%);
-  --banner-glow: rgba(255, 236, 200, 0.28);
-  --banner-circle: rgba(255, 214, 150, 0.4);
-  --banner-shadow: 0 16px 44px -16px rgba(180, 83, 9, 0.55);
+  --sidebar-bg: linear-gradient(180deg, #101c36 0%, #0a1428 100%);
+  --sidebar-border: rgba(156, 199, 255, 0.16);
+  --sidebar-text: #F4F7FF;
+  --sidebar-text-secondary: #BFD2F5;
+  --sidebar-text-muted: #8FA7D8;
+  --sidebar-hover: rgba(156, 199, 255, 0.1);
+  --sidebar-card: rgba(20, 40, 80, 0.6);
+  --sidebar-accent-soft: rgba(88, 155, 255, 0.2);
+  --sidebar-accent-text: #9dc7ff;
+  --header-bar: linear-gradient(90deg, rgba(10, 30, 80, 0.94) 0%, rgba(10, 55, 120, 0.94) 100%);
+  --header-text: #F4F7FF;
+  --header-text-secondary: #BFD2F5;
+  --header-text-muted: #8FA7D8;
+  --header-border: rgba(156, 199, 255, 0.2);
+  --header-hover: rgba(156, 199, 255, 0.1);
+  --banner-gradient: linear-gradient(135deg, #0f2557 0%, #4d72c4 100%);
+  --banner-glow: rgba(255, 255, 255, 0.15);
+  --banner-circle: rgba(156, 199, 255, 0.25);
+  --banner-shadow: 0 16px 40px -16px rgba(20, 60, 140, 0.6);
 }
 
 @keyframes aurora-drift {
@@ -240,6 +270,38 @@ html[data-theme="dark"] .icon-theme-moon {
 
 html[data-theme="light"] .icon-theme-sun {
   display: none;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  animation: theme-fade-out 320ms ease both;
+}
+
+::view-transition-new(root) {
+  animation: theme-fade-in 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes theme-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes theme-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 input::placeholder {

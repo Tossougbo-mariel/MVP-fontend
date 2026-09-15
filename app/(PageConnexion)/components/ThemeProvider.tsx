@@ -23,8 +23,21 @@ export default function ThemeProvider({
   const toggleTheme = () => {
     const current = document.documentElement.getAttribute("data-theme");
     const next = current === "light" ? "dark" : "light";
-    document.documentElement.setAttribute("data-theme", next);
-    localStorage.setItem(STORAGE_KEY, next);
+
+    const apply = () => {
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem(STORAGE_KEY, next);
+    };
+
+    const doc = document as Document & {
+      startViewTransition?: (cb: () => void) => { finished: Promise<void> };
+    };
+
+    if (typeof doc.startViewTransition === "function") {
+      doc.startViewTransition(apply);
+    } else {
+      apply();
+    }
   };
 
   return (
