@@ -214,69 +214,35 @@ export default function Sidebar({
     );
   };
 
-  const userCard = (
-    <Link
-      href="/profil"
-      onClick={onClose}
-      className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-[var(--chrome-hover)]"
-      style={{ background: "var(--chrome-card)", border: "1px solid var(--chrome-border)" }}
-    >
-      {user?.avatar ? (
-        <div
-          className="w-8 h-8 rounded-full bg-cover bg-center shrink-0"
-          style={{ backgroundImage: `url(${user.avatar})` }}
-        />
-      ) : (
-        <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-          style={{ background: "var(--gradient-primary)" }}
-        >
-          {user ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}` : "?"}
-        </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold truncate" style={{ color: "var(--chrome-text)" }}>
-          {user ? `${user.firstName} ${user.lastName}` : "Non connecté"}
-        </div>
-        <div className="text-xs font-medium truncate" style={{ color: "var(--chrome-text-secondary)" }}>
-          {user?.email}
-        </div>
-      </div>
-    </Link>
-  );
-
   const footer = (
-    <div className="space-y-1">
-      {userCard}
-      <div className="pt-3 mt-2 border-t" style={{ borderColor: "var(--chrome-border)" }}>
-        <button
-          onClick={handleLogout}
-          className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all hover:scale-[1.02] active:scale-95"
+    <div className="pt-3 mt-2 border-t" style={{ borderColor: "var(--chrome-border)" }}>
+      <button
+        onClick={handleLogout}
+        className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all hover:scale-[1.02] active:scale-95"
+        style={{
+          background: "var(--chrome-card)",
+          border: "1px solid var(--chrome-border)",
+          color: "var(--chrome-text-secondary)",
+        }}
+      >
+        <div
+          className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-all duration-300 group-hover:rotate-[-15deg]"
           style={{
-            background: "var(--chrome-card)",
-            border: "1px solid var(--chrome-border)",
-            color: "var(--chrome-text-secondary)",
+            background: "var(--chrome-accent-soft)",
+            border: "1px solid var(--chrome-accent-soft)",
+            color: "var(--blue-accent)",
           }}
         >
-          <div
-            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-all duration-300 group-hover:rotate-[-15deg]"
-            style={{
-              background: "var(--chrome-accent-soft)",
-              border: "1px solid var(--chrome-accent-soft)",
-              color: "var(--blue-accent)",
-            }}
-          >
-            <LogOut className="w-4 h-4" />
-          </div>
-          <span className="font-semibold text-sm transition-colors group-hover:text-[var(--blue-accent)]">
-            Se déconnecter
-          </span>
-          <LogOut
-            className="w-4 h-4 ml-auto opacity-0 -translate-x-1 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0"
-            style={{ color: "var(--blue-accent)" }}
-          />
-        </button>
-      </div>
+          <LogOut className="w-4 h-4" />
+        </div>
+        <span className="font-semibold text-sm transition-colors group-hover:text-[var(--blue-accent)]">
+          Se déconnecter
+        </span>
+        <LogOut
+          className="w-4 h-4 ml-auto opacity-0 -translate-x-1 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0"
+          style={{ color: "var(--blue-accent)" }}
+        />
+      </button>
     </div>
   );
 
