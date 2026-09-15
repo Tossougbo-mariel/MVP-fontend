@@ -267,3 +267,11 @@ input::placeholder {
   box-shadow: 0 8px 20px -8px rgba(5, 108, 242, 0.35);
   transform: translateY(-2px);
 }
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

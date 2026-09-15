@@ -10,6 +10,8 @@ import {
   CalendarPlus,
   Check,
   FolderKanban,
+  Image as ImageIcon,
+  ImageOff,
   Send,
   ShieldAlert,
   UserRound,
@@ -18,6 +20,7 @@ import {
 import { useAgencyStore, userRoleInAgency } from "@/app/store/agencyStore";
 import { useAuthStore } from "@/app/store/authStore";
 import { useProjectStore } from "@/app/store/projectStore";
+import { WALLPAPERS } from "@/app/store/wallpapers";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -45,6 +48,7 @@ export default function NouveauProjetPage() {
   const [dueDate, setDueDate] = useState("");
   const [ownerId, setOwnerId] = useState(user?.email ?? "");
   const [memberIds, setMemberIds] = useState<string[]>(user?.email ? [user.email] : []);
+  const [wallpaperId, setWallpaperId] = useState<string | null>(null); // fond du Kanban (optionnel)
   const [error, setError] = useState<string | null>(null);
 
   const members = agency?.members ?? [];
@@ -66,7 +70,17 @@ export default function NouveauProjetPage() {
       return;
     }
 
-    if (startDate && dueDate && dueDate < startDate) {
+    if (!startDate) {
+      setError("La date de début est obligatoire.");
+      return;
+    }
+
+    if (!dueDate) {
+      setError("La date d'échéance est obligatoire.");
+      return;
+    }
+
+    if (dueDate < startDate) {
       setError("La date d'échéance doit être postérieure ou égale à la date de début.");
       return;
     }
@@ -79,6 +93,7 @@ export default function NouveauProjetPage() {
       memberIds,
       startDate: startDate || null,
       dueDate: dueDate || null,
+      wallpaper: wallpaperId,
     });
 
     router.push(`/agences/${agencyId}/projets/${project.id}`);
@@ -199,7 +214,7 @@ export default function NouveauProjetPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-              <Calendar size={14} /> Date de début
+              <Calendar size={14} /> Date de début <span style={{ color: "var(--color-error)" }}>*</span>
             </label>
             <input
               type="date"
@@ -211,7 +226,7 @@ export default function NouveauProjetPage() {
           </div>
           <div>
             <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-              <CalendarPlus size={14} /> Date d&apos;échéance
+              <CalendarPlus size={14} /> Date d&apos;échéance <span style={{ color: "var(--color-error)" }}>*</span>
             </label>
             <input
               type="date"
@@ -287,6 +302,54 @@ export default function NouveauProjetPage() {
           <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
             Le responsable est automatiquement ajouté aux membres du projet.
           </p>
+        </div>
+
+        {/* Fond d'écran du Kanban (optionnel) */}
+        <div>
+          <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
+            <ImageIcon size={14} /> Fond d&apos;écran du Kanban{" "}
+            <span className="font-normal" style={{ color: "var(--text-muted)" }}>(optionnel)</span>
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            <button
+              type="button"
+              onClick={() => setWallpaperId(null)}
+              className="flex flex-col items-center justify-center gap-1.5 rounded-xl px-3 py-4 text-xs font-semibold transition-all"
+              style={
+                wallpaperId === null
+                  ? { background: "var(--accent-soft)", border: "1px solid var(--accent-text)", color: "var(--accent-text)" }
+                  : { background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }
+              }
+            >
+              <ImageOff size={18} />
+              Par défaut
+            </button>
+            {WALLPAPERS.map((wp) => {
+              const active = wallpaperId === wp.id;
+              return (
+                <button
+                  key={wp.id}
+                  type="button"
+                  onClick={() => setWallpaperId(active ? null : wp.id)}
+                  className="relative rounded-xl overflow-hidden aspect-video transition-all"
+                  style={{
+                    border: active ? "2px solid var(--accent-text)" : "1px solid var(--input-border)",
+                    boxShadow: active ? "0 6px 16px -6px rgba(5,108,242,0.5)" : undefined,
+                  }}
+                  title={wp.label}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={wp.thumb} alt={wp.label} loading="lazy" className="w-full h-full object-cover" />
+                  <span
+                    className="absolute bottom-1 left-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                    style={{ background: "rgba(2,6,23,0.6)", color: "#fff" }}
+                  >
+                    {wp.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Error */}

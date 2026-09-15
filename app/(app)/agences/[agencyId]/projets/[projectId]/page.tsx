@@ -10,6 +10,8 @@ import {
   CalendarClock,
   Check,
   FolderKanban,
+  ImageIcon,
+  ImageOff,
   Pencil,
   Save,
   Trash2,
@@ -21,8 +23,9 @@ import {
 import { useAgencyStore, userRoleInAgency, type ProjectStatus } from "@/app/store/agencyStore";
 import { useAuthStore } from "@/app/store/authStore";
 import { useProjectStore, getProjectById } from "@/app/store/projectStore";
-import { useTaskStore } from "@/app/store/taskStore";
+import { useTaskStore, getTasksByProject, getProjectStatusFromTasks } from "@/app/store/taskStore";
 import { useCommentStore } from "@/app/store/commentStore";
+import { WALLPAPERS } from "@/app/store/wallpapers";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -85,6 +88,7 @@ export default function ProjectDetailPage() {
   const [editStartDate, setEditStartDate] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
   const [editOwnerId, setEditOwnerId] = useState("");
+  const [editWallpaper, setEditWallpaper] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
 
   const openEdit = () => {
@@ -94,6 +98,7 @@ export default function ProjectDetailPage() {
     setEditStartDate(project.startDate ?? "");
     setEditDueDate(project.dueDate ?? "");
     setEditOwnerId(project.ownerId);
+    setEditWallpaper(project.wallpaper ?? null);
     setEditError(null);
     setEditing(true);
   };
@@ -119,6 +124,7 @@ export default function ProjectDetailPage() {
       startDate: editStartDate || null,
       dueDate: editDueDate || null,
       ownerId: editOwnerId,
+      wallpaper: editWallpaper,
     });
     setEditing(false);
   };
@@ -212,7 +218,7 @@ export default function ProjectDetailPage() {
     );
   }
 
-  const badge = statusConfig[project.status];
+  const badge = statusConfig[getProjectStatusFromTasks(project.status, getTasksByProject(tasks, project.id))];
   const projectMembers = agency.members.filter((m) =>
     project.memberIds.some((id) => id.toLowerCase() === m.email.toLowerCase())
   );
@@ -407,14 +413,14 @@ export default function ProjectDetailPage() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
         >
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setEditing(false)} />
           <motion.form
             initial={{ scale: 0.96, y: 10 }}
             animate={{ scale: 1, y: 0 }}
             onSubmit={handleEditSubmit}
-            className="relative w-full max-w-lg glass rounded-2xl p-6 space-y-4"
+            className="relative w-full max-w-lg glass rounded-2xl p-6 space-y-4 my-auto max-h-[calc(100vh-2rem)] overflow-y-auto"
             style={{ boxShadow: "var(--shadow-card)" }}
           >
             <div className="flex items-center justify-between">
@@ -498,6 +504,54 @@ export default function ProjectDetailPage() {
               <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>
                 Le nouveau responsable est automatiquement ajouté aux membres du projet.
               </p>
+            </div>
+
+            {/* Fond d'écran du Kanban (optionnel) */}
+            <div>
+              <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
+                <ImageIcon size={14} /> Fond d&apos;écran du Kanban{" "}
+                <span className="font-normal" style={{ color: "var(--text-muted)" }}>(optionnel)</span>
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditWallpaper(null)}
+                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl px-3 py-4 text-xs font-semibold transition-all"
+                  style={
+                    editWallpaper === null
+                      ? { background: "var(--accent-soft)", border: "1px solid var(--accent-text)", color: "var(--accent-text)" }
+                      : { background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }
+                  }
+                >
+                  <ImageOff size={18} />
+                  Par défaut
+                </button>
+                {WALLPAPERS.map((wp) => {
+                  const active = editWallpaper === wp.id;
+                  return (
+                    <button
+                      key={wp.id}
+                      type="button"
+                      onClick={() => setEditWallpaper(active ? null : wp.id)}
+                      className="relative rounded-xl overflow-hidden aspect-video transition-all"
+                      style={{
+                        border: active ? "2px solid var(--accent-text)" : "1px solid var(--input-border)",
+                        boxShadow: active ? "0 6px 16px -6px rgba(5,108,242,0.5)" : undefined,
+                      }}
+                      title={wp.label}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={wp.thumb} alt={wp.label} loading="lazy" className="w-full h-full object-cover" />
+                      <span
+                        className="absolute bottom-1 left-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                        style={{ background: "rgba(2,6,23,0.6)", color: "#fff" }}
+                      >
+                        {wp.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {editError && (

@@ -35,6 +35,7 @@ type CreateProjectData = {
   startDate?: string | null;
   dueDate?: string | null;
   status?: ProjectStatus;
+  wallpaper?: string | null; // fond d'écran du Kanban (optionnel)
 };
 
 type ProjectState = {
@@ -72,6 +73,7 @@ export const useProjectStore = create<ProjectState>()(
           ownerId: data.ownerId,
           memberIds,
           createdAt: new Date().toISOString().slice(0, 10),
+          wallpaper: data.wallpaper ?? null,
         };
         set((state) => ({ projects: [...state.projects, project] }));
         return project;

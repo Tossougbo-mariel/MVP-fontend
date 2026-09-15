@@ -6,7 +6,7 @@ import Link from "next/link";
 import NextImage from "next/image";
 import { motion } from "framer-motion";
 import Cropper from "react-easy-crop";
-import { Sparkles, Eye, EyeOff, Camera, User, X, ZoomIn, CheckCircle2 } from "lucide-react";
+import { Sparkles, Eye, EyeOff, Camera, User, X, ZoomIn, CheckCircle2, ArrowLeft } from "lucide-react";
 import AuthCard from "../components/AuthCard";
 import { useAuthStore } from "@/app/store/authStore";
 
@@ -215,23 +215,34 @@ export default function InscriptionPage() {
       </motion.div>
 
       {/* Formulaire droite */}
-      <div className="lg:w-[40%] lg:min-h-screen flex items-center justify-center lg:pr-8 py-10 lg:py-0">
-        <AuthCard>
+      <div className="w-full lg:w-[40%] lg:h-screen flex flex-col px-4 lg:px-8 py-6 relative">
+        <Link
+          href="/accueil"
+          className="absolute top-6 left-4 lg:left-6 inline-flex items-center gap-2 text-sm font-semibold transition-opacity hover:opacity-70 z-10"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Retour à l&apos;accueil
+        </Link>
+        <div className="flex-1 min-h-0 no-scrollbar overflow-y-auto pt-10">
+          <div className="min-h-full flex">
+            <div className="w-full my-auto">
+            <AuthCard padding="p-5">
           <div className="flex flex-col items-center">
             <motion.div
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.5, ease: "easeOut" }}
-              className="flex items-center gap-2 mb-2"
+              className="flex items-center gap-2 mb-1"
             >
               <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                className="w-10 h-10 rounded-2xl flex items-center justify-center"
                 style={{
                   background: "var(--gradient-primary)",
                   boxShadow: "0 0 30px var(--glow-pink)",
                 }}
               >
-                <Sparkles className="w-6 h-6 text-white" />
+                <Sparkles className="w-5 h-5 text-white" />
               </div>
             </motion.div>
 
@@ -239,7 +250,7 @@ export default function InscriptionPage() {
               initial={{ y: 30, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
-              className="text-3xl font-bold text-center mb-1"
+              className="text-2xl font-bold text-center mb-0.5"
               style={{
                 backgroundImage: "var(--gradient-primary)",
                 backgroundSize: "200% 200%",
@@ -256,7 +267,7 @@ export default function InscriptionPage() {
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
-              className="text-sm mb-8"
+              className="text-sm mb-5"
               style={{ color: "var(--text-secondary)" }}
             >
               Créez votre compte gratuitement
@@ -274,7 +285,7 @@ export default function InscriptionPage() {
             </motion.p>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
             <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -282,8 +293,8 @@ export default function InscriptionPage() {
               className="flex flex-col items-center gap-2 mb-2"
             >
               <div className="relative">
-<div
-                  className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center text-white${lastRaw ? " cursor-pointer" : ""}`}
+                <div
+                  className={`relative w-14 h-14 rounded-full overflow-hidden flex items-center justify-center text-white${lastRaw ? " cursor-pointer" : ""}`}
                   style={{ background: "var(--gradient-primary)" }}
                   onClick={lastRaw ? reopenCrop : undefined}
                   role={lastRaw ? "button" : undefined}
@@ -292,19 +303,19 @@ export default function InscriptionPage() {
                   {avatar ? (
                     <NextImage src={avatar} alt="Photo de profil" fill style={{ objectFit: "cover" }} />
                   ) : (
-                    <User className="w-9 h-9 text-white/80" />
+                    <User className="w-6 h-6 text-white/80" />
                   )}
                 </div>
                 <button
                   type="button"
                   onClick={() => avatarInputRef.current?.click()}
                   aria-label="Choisir une photo de profil"
-                  className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center text-white transition-transform hover:scale-110"
+                  className="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full flex items-center justify-center text-white transition-transform hover:scale-110"
                   style={{ background: "var(--gradient-button)" }}
                 >
                   <Camera className="w-4 h-4" />
                 </button>
-<input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+                <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
               </div>
 
               <div className="flex items-center gap-2">
@@ -322,7 +333,7 @@ export default function InscriptionPage() {
               </div>
             </motion.div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <motion.div
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
@@ -334,7 +345,7 @@ export default function InscriptionPage() {
                   required
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full rounded-xl px-4 py-3 transition-all focus:outline-none"
+                  className="w-full rounded-xl px-4 py-2.5 transition-all focus:outline-none"
                   style={inputStyle}
                   onFocus={handleFocus}
                   onBlur={handleBlur}
@@ -351,7 +362,7 @@ export default function InscriptionPage() {
                   required
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  className="w-full rounded-xl px-4 py-3 transition-all focus:outline-none"
+                  className="w-full rounded-xl px-4 py-2.5 transition-all focus:outline-none"
                   style={inputStyle}
                   onFocus={handleFocus}
                   onBlur={handleBlur}
@@ -370,7 +381,7 @@ export default function InscriptionPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl px-4 py-3 transition-all focus:outline-none"
+                className="w-full rounded-xl px-4 py-2.5 transition-all focus:outline-none"
                 style={inputStyle}
                 onFocus={handleFocus}
                 onBlur={handleBlur}
@@ -389,7 +400,7 @@ export default function InscriptionPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl px-4 py-3 pr-12 transition-all focus:outline-none"
+                className="w-full rounded-xl px-4 py-2.5 pr-12 transition-all focus:outline-none"
                 style={inputStyle}
                 onFocus={handleFocus}
                 onBlur={handleBlur}
@@ -416,7 +427,7 @@ export default function InscriptionPage() {
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full rounded-xl px-4 py-3 pr-12 transition-all focus:outline-none"
+                className="w-full rounded-xl px-4 py-2.5 pr-12 transition-all focus:outline-none"
                 style={inputStyle}
                 onFocus={handleFocus}
                 onBlur={handleBlur}
@@ -439,7 +450,7 @@ export default function InscriptionPage() {
               transition={{ duration: 0.5, delay: 0.7, ease: "easeOut" }}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="w-full py-3 rounded-xl font-semibold text-white transition-all focus:outline-none"
+              className="w-full py-2.5 rounded-xl font-semibold text-white transition-all focus:outline-none"
               style={{
                 background: "var(--gradient-button)",
                 backgroundSize: "200% 200%",
@@ -473,6 +484,9 @@ export default function InscriptionPage() {
             </motion.p>
           </form>
         </AuthCard>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ====== MODAL DE RECADRAGE PHOTO ====== */}

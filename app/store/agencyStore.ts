@@ -39,6 +39,7 @@ export type Project = {
   ownerId: string; // email du responsable
   memberIds: string[]; // emails des membres assignés
   createdAt: string;
+  wallpaper?: string | null; // fond d'écran du Kanban (optionnel)
 };
 
 // ====== Type d'une tâche appartenant à un projet ======

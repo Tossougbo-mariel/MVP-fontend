@@ -6,7 +6,6 @@ import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
 import {
   ArrowLeft,
-  Calendar,
   CalendarClock,
   FolderKanban,
   Plus,
@@ -23,7 +22,8 @@ import {
 } from "@/app/store/agencyStore";
 import { useAuthStore } from "@/app/store/authStore";
 import { useProjectStore, getProjectById } from "@/app/store/projectStore";
-import { useTaskStore, getTasksByProject } from "@/app/store/taskStore";
+import { useTaskStore, getTasksByProject, getProjectStatusFromTasks } from "@/app/store/taskStore";
+import { getWallpaperBg } from "@/app/store/wallpapers";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -53,8 +53,8 @@ const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: st
 
 // ✅ Colonnes FIXES du Kanban dans cet ordre exact
 const KANBAN_COLUMNS: { status: TaskStatus; label: string; color: string; bg: string; border?: string }[] = [
-  { status: "a_faire", label: "À faire", color: "var(--text-secondary)", bg: "transparent", border: "1px solid var(--border-subtle)" },
-  { status: "en_cours", label: "En cours", color: "#056cf2", bg: "var(--accent-soft)" },
+  { status: "a_faire", label: "À faire", color: "var(--color-error)", bg: "rgba(239,68,68,0.12)" },
+  { status: "en_cours", label: "En cours", color: "#f59e0b", bg: "rgba(245,158,11,0.15)" },
   { status: "en_revision", label: "En révision", color: "#589bff", bg: "rgba(88,155,255,0.15)" },
   { status: "terminee", label: "Terminée", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
 ];
@@ -185,8 +185,9 @@ export default function ProjectKanbanPage() {
     );
   }
 
-  const badge = statusConfig[project.status];
   const projectTasks = getTasksByProject(tasks, project.id);
+  const badge = statusConfig[getProjectStatusFromTasks(project.status, projectTasks)];
+  const wallpaperSrc = getWallpaperBg(project.wallpaper);
   const projectMembers = agency.members.filter((m) =>
     project.memberIds.some((id) => id.toLowerCase() === m.email.toLowerCase())
   );
@@ -272,69 +273,60 @@ export default function ProjectKanbanPage() {
         </Link>
       </motion.div>
 
-      {/* En-tête */}
-      <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+      {/* En-tête + Board façon Trello : header glass dans le cadre de l'image */}
+      <motion.div variants={item}>
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={wallpaperSrc ? { backgroundImage: `url(${wallpaperSrc})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+        >
+          <div
+            className={`flex flex-col gap-4 ${wallpaperSrc ? "p-4" : ""}`}
+            style={wallpaperSrc ? { background: "rgba(2,6,23,0.45)" } : undefined}
+          >
+            {/* Header glass — dans le cadre de l'image */}
+            <div
+              className="flex items-center gap-3 rounded-xl px-3.5 py-2 flex-wrap"
+              style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", backdropFilter: "blur(12px)" }}
+            >
+              <span
+                className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                 style={{ background: "var(--gradient-primary)" }}
               >
-                <FolderKanban className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>
-                  {project.name}
-                </h1>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span
-                    className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
-                    style={{ color: badge.color, background: badge.bg, border: badge.border }}
-                  >
-                    {badge.label}
-                  </span>
-                </div>
-              </div>
+                <FolderKanban className="w-4 h-4 text-white" />
+              </span>
+              <h1 className="text-xl font-black min-w-0" style={{ color: "var(--text-primary)" }}>
+                {project.name}
+              </h1>
+              <span
+                className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                style={{ color: badge.color, background: badge.bg, border: badge.border }}
+              >
+                {badge.label}
+              </span>
+              <span className="w-px h-5 shrink-0 mx-1" style={{ background: "var(--border-subtle)" }} />
+              <span className="flex items-center gap-1.5 text-sm font-bold whitespace-nowrap" style={{ color: "var(--text-secondary)" }}>
+                <CalendarClock className="w-4 h-4 shrink-0" style={{ color: "var(--text-secondary)" }} />
+                {formatDate(project.startDate)}
+                <span className="font-semibold" style={{ color: "var(--text-muted)" }}>→</span>
+                {formatDate(project.dueDate)}
+              </span>
+              <span className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+                {projectTasks.length} tâche{projectTasks.length > 1 ? "s" : ""}
+              </span>
             </div>
-            <div className="flex items-start sm:items-end flex-col gap-2 shrink-0">
-              <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-                <CalendarClock className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
-                {formatDate(project.startDate)} → {formatDate(project.dueDate)}
-              </div>
-            </div>
-          </div>
 
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            {project.description || "Aucune description."}
-          </p>
-
-          <div className="flex items-center justify-between gap-3 pt-3 border-t" style={{ borderColor: "var(--border-subtle)" }}>
-            <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-              {projectTasks.length} tâche{projectTasks.length > 1 ? "s" : ""} au total
-            </span>
-            <button
-              onClick={openCreateModal}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
-              style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
-            >
-              <Plus size={15} /> Nouvelle tâche
-            </button>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Board Kanban — 4 colonnes fixes */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
+            {/* Board Kanban — grille 3/2 : Ligne 1 (À faire · En cours · En révision), Ligne 2 (Terminée · Nouvelle tâche) */}
+            <div className={`no-scrollbar overflow-x-auto ${wallpaperSrc ? "" : "pb-1"}`}>
+              <div className="grid grid-cols-[repeat(3,280px)] gap-3 w-max items-start">
         {KANBAN_COLUMNS.map((col) => {
           const colTasks = projectTasks.filter((t) => t.status === col.status);
           return (
             <motion.div
               key={col.status}
               variants={item}
-              className="rounded-2xl p-3 flex flex-col gap-3 transition-all"
+              className="w-[280px] shrink-0 rounded-xl p-2.5 flex flex-col gap-2.5"
               style={{
-                background: "var(--input-bg)",
+                background: "var(--surface)",
                 border: overColumn === col.status ? "2px dashed var(--accent-text)" : "1px solid var(--input-border)",
                 boxShadow: "var(--shadow-card)",
               }}
@@ -349,22 +341,23 @@ export default function ProjectKanbanPage() {
                 if (id) handleDrop(id, col.status);
               }}
             >
-              {/* En-tête de colonne : libellé + nombre de tâches */}
-              <div className="flex items-center justify-between px-1 py-1">
-                <span className="text-sm font-bold" style={{ color: col.color }}>
+              {/* En-tête de colonne : pastille + label + compteur */}
+              <div className="flex items-center gap-2 px-1 pt-1">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: col.color }} />
+                <span className="text-sm font-semibold flex-1 truncate" style={{ color: col.color }}>
                   {col.label}
                 </span>
                 <span
-                  className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                  className="text-[11px] font-bold px-1.5 py-0.5 rounded-full"
                   style={{ color: col.color, background: col.bg, border: col.border }}
                 >
                   {colTasks.length}
                 </span>
               </div>
 
-              <div className="flex flex-col gap-2 min-h-[140px]">
+              <div className="flex flex-col gap-2 min-h-[120px]">
                 {colTasks.length === 0 ? (
-                  <div className="rounded-xl px-3 py-5 text-center text-xs" style={{ background: "var(--hover-soft)", color: "var(--text-muted)" }}>
+                  <div className="rounded-lg px-3 py-4 text-center text-xs" style={{ background: "var(--hover-soft)", color: "var(--text-muted)" }}>
                     Aucune tâche
                   </div>
                 ) : (
@@ -382,7 +375,7 @@ export default function ProjectKanbanPage() {
                         }}
                         onDragEnd={() => setDraggingId(null)}
                         onClick={() => openTaskDetail(task.id)}
-                        className="rounded-xl p-3 flex flex-col gap-2 transition-all"
+                        className="rounded-lg p-2.5 flex flex-col gap-2 transition-all hover:opacity-95"
                         style={{
                           background: "var(--card-bg)",
                           border: draggingId === task.id ? "1px solid var(--accent-text)" : "1px solid var(--border-subtle)",
@@ -392,12 +385,13 @@ export default function ProjectKanbanPage() {
                         }}
                         title={canDrag ? "Cliquer pour les détails — glisser pour changer de colonne" : "Déplacement réservé à l'assigné ou à l'admin — cliquer pour les détails"}
                       >
+                        {/* Titre + badge priorité compact */}
                         <div className="flex items-start justify-between gap-2">
                           <span className="text-sm font-semibold leading-snug" style={{ color: "var(--text-primary)" }}>
                             {task.title}
                           </span>
                           <span
-                            className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
+                            className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
                             style={{ color: prio.color, background: prio.bg, border: prio.border }}
                           >
                             {prio.label}
@@ -410,45 +404,30 @@ export default function ProjectKanbanPage() {
                           </p>
                         )}
 
-                        <div className="flex items-center justify-between gap-2 pt-1">
-                          <span className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
-                            {task.startDate && (
-                              <>
-                                <Calendar className="w-3.5 h-3.5" />
-                                {formatDate(task.startDate)}
-                              </>
-                            )}
-                            {task.startDate && task.dueDate && (
-                              <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>→</span>
-                            )}
-                            {task.dueDate && (
-                              <>
-                                <CalendarClock className="w-3.5 h-3.5" />
-                                {formatDate(task.dueDate)}
-                              </>
-                            )}
-                          </span>
-                          <span className="flex items-center gap-1.5 min-w-0">
-                            {assignee ? (
-                              <span className="flex items-center gap-1.5 min-w-0">
-                                <span
-                                  className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0"
-                                  style={{ background: "var(--gradient-primary)" }}
-                                >
-                                  {assignee.avatar ? (
-                                    <span className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url(${assignee.avatar})` }} />
-                                  ) : (
-                                    `${assignee.firstName.charAt(0)}${assignee.lastName.charAt(0)}`
-                                  )}
-                                </span>
-                                <span className="text-[11px] truncate" style={{ color: "var(--text-secondary)" }}>
-                                  {assignee.firstName}
-                                </span>
-                              </span>
-                            ) : (
-                              <UserRound className="w-4 h-4 shrink-0" style={{ color: "var(--text-muted)" }} />
-                            )}
-                          </span>
+                        {/* Bas de carte : échéance à gauche, avatar à droite */}
+                        <div className="flex items-center justify-between gap-2 pt-0.5 mt-auto">
+                          {task.dueDate ? (
+                            <span className="flex items-center gap-1 text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>
+                              <CalendarClock className="w-3.5 h-3.5" />
+                              {formatDate(task.dueDate)}
+                            </span>
+                          ) : (
+                            <span />
+                          )}
+                          {assignee ? (
+                            <span
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0"
+                              style={{ background: "var(--gradient-primary)" }}
+                            >
+                              {assignee.avatar ? (
+                                <span className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url(${assignee.avatar})` }} />
+                              ) : (
+                                `${assignee.firstName.charAt(0)}${assignee.lastName.charAt(0)}`
+                              )}
+                            </span>
+                          ) : (
+                            <UserRound className="w-4 h-4 shrink-0" style={{ color: "var(--text-muted)" }} />
+                          )}
                         </div>
                       </div>
                     );
@@ -458,7 +437,25 @@ export default function ProjectKanbanPage() {
             </motion.div>
           );
         })}
-      </div>
+
+        {/* Cadre « Nouvelle tâche » en fin de board, façon Trello */}
+        <button
+          onClick={openCreateModal}
+          className="w-[280px] shrink-0 rounded-xl px-4 py-3 text-sm font-semibold flex items-center gap-2 transition-all hover:scale-[1.02]"
+          style={{
+            background: "var(--surface)",
+            border: "1px dashed var(--border-subtle)",
+            color: "var(--text-secondary)",
+            boxShadow: "var(--shadow-card)",
+          }}
+        >
+          <Plus size={16} /> Nouvelle tâche
+        </button>
+            </div>
+          </div>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Modal « Nouvelle tâche » */}
       {creating && (

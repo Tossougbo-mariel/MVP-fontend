@@ -2,13 +2,28 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { Task, TaskStatus, TaskPriority } from "./agencyStore";
+import type { Task, TaskStatus, TaskPriority, ProjectStatus } from "./agencyStore";
 import { useAuthStore } from "./authStore";
 import { useHistoryStore } from "./historyStore";
 
 // ✅ Toutes les tâches d'un projet (table à part, filtrée par projectId)
 export const getTasksByProject = (tasks: Task[], projectId: string): Task[] =>
   tasks.filter((t) => t.projectId === projectId);
+
+// ✅ Statut du projet dérivé de son évolution (tâches) :
+// - pas de tâche → « À venir »
+// - au moins une tâche non terminée → « En cours »
+// - toutes les tâches terminées → « Terminé »
+// - un projet archivé le reste (pas de rétrogradation automatique).
+export const getProjectStatusFromTasks = (
+  currentStatus: ProjectStatus,
+  projectTasks: Task[]
+): ProjectStatus => {
+  if (currentStatus === "archive") return "archive";
+  if (projectTasks.length === 0) return "a_venir";
+  if (projectTasks.every((t) => t.status === "terminee")) return "termine";
+  return "en_cours";
+};
 
 const labelOfPriority: Record<TaskPriority, string> = {
   basse: "Basse",

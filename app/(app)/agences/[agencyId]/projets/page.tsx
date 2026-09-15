@@ -16,7 +16,8 @@ import { useParams } from "next/navigation";
 import { useAgencyStore, userRoleInAgency, type ProjectStatus } from "@/app/store/agencyStore";
 import { useAuthStore } from "@/app/store/authStore";
 import { useProjectStore, getProjectsByAgency } from "@/app/store/projectStore";
-import { useTaskStore, getTasksByProject } from "@/app/store/taskStore";
+import { useTaskStore, getTasksByProject, getProjectStatusFromTasks } from "@/app/store/taskStore";
+import { getWallpaperBg } from "@/app/store/wallpapers";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -163,10 +164,12 @@ export default function ProjetsPage() {
             const doneTasks = projectTasks.filter((t) => t.status === "terminee").length;
             const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
-            const startBadge = statusConfig[p.status];
+            const projectStatus = getProjectStatusFromTasks(p.status, projectTasks);
+            const startBadge = statusConfig[projectStatus];
             const owner = agency.members?.find(
               (m) => m.email.toLowerCase() === p.ownerId.toLowerCase()
             );
+            const wallpaperSrc = getWallpaperBg(p.wallpaper);
 
             return (
               <motion.div key={p.id} variants={item}>
@@ -181,21 +184,34 @@ export default function ProjetsPage() {
                     aria-label={`Voir le Kanban du projet ${p.name}`}
                   />
 
-                  <div className="relative pointer-events-none flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="font-bold text-base truncate" style={{ color: "var(--text-primary)" }}>
-                        {p.name}
+                  {/* Fond de couverture : le wallpaper choisi s'affiche au-dessus de la progression,
+                      en arrière-plan du titre et de la description */}
+                  <div className="relative pointer-events-none rounded-t-2xl -mx-5 -mt-5 px-5 pt-5 pb-4 overflow-hidden">
+                    {wallpaperSrc && (
+                      <>
+                        <div
+                          className="absolute inset-0"
+                          style={{ backgroundImage: `url(${wallpaperSrc})`, backgroundSize: "cover", backgroundPosition: "center" }}
+                        />
+                        <div className="absolute inset-0" style={{ background: "rgba(2,6,23,0.45)" }} />
+                      </>
+                    )}
+                    <div className="relative flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-bold text-base truncate" style={{ color: wallpaperSrc ? "#fff" : "var(--text-primary)" }}>
+                          {p.name}
+                        </div>
+                        <p className="text-sm mt-1 line-clamp-3" style={{ color: wallpaperSrc ? "rgba(255,255,255,0.85)" : "var(--text-secondary)" }}>
+                          {p.description || "Aucune description."}
+                        </p>
                       </div>
-                      <p className="text-sm mt-1 line-clamp-3" style={{ color: "var(--text-secondary)" }}>
-                        {p.description || "Aucune description."}
-                      </p>
+                      <span
+                        className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap"
+                        style={{ color: startBadge.color, background: startBadge.bg, border: startBadge.border }}
+                      >
+                        {startBadge.label}
+                      </span>
                     </div>
-                    <span
-                      className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap"
-                      style={{ color: startBadge.color, background: startBadge.bg, border: startBadge.border }}
-                    >
-                      {startBadge.label}
-                    </span>
                   </div>
 
                   {/* Barre de progression */}
