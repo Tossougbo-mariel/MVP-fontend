@@ -23,12 +23,9 @@ import {
 } from "@/lib/types";
 import { useAuthStore } from "@/app/store/authStore";
 import {
-  fetchProject,
   fetchProjectMembers,
   createTask as apiCreateTask,
-  updateTask as apiUpdateTask,
   updateTaskStatus as apiUpdateTaskStatus,
-  deleteTask as apiDeleteTask,
   getApiErrorMessage,
 } from "@/lib/services";
 import { getWallpaperBg } from "@/app/store/wallpapers";
@@ -90,7 +87,7 @@ export default function ProjectKanbanPage() {
   const { agencyId, projectId } = useParams<{ agencyId: string; projectId: string }>();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const { data, reload, agencyById, getProject, tasksByProject } = useAppData();
+  const { reload, agencyById, getProject, tasksByProject } = useAppData();
 
   const agency = agencyById(agencyId);
   const project = getProject(projectId);

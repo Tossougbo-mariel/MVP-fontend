@@ -50,6 +50,23 @@ const timeAgo = (iso: string | null | undefined): string => {
   return new Date(iso).toLocaleDateString("fr-FR");
 };
 
+const smoothCurve = (pts: { x: number; y: number }[]) => {
+  if (pts.length < 2) return "";
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] ?? p2;
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x} ${p2.y}`;
+  }
+  return d;
+};
+
 export default function AgencyDashboardPage() {
   const { agencyId } = useParams<{ agencyId: string }>();
   const user = useAuthStore((s) => s.user);
@@ -205,13 +222,32 @@ function AdminDashboard({
     { label: "En retard", value: overdueCount, color: "var(--color-error)" },
   ];
 
-  const maxReport = Math.max(...weeklyReport.map((r) => r.value));
+  const maxReport = Math.max(1, ...weeklyReport.map((r) => r.value));
+
+  // Géométrie du graphique — courbe lissée (smooth curve)
+  const chartWidth = 640;
+  const chartHeight = 166;
+  const chartTop = 16;
+  const chartBottom = 30;
+  const chartMax = Math.max(10, Math.ceil((maxReport * 1.25) / 2) * 2);
+  const points = weeklyReport.map((r, i) => ({
+    x: 28 + ((chartWidth - 56) / (weeklyReport.length - 1)) * i,
+    y: chartTop + (1 - r.value / chartMax) * (chartHeight - chartTop - chartBottom),
+  }));
+  const linePath = smoothCurve(points);
+  const areaPath = `${linePath} L ${points[points.length - 1].x} ${chartHeight - chartBottom} L ${points[0].x} ${
+    chartHeight - chartBottom
+  } Z`;
+  const avg = weeklyReport.reduce((s, r) => s + r.value, 0) / weeklyReport.length;
+  const avgY = chartTop + (1 - avg / chartMax) * (chartHeight - chartTop - chartBottom);
+  const doneThisWeek = weeklyReport.reduce((s, r) => s + r.value, 0);
+  const deltaPct: number | null = null;
 
   const statCards = [
-    { label: "Total projets", value: String(totalProjects), icon: FolderKanban, bg: "rgba(5,108,242,0.12)", color: "#056cf2" },
-    { label: "Total tâches", value: String(totalTasks), icon: ListTodo, bg: "rgba(139,92,246,0.14)", color: "#7C3AED" },
-    { label: "Membres", value: String(totalMembers), icon: Users, bg: "rgba(16,185,129,0.12)", color: "var(--color-success)" },
-    { label: "En retard", value: String(overdueCount), icon: AlarmClock, bg: "rgba(239,68,68,0.12)", color: "var(--color-error)" },
+    { label: "Total projets", value: String(totalProjects), icon: FolderKanban, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
+    { label: "Total tâches", value: String(totalTasks), icon: ListTodo, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
+    { label: "Membres", value: String(totalMembers), icon: Users, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
+    { label: "En retard", value: String(overdueCount), icon: AlarmClock, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
   ];
 
   return (
@@ -230,16 +266,41 @@ function AdminDashboard({
       {/* Indicateurs clés */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((s) => (
-          <motion.div key={s.label} variants={item} className="glass rounded-2xl p-5" style={{ boxShadow: "var(--shadow-card)" }}>
-            <div className="flex items-center gap-4">
-              <div
-                className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: s.bg }}
+          <motion.div
+            key={s.label}
+            variants={item}
+            whileHover={{ y: -4, scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
+            className="relative overflow-hidden glass rounded-2xl p-5 cursor-default"
+            style={{ boxShadow: "var(--shadow-card)" }}
+          >
+            <motion.div
+              className="absolute inset-0"
+              style={{ background: s.grad, opacity: 0.5 }}
+              animate={{ opacity: [0.35, 0.6, 0.35] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <div className="relative flex items-center gap-3.5">
+              <motion.div
+                initial={{ scale: 0, rotate: -20 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 240, damping: 15 }}
+                whileHover={{ rotate: 8, scale: 1.1 }}
+                className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: "linear-gradient(135deg, #E8F2FF 0%, #C9DEFF 100%)", border: `1px solid ${s.color}66` }}
               >
-                <s.icon className="w-5 h-5" style={{ color: s.color }} />
-              </div>
+                <s.icon className="w-5 h-5" style={{ color: "#2e70d0" }} />
+              </motion.div>
               <div className="min-w-0">
-                <div className="text-2xl font-black leading-none" style={{ color: "var(--text-primary)" }}>{s.value}</div>
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="text-xl font-black leading-none"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  {s.value}
+                </motion.div>
                 <div className="text-xs mt-1 truncate" style={{ color: "var(--text-secondary)" }}>{s.label}</div>
               </div>
             </div>
@@ -261,12 +322,21 @@ function AdminDashboard({
                 <span className="text-xs" style={{ color: "var(--text-muted)" }}>Vue d&apos;ensemble de l&apos;avancement</span>
               </div>
             </div>
-            <ul className="space-y-2.5">
-              {taskStatuses.map((t) => (
+            <ul className="space-y-3">
+              {taskStatuses.map((t, i) => (
                 <li key={t.label} className="flex items-center gap-3 text-sm">
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: t.color }} />
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: t.color, boxShadow: `0 0 8px ${t.color}` }} />
                   <span style={{ color: "var(--text-secondary)" }}>{t.label}</span>
                   <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{t.value}</span>
+                  <div className="w-20 h-1.5 rounded-full shrink-0" style={{ background: "rgba(255,255,255,0.08)" }}>
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(t.value / Math.max(...taskStatuses.map((x) => x.value))) * 100}%` }}
+                      transition={{ duration: 0.8, delay: 0.2 + i * 0.1, ease: "easeOut" }}
+                      className="h-full rounded-full"
+                      style={{ background: t.color }}
+                    />
+                  </div>
                 </li>
               ))}
             </ul>
@@ -288,22 +358,114 @@ function AdminDashboard({
                 className="text-[11px] font-semibold px-3 py-1 rounded-full"
                 style={{ background: "rgba(16,185,129,0.12)", color: "var(--color-success)" }}
               >
-                +18% cette semaine
+                {deltaPct === null
+                  ? `${doneThisWeek} terminée${doneThisWeek > 1 ? "s" : ""} cette semaine`
+                  : `${deltaPct >= 0 ? "+" : ""}${deltaPct}% cette semaine`}
               </span>
             </div>
-            <div className="flex items-end justify-between gap-2 h-32">
-              {weeklyReport.map((r) => (
-                <div key={r.day} className="flex flex-col items-center gap-1.5 flex-1">
-                  <motion.div
-                    initial={{ height: 0 }}
-                    animate={{ height: `${(r.value / maxReport) * 100}%` }}
-                    transition={{ duration: 0.6, ease: "easeOut" }}
-                    className="w-full max-w-8 rounded-t-lg"
-                    style={{ background: "var(--gradient-primary)" }}
-                  />
-                  <span className="text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>{r.day}</span>
-                </div>
-              ))}
+            <div className="mb-4 flex items-center gap-5 text-xs">
+              <span className="flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
+                <span className="w-4 h-0.5 rounded-full" style={{ background: "linear-gradient(90deg, #056cf2, #589bff)" }} />
+                Tâches terminées
+              </span>
+              <span className="flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
+                <span className="w-4 border-t border-dashed" style={{ borderColor: "#7C3AED" }} />
+                Moyenne journalière
+              </span>
+            </div>
+
+            <div className="relative">
+              <svg viewBox="0 0 640 200" className="w-full h-auto overflow-visible">
+                <defs>
+                  <linearGradient id="chartLine" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#0c79f2" />
+                    <stop offset="55%" stopColor="#589bff" />
+                    <stop offset="100%" stopColor="#8b5cf6" />
+                  </linearGradient>
+                  <linearGradient id="chartArea" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#056cf2" stopOpacity="0.35" />
+                    <stop offset="100%" stopColor="#056cf2" stopOpacity="0.02" />
+                  </linearGradient>
+                </defs>
+
+                {[0, 1, 2, 3, 4].map((i) => {
+                  const y = 16 + (i / 4) * 150;
+                  const label = Math.round((maxReport * 1.25 * (4 - i)) / 4);
+                  return (
+                    <g key={i}>
+                      <line x1="28" y1={y} x2="612" y2={y} stroke="rgba(155,170,220,0.14)" strokeDasharray="4 4" />
+                      <text x="0" y={y + 3} fontSize="9" fill="var(--text-muted)" fontWeight="500">
+                        {label}
+                      </text>
+                    </g>
+                  );
+                })}
+
+                <motion.path
+                  initial={{ pathLength: 0 }}
+                  animate={{ pathLength: 1 }}
+                  transition={{ duration: 1.4, ease: "easeInOut" }}
+                  d={areaPath}
+                  fill="url(#chartArea)"
+                  style={{ opacity: 0 }}
+                />
+                <motion.path
+                  initial={{ pathLength: 0, opacity: 0 }}
+                  animate={{ pathLength: 1, opacity: 1 }}
+                  transition={{ duration: 1.4, ease: "easeInOut" }}
+                  d={linePath}
+                  fill="none"
+                  stroke="url(#chartLine)"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  style={{ filter: "drop-shadow(0 0 6px rgba(5,108,242,0.45))" }}
+                />
+
+                <line x1="28" y1={avgY} x2="612" y2={avgY} stroke="#7C3AED" strokeDasharray="5 4" strokeWidth="1" opacity="0.7" />
+
+                {weeklyReport.map((r, i) => (
+                  <g key={r.day} className="group">
+                    <motion.circle
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.15 + i * 0.08, type: "spring", stiffness: 260, damping: 16 }}
+                      cx={points[i].x}
+                      cy={points[i].y}
+                      r="10"
+                      fill="rgba(5,108,242,0.15)"
+                      className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 cursor-pointer"
+                    />
+                    <motion.circle
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.15 + i * 0.08, type: "spring", stiffness: 260, damping: 16 }}
+                      cx={points[i].x}
+                      cy={points[i].y}
+                      r="4"
+                      fill="#0c79f2"
+                      stroke="rgba(255,255,255,0.6)"
+                      strokeWidth="1.5"
+                      className="cursor-pointer"
+                    />
+                    <circle cx={points[i].x} cy={points[i].y} r="7" fill="transparent" className="cursor-pointer" />
+                    <motion.text
+                      initial={{ opacity: 0, y: 4 }}
+                      whileHover={{ opacity: 1, y: 0 }}
+                      textAnchor="middle"
+                      x={points[i].x}
+                      y={points[i].y - 14}
+                      fontSize="11"
+                      fontWeight="700"
+                      fill="#9dc7ff"
+                    >
+                      {r.value}
+                    </motion.text>
+                    <text textAnchor="middle" x={points[i].x} y="196" fontSize="10" fill="var(--text-muted)" fontWeight="600">
+                      {r.day}
+                    </text>
+                  </g>
+                ))}
+              </svg>
             </div>
           </motion.div>
 
@@ -315,15 +477,36 @@ function AdminDashboard({
               </div>
               <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Activité récente</h2>
             </div>
-            <ul className="space-y-3">
+            <motion.ul
+              initial="hidden"
+              animate="show"
+              variants={{ show: { transition: { staggerChildren: 0.12 } } }}
+              className="space-y-3"
+            >
               {activityLoading ? (
-                <li className="text-sm" style={{ color: "var(--text-muted)" }}>
+                <motion.li
+                  variants={{ hidden: { opacity: 0, x: -14 }, show: { opacity: 1, x: 0, transition: { duration: 0.4 } } }}
+                  className="text-sm"
+                  style={{ color: "var(--text-muted)" }}
+                >
                   Chargement de l&apos;activité…
-                </li>
+                </motion.li>
               ) : activity && activity.length > 0 ? (
-                activity.map((a) => (
-                  <li key={a.id} className="flex items-start gap-3 text-sm">
-                    <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: "#056cf2" }} />
+                activity.map((a, i) => (
+                  <motion.li
+                    key={a.id}
+                    variants={{ hidden: { opacity: 0, x: -14 }, show: { opacity: 1, x: 0, transition: { duration: 0.4 } } }}
+                    whileHover={{ x: 4 }}
+                    className="flex items-start gap-3 text-sm"
+                  >
+                    <span className="relative w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: "#056cf2" }}>
+                      <motion.span
+                        className="absolute inset-0 rounded-full"
+                        style={{ background: "#056cf2" }}
+                        animate={{ scale: [1, 2.2], opacity: [0.6, 0] }}
+                        transition={{ duration: 1.8, repeat: Infinity, delay: i * 0.3 }}
+                      />
+                    </span>
                     <div>
                       <div style={{ color: "var(--text-primary)" }}>
                         <span className="font-semibold">{a.actorName ?? a.actorEmail}</span>{" "}
@@ -331,14 +514,18 @@ function AdminDashboard({
                       </div>
                       <div className="text-xs" style={{ color: "var(--text-muted)" }}>{timeAgo(a.createdAt)}</div>
                     </div>
-                  </li>
+                  </motion.li>
                 ))
               ) : (
-                <li className="text-sm" style={{ color: "var(--text-muted)" }}>
+                <motion.li
+                  variants={{ hidden: { opacity: 0, x: -14 }, show: { opacity: 1, x: 0, transition: { duration: 0.4 } } }}
+                  className="text-sm"
+                  style={{ color: "var(--text-muted)" }}
+                >
                   Aucune activité récente.
-                </li>
+                </motion.li>
               )}
-            </ul>
+            </motion.ul>
           </motion.div>
         </div>
 
@@ -354,17 +541,24 @@ function AdminDashboard({
             </div>
             <ul className="space-y-2.5">
               <li className="flex items-center gap-3 text-sm">
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "var(--color-success)" }} />
+                <span className="relative w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "var(--color-success)" }}>
+                  <motion.span
+                    className="absolute inset-0 rounded-full"
+                    style={{ background: "var(--color-success)" }}
+                    animate={{ scale: [1, 2.4], opacity: [0.6, 0] }}
+                    transition={{ duration: 1.8, repeat: Infinity }}
+                  />
+                </span>
                 Membres actifs
                 <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{activeMembers}</span>
               </li>
               <li className="flex items-center gap-3 text-sm">
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "var(--color-error)" }} />
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "var(--color-error)", boxShadow: "0 0 8px var(--color-error)" }} />
                 Membres inactifs
                 <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{inactiveMembers}</span>
               </li>
               <li className="flex items-center gap-3 text-sm">
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "#C7961A" }} />
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "#C7961A", boxShadow: "0 0 8px #C7961A" }} />
                 Tâches cumulées
                 <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{totalTasks}</span>
               </li>
@@ -385,16 +579,29 @@ function AdminDashboard({
                   { label: "Créer un projet", href: `/agences/${agencyId}/projets/nouveau`, icon: Plus },
                   { label: "Gérer l'équipe", href: `/agences/${agencyId}/equipe`, icon: Users },
                   { label: "Voir les tâches", href: `/agences/${agencyId}/mes-taches`, icon: ListTodo },
-                ].map((b) => (
-                  <Link
+                ].map((b, index) => (
+                  <motion.div
                     key={b.label}
-                    href={b.href}
-                    className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:opacity-80"
-                    style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 + index * 0.1 }}
+                    className="group"
                   >
-                    <b.icon className="w-5 h-5" style={{ color: "#056cf2" }} />
-                    <span className="font-medium text-sm">{b.label}</span>
-                  </Link>
+                    <Link
+                      href={b.href}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl transition-colors duration-200"
+                      style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                    >
+                      <motion.span
+                        whileHover={{ rotate: 8, scale: 1.12 }}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
+                        style={{ background: "rgba(5,108,242,0.12)" }}
+                      >
+                        <b.icon className="w-4.5 h-4.5" style={{ color: "#056cf2" }} />
+                      </motion.span>
+                      <span className="font-medium text-sm group-hover:text-[#589bff] transition-colors duration-200">{b.label}</span>
+                    </Link>
+                  </motion.div>
                 ))}
               </div>
             </motion.div>
@@ -464,8 +671,8 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
 
   const today = new Date().toISOString().slice(0, 10);
   const memberTasks = [
-    { label: "À faire", value: myT.filter((t) => t.status === "a_faire").length, icon: CalendarClock, color: "#0c79f2" },
-    { label: "En cours", value: myT.filter((t) => t.status === "en_cours").length, icon: Clock, color: "#056cf2" },
+    { label: "À faire", value: myT.filter((t) => t.status === "a_faire").length, icon: CalendarClock, color: "#6ea8ff" },
+    { label: "En cours", value: myT.filter((t) => t.status === "en_cours").length, icon: Clock, color: "#589bff" },
     { label: "Terminées", value: myT.filter((t) => t.status === "terminee").length, icon: CheckCircle2, color: "var(--color-success)" },
     { label: "En retard", value: myT.filter((t) => t.status !== "terminee" && t.deadline !== null && t.deadline < today).length, icon: AlertTriangle, color: "var(--color-error)" },
   ];
@@ -480,16 +687,41 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
       {/* Mes statistiques */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {memberTasks.map((s) => (
-          <motion.div key={s.label} variants={item} className="glass rounded-2xl p-5" style={{ boxShadow: "var(--shadow-card)" }}>
-            <div className="flex items-center gap-4">
-              <div
-                className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: `${s.color}1F` }}
+          <motion.div
+            key={s.label}
+            variants={item}
+            whileHover={{ y: -4, scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
+            className="relative overflow-hidden glass rounded-2xl p-5 cursor-default"
+            style={{ boxShadow: "var(--shadow-card)" }}
+          >
+            <motion.div
+              className="absolute inset-0"
+              style={{ background: "linear-gradient(135deg, #E8F2FF 0%, #C9DEFF 100%)", opacity: 0.4 }}
+              animate={{ opacity: [0.3, 0.5, 0.3] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <div className="relative flex items-center gap-3.5">
+              <motion.div
+                initial={{ scale: 0, rotate: -20 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 240, damping: 15 }}
+                whileHover={{ rotate: 8, scale: 1.1 }}
+                className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: "linear-gradient(135deg, #E8F2FF 0%, #C9DEFF 100%)", border: `1px solid ${s.color}66` }}
               >
-                <s.icon className="w-5 h-5" style={{ color: s.color }} />
-              </div>
+                <s.icon className="w-5 h-5" style={{ color: "#2e70d0" }} />
+              </motion.div>
               <div className="min-w-0">
-                <div className="text-2xl font-black leading-none" style={{ color: "var(--text-primary)" }}>{s.value}</div>
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="text-xl font-black leading-none"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  {s.value}
+                </motion.div>
                 <div className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{s.label}</div>
               </div>
             </div>
@@ -500,7 +732,7 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
       {/* Bonnes pratiques / Erreurs à éviter */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <motion.div variants={item} className="space-y-3">
-          <h4 className="font-bold text-success flex items-center gap-2" style={{ color: "var(--color-success)" }}>
+          <h4 className="font-bold flex items-center gap-2" style={{ color: "var(--color-success)" }}>
             ✅ Bonnes pratiques
           </h4>
           <img
@@ -509,19 +741,34 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
             className="mx-auto rounded-xl mb-2"
             style={{ width: "70%", maxWidth: "220px", height: "auto" }}
           />
-          {goodPractices.map((p) => (
-            <div
-              key={p.title}
-              className="glass rounded-2xl p-5 flex items-start gap-4 transition-transform duration-300 hover:-translate-y-1"
-              style={{ boxShadow: "var(--shadow-card)", borderLeft: "5px solid var(--color-success)" }}
-            >
-              <p.icon className="w-8 h-8 shrink-0 mt-0.5" style={{ color: "var(--color-success)" }} />
-              <div>
-                <h5 className="font-bold" style={{ color: "var(--text-primary)" }}>{p.title}</h5>
-                <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>{p.desc}</p>
-              </div>
-            </div>
-          ))}
+          <motion.div
+            initial="hidden"
+            animate="show"
+            variants={{ show: { transition: { staggerChildren: 0.1 } } }}
+            className="space-y-3"
+          >
+            {goodPractices.map((p) => (
+              <motion.div
+                key={p.title}
+                variants={{ hidden: { opacity: 0, x: -14 }, show: { opacity: 1, x: 0, transition: { duration: 0.4 } } }}
+                whileHover={{ x: 4, scale: 1.01 }}
+                className="glass rounded-2xl p-5 flex items-start gap-4"
+                style={{
+                  boxShadow: "var(--shadow-card)",
+                  borderLeft: "5px solid var(--color-success)",
+                  background: "rgba(16,185,129,0.06)",
+                }}
+              >
+                <motion.div whileHover={{ rotate: 10, scale: 1.15 }} className="w-8 h-8 shrink-0 mt-0.5">
+                  <p.icon className="w-8 h-8" style={{ color: "var(--color-success)" }} />
+                </motion.div>
+                <div>
+                  <h5 className="font-bold" style={{ color: "var(--text-primary)" }}>{p.title}</h5>
+                  <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>{p.desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
         </motion.div>
 
         <motion.div variants={item} className="space-y-3">
@@ -534,19 +781,34 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
             className="mx-auto rounded-xl mb-2"
             style={{ width: "70%", maxWidth: "220px", height: "auto" }}
           />
-          {badPractices.map((p) => (
-            <div
-              key={p.title}
-              className="glass rounded-2xl p-5 flex items-start gap-4 transition-transform duration-300 hover:-translate-y-1"
-              style={{ boxShadow: "var(--shadow-card)", borderLeft: "5px solid var(--color-error)" }}
-            >
-              <p.icon className="w-8 h-8 shrink-0 mt-0.5" style={{ color: "var(--color-error)" }} />
-              <div>
-                <h5 className="font-bold" style={{ color: "var(--text-primary)" }}>{p.title}</h5>
-                <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>{p.desc}</p>
-              </div>
-            </div>
-          ))}
+          <motion.div
+            initial="hidden"
+            animate="show"
+            variants={{ show: { transition: { staggerChildren: 0.1 } } }}
+            className="space-y-3"
+          >
+            {badPractices.map((p) => (
+              <motion.div
+                key={p.title}
+                variants={{ hidden: { opacity: 0, x: 14 }, show: { opacity: 1, x: 0, transition: { duration: 0.4 } } }}
+                whileHover={{ x: -4, scale: 1.01 }}
+                className="glass rounded-2xl p-5 flex items-start gap-4"
+                style={{
+                  boxShadow: "var(--shadow-card)",
+                  borderLeft: "5px solid var(--color-error)",
+                  background: "rgba(239,68,68,0.06)",
+                }}
+              >
+                <motion.div whileHover={{ rotate: -10, scale: 1.15 }} className="w-8 h-8 shrink-0 mt-0.5">
+                  <p.icon className="w-8 h-8" style={{ color: "var(--color-error)" }} />
+                </motion.div>
+                <div>
+                  <h5 className="font-bold" style={{ color: "var(--text-primary)" }}>{p.title}</h5>
+                  <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>{p.desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
         </motion.div>
       </div>
 

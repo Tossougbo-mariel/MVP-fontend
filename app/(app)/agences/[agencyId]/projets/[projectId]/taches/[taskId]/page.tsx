@@ -55,27 +55,26 @@ const item: Variants = {
 };
 
 const statusConfig: Record<TaskStatus, { label: string; color: string; bg: string; border?: string }> = {
-  a_faire: {
-    label: "À faire",
-    color: "var(--text-secondary)",
-    bg: "transparent",
-    border: "1px solid var(--border-subtle)",
-  },
-  en_cours: { label: "En cours", color: "#056cf2", bg: "var(--accent-soft)" },
-  en_revision: { label: "En révision", color: "#589bff", bg: "rgba(88,155,255,0.15)" },
-  terminee: { label: "Terminée", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
+  a_faire: { label: "À faire", color: "#FF6B6B", bg: "rgba(255,107,107,0.16)", border: "1px solid rgba(255,107,107,0.4)" },
+  en_cours: { label: "En cours", color: "#fbbf24", bg: "rgba(251,191,36,0.18)", border: "1px solid rgba(251,191,36,0.4)" },
+  en_revision: { label: "En révision", color: "#7db5ff", bg: "rgba(125,181,255,0.16)", border: "1px solid rgba(125,181,255,0.4)" },
+  terminee: { label: "Terminée", color: "#34d399", bg: "rgba(52,211,153,0.16)", border: "1px solid rgba(52,211,153,0.4)" },
 };
 
 const priorityConfig: Record<TaskPriority, { label: string; color: string; bg: string; border?: string }> = {
-  basse: {
-    label: "Basse",
-    color: "var(--text-secondary)",
-    bg: "transparent",
-    border: "1px solid var(--border-subtle)",
-  },
-  moyenne: { label: "Moyenne", color: "#056cf2", bg: "var(--accent-soft)" },
-  haute: { label: "Haute", color: "#d97706", bg: "rgba(245,158,11,0.15)" },
-  urgente: { label: "Urgente", color: "var(--color-error)", bg: "rgba(239,68,68,0.12)" },
+  basse: { label: "Basse", color: "#e8edf5", bg: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.35)" },
+  moyenne: { label: "Moyenne", color: "#7db5ff", bg: "rgba(125,181,255,0.16)" },
+  haute: { label: "Haute", color: "#fbbf24", bg: "rgba(251,191,36,0.18)" },
+  urgente: { label: "Urgente", color: "#FF6B6B", bg: "rgba(255,107,107,0.16)" },
+};
+
+// Assombrit une couleur trop claire pour rester lisible sur fond blanc
+const readableOnWhite = (hex: string) => {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return 0.299 * r + 0.587 * g + 0.114 * b > 200 ? "#64748b" : hex;
 };
 
 const formatDate = (date: string | null) => {
@@ -377,6 +376,16 @@ export default function TaskDetailPage() {
   const statusBadge = statusConfig[task.status];
   const prio = priorityConfig[task.priority];
 
+  // En-tête : teinte PLUS PROFONDE que le statut (couleur pure, opaque)
+  const STATUS_HEADER_SHADE: Record<string, string> = {
+    a_faire: "#E0463E",
+    en_cours: "#D08C0D",
+    en_revision: "#3F82E8",
+    terminee: "#0FA37A",
+  };
+  const hdrBg = STATUS_HEADER_SHADE[task.status] ?? statusBadge.color;
+  const hdrBorder = "1px solid rgba(255,255,255,0.28)";
+
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
       {/* Lien retour */}
@@ -398,7 +407,11 @@ export default function TaskDetailPage() {
       </motion.div>
 
       {/* En-tête de la tâche */}
-      <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
+      <motion.div
+        variants={item}
+        className="rounded-2xl p-6 overflow-hidden"
+        style={{ background: hdrBg, border: hdrBorder, boxShadow: "var(--shadow-card)" }}
+      >
         <div className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
@@ -409,19 +422,19 @@ export default function TaskDetailPage() {
                 <Flag className="w-6 h-6" style={{ color: prio.color }} />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl font-black break-words" style={{ color: "var(--text-primary)" }}>
+                <h1 className="text-2xl font-black break-words" style={{ color: "#fff" }}>
                   {task.title}
                 </h1>
                 <div className="flex flex-wrap items-center gap-2 mt-1">
                   <span
                     className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
-                    style={{ color: statusBadge.color, background: statusBadge.bg, border: statusBadge.border }}
+                    style={{ color: readableOnWhite(statusBadge.color), background: "#fff", border: `1px solid ${statusBadge.color}` }}
                   >
                     {statusBadge.label}
                   </span>
                   <span
                     className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
-                    style={{ color: prio.color, background: prio.bg, border: prio.border }}
+                    style={{ color: readableOnWhite(prio.color), background: "#fff", border: `1px solid ${prio.color}` }}
                   >
                     Priorité {prio.label.toLowerCase()}
                   </span>
@@ -434,21 +447,21 @@ export default function TaskDetailPage() {
                   <button
                     onClick={openEdit}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5"
-                    style={{ background: "var(--accent-soft)", color: "var(--accent-text)", boxShadow: "0 2px 6px -2px rgba(37,99,235,0.35)" }}
+                    style={{ background: "#fff", color: "var(--accent-text)", boxShadow: "0 2px 6px -2px rgba(37,99,235,0.35)" }}
                   >
                     <Pencil size={13} /> Modifier
                   </button>
                   <button
                     onClick={() => setConfirmingDelete(true)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5"
-                    style={{ background: "rgba(239,68,68,0.10)", color: "var(--color-error)", boxShadow: "0 2px 6px -2px rgba(239,68,68,0.3)" }}
+                    style={{ background: "#fff", color: "var(--color-error)", boxShadow: "0 2px 6px -2px rgba(239,68,68,0.3)" }}
                   >
                     <Trash2 size={13} /> Supprimer
                   </button>
                 </div>
               )}
-              <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-                <CalendarClock className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
+              <div className="flex items-center gap-2 text-xs" style={{ color: "#fff" }}>
+                <CalendarClock className="w-4 h-4" style={{ color: "rgba(255,255,255,0.85)" }} />
                 {formatDate(task.startDate)} → {formatDate(task.dueDate)}
               </div>
             </div>
@@ -456,18 +469,18 @@ export default function TaskDetailPage() {
 
           {/* Description */}
           <div>
-            <h2 className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--text-muted)" }}>
+            <h2 className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "rgba(255,255,255,0.92)" }}>
               Description
             </h2>
-            <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--text-secondary)" }}>
+            <p className="text-sm whitespace-pre-wrap" style={{ color: "#fff" }}>
               {task.description || "Aucune description."}
             </p>
           </div>
 
           {/* Changement de statut */}
           {canChangeStatus && (
-            <div className="flex flex-col gap-2 pt-2 border-t" style={{ borderColor: "var(--border-subtle)" }}>
-              <span className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+            <div className="flex flex-col gap-2 pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.25)" }}>
+              <span className="text-xs font-bold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.92)" }}>
                 Avancement de la tâche
               </span>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -481,7 +494,7 @@ export default function TaskDetailPage() {
                       className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all hover:scale-[1.02]"
                       style={
                         active
-                          ? { color: cfg.color, background: cfg.bg, border: cfg.border ?? `1px solid ${cfg.color}`, boxShadow: "var(--shadow-card)" }
+                          ? { color: readableOnWhite(cfg.color), background: "#fff", border: `1px solid ${cfg.color}`, boxShadow: "var(--shadow-card)" }
                           : { color: "var(--text-secondary)", background: "var(--input-bg)", border: "1px solid var(--input-border)" }
                       }
                     >

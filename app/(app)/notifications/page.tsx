@@ -3,13 +3,12 @@
 import { useMemo, useState } from "react";
 import { motion, type Variants } from "framer-motion";
 import {
-  Bell, UserPlus, Check, X, ListPlus, UserMinus, MessageSquare,
-  Clock, AlertTriangle,
+  Bell, Check, CheckCheck, Eye, Info,
 } from "lucide-react";
+import { useAppData } from "@/lib/appData";
+import { markNotificationRead, markAllNotificationsRead } from "@/lib/services";
+import { isUnread, type AppNotification } from "@/lib/types";
 import { useAuthStore } from "@/app/store/authStore";
-import { useAgencyStore } from "@/app/store/agencyStore";
-import { useNotificationsStore } from "@/app/store/notificationsStore";
-import type { TaskNotification, TaskNotificationType } from "@/app/store/notificationsStore";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -20,117 +19,117 @@ const item: Variants = {
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
 };
 
-const TYPE_META: Record<
-  TaskNotificationType,
-  { label: string; icon: typeof Bell; color: string; bg: string }
-> = {
-  nouvelle_tache: {
-    label: "Nouvelle tâche",
-    icon: ListPlus,
-    color: "#0c79f2",
-    bg: "rgba(12,121,242,0.12)",
-  },
-  retrait_tache: {
-    label: "Retrait d'une tâche",
-    icon: UserMinus,
-    color: "#a06be0",
-    bg: "rgba(160,107,224,0.12)",
-  },
-  commentaire: {
-    label: "Commentaire",
-    icon: MessageSquare,
-    color: "#0d9488",
-    bg: "rgba(13,148,136,0.12)",
-  },
-  echeance_proche: {
-    label: "Échéance proche",
-    icon: Clock,
-    color: "#d97706",
-    bg: "rgba(217,119,6,0.14)",
-  },
-  en_retard: {
-    label: "En retard",
-    icon: AlertTriangle,
-    color: "#ef4444",
-    bg: "rgba(239,68,68,0.12)",
-  },
+const formatDateTime = (iso: string) => {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
-const describe = (n: TaskNotification): string => {
-  switch (n.type) {
-    case "nouvelle_tache":
-      return `Vous avez été ajouté à « ${n.taskTitle} »`;
-    case "retrait_tache":
-      return `Vous avez été retiré de « ${n.taskTitle} »`;
-    case "commentaire":
-      return `Nouveau commentaire sur « ${n.taskTitle} »`;
-    case "echeance_proche":
-      return `« ${n.taskTitle} » arrive à échéance bientôt`;
-    case "en_retard":
-      return `« ${n.taskTitle} » est en retard`;
-  }
-};
+function NotificationDetailModal({
+  notification,
+  onClose,
+  onMarkRead,
+}: {
+  notification: AppNotification | null;
+  onClose: () => void;
+  onMarkRead: (id: number) => void;
+}) {
+  if (!notification) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0"
+        style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+        onClick={onClose}
+      />
+      <div
+        className="relative w-full max-w-lg rounded-2xl p-6 space-y-4"
+        style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)", boxShadow: "var(--shadow-card)" }}
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}>
+            <Info className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--accent-text)" }}>
+              {notification.type}
+            </span>
+            <h2 className="text-lg font-bold leading-tight" style={{ color: "var(--text-primary)" }}>
+              {notification.title}
+            </h2>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+              {formatDateTime(notification.createdAt)}
+            </p>
+          </div>
+        </div>
+
+        {notification.message && (
+          <div
+            className="rounded-xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap"
+            style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)" }}
+          >
+            {notification.message}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {isUnread(notification) && (
+            <button
+              onClick={() => onMarkRead(notification.id)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
+              style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+            >
+              <Check size={14} /> Marquer comme lu
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="ml-auto px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80"
+            style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function NotificationsPage() {
-  const [tab, setTab] = useState<"invitations" | "taches">("invitations");
+  const { data, reload } = useAppData();
   const user = useAuthStore((s) => s.user);
-  const invitations = useNotificationsStore((s) => s.invitations);
-  const taskNotifications = useNotificationsStore((s) => s.taskNotifications);
-  const pending = useMemo(
-    () =>
-      invitations.filter(
-        (i) =>
-          i.toEmail.toLowerCase() === (user?.email ?? "").toLowerCase() &&
-          i.status === "pending",
-      ),
-    [invitations, user?.email],
+
+  const notifications = useMemo(
+    () => [...data.notifications].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [data.notifications],
   );
-  const acceptInvitation = useNotificationsStore((s) => s.acceptInvitation);
-  const declineInvitation = useNotificationsStore((s) => s.declineInvitation);
-  const addMember = useAgencyStore((s) => s.addMember);
-  const agencies = useAgencyStore((s) => s.agencies);
+  const unreadTasks = notifications.filter(isUnread).length;
 
-  const myTasks = useMemo(
-    () =>
-      taskNotifications.filter(
-        (n) =>
-          (n.toEmail ?? "").toLowerCase() ===
-          (user?.email ?? "").toLowerCase(),
-      ),
-    [taskNotifications, user?.email],
-  );
+  const [notifView, setNotifView] = useState<AppNotification | null>(null);
 
-  const handleAccept = (id: string, agencyId: string) => {
-    if (!user) return;
-
-    // ✅ CORRIGÉ : distingue "agence supprimée" de "déjà membre"
-    const agencyStillExists = agencies.some((a) => a.id === agencyId);
-    if (!agencyStillExists) {
-      alert("Cette agence n'existe plus.");
-      declineInvitation(id);
-      return;
-    }
-
-    const agency = agencies.find((a) => a.id === agencyId);
-    const ok = addMember(agencyId, {
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      avatar: user.avatar ?? null,
-      role: agency?.settings?.defaultMemberRole ?? "membre",
-      status: "actif",
-      joinedAt: new Date().toISOString().slice(0, 10),
-      taskCount: 0,
-    });
-    if (ok) {
-      acceptInvitation(id);
-    } else {
-      alert("Vous êtes déjà membre de cette agence.");
-      declineInvitation(id);
+  const handleMarkAll = async () => {
+    try {
+      await markAllNotificationsRead();
+      await reload();
+    } catch {
+      // silencieux
     }
   };
 
-  const handleDecline = (id: string) => declineInvitation(id);
+  const handleMarkRead = async (id: number) => {
+    try {
+      await markNotificationRead(id);
+      await reload();
+    } catch {
+      // silencieux
+    }
+  };
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
@@ -139,132 +138,48 @@ export default function NotificationsPage() {
           <Bell className="w-6 h-6" style={{ color: "#056cf2" }} /> Notifications
         </h1>
         <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
-          {tab === "invitations"
-            ? pending.length > 0
-              ? `${pending.length} invitation(s) en attente`
-              : "Aucune invitation en attente."
-            : myTasks.length > 0
-              ? `${myTasks.length} notification(s) de tâche`
-              : "Aucune notification de tâche."}
+          {notifications.length > 0
+            ? `${notifications.length} notification(s)${unreadTasks > 0 ? ` dont ${unreadTasks} non lue(s)` : ""}`
+            : "Aucune notification."}
         </p>
       </motion.div>
 
-      {/* Onglets */}
-      <motion.div variants={item} className="flex gap-2">
-        <button
-          onClick={() => setTab("invitations")}
-          className="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-          style={
-            tab === "invitations"
-              ? {
-                  background: "var(--chrome-accent-soft)",
-                  color: "var(--chrome-accent-text)",
-                }
-              : {
-                  color: "var(--text-secondary)",
-                  background: "var(--surface)",
-                  border: "1px solid var(--border-subtle)",
-                }
-          }
+      <motion.div variants={item} className="flex flex-wrap items-center gap-2">
+        <span
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold"
+          style={{
+            background: "var(--chrome-accent-soft)",
+            color: "var(--chrome-accent-text)",
+          }}
         >
-          Invitations
-          {pending.length > 0 && (
-            <span className="ml-2 text-[11px] font-black px-1.5 py-0.5 rounded-full text-white" style={{ background: "#056cf2" }}>
-              {pending.length}
+          Toutes
+          {notifications.length > 0 && (
+            <span className="ml-1 text-[11px] font-black px-1.5 py-0.5 rounded-full text-white" style={{ background: "#056cf2" }}>
+              {notifications.length}
             </span>
           )}
-        </button>
-        <button
-          onClick={() => setTab("taches")}
-          className="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-          style={
-            tab === "taches"
-              ? {
-                  background: "var(--chrome-accent-soft)",
-                  color: "var(--chrome-accent-text)",
-                }
-              : {
-                  color: "var(--text-secondary)",
-                  background: "var(--surface)",
-                  border: "1px solid var(--border-subtle)",
-                }
-          }
-        >
-          Tâches
-          {myTasks.filter((n) => !n.read).length > 0 && (
-            <span className="ml-2 text-[11px] font-black px-1.5 py-0.5 rounded-full text-white" style={{ background: "#0c79f2" }}>
-              {myTasks.filter((n) => !n.read).length}
-            </span>
-          )}
-        </button>
+        </span>
+
+        {unreadTasks > 0 && (
+          <button
+            onClick={handleMarkAll}
+            className="ml-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-105 active:scale-95"
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border-subtle)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            <CheckCheck size={14} /> Tout marquer comme lu
+          </button>
+        )}
       </motion.div>
 
-      {tab === "invitations" && (pending.length === 0 ? (
-        <motion.div
-          variants={item}
-          className="flex flex-col items-center justify-center gap-4 min-h-[35vh] text-center"
-        >
-          <div
-            className="w-16 h-16 rounded-full flex items-center justify-center"
-            style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
-          >
-            <UserPlus className="w-7 h-7" style={{ color: "var(--text-muted)" }} />
-          </div>
-          <p style={{ color: "var(--text-secondary)" }}>
-            Aucune invitation pour le moment, {user?.firstName ?? ""}.
-          </p>
-        </motion.div>
-      ) : (
-        <div className="space-y-3">
-          {pending.map((inv) => (
-            <motion.div
-              key={inv.id}
-              variants={item}
-              className="glass rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-4"
-              style={{ boxShadow: "var(--shadow-card)" }}
-            >
-              <div
-                className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: "var(--gradient-primary)" }}
-              >
-                <UserPlus className="w-5 h-5 text-white" />
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold" style={{ color: "var(--text-primary)" }}>
-                  Invitation à rejoindre {inv.agencyName}
-                </div>
-                <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                  Envoyée par {inv.fromEmail || "un administrateur"} le {inv.createdAt}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => handleAccept(inv.id, inv.agencyId)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white transition-transform hover:scale-105"
-                  style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
-                >
-                  <Check size={14} /> Accepter
-                </button>
-                <button
-                  onClick={() => handleDecline(inv.id)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-opacity hover:opacity-80"
-                  style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--color-error)" }}
-                >
-                  <X size={14} /> Refuser
-                </button>
-              </div>
-            </motion.div>
-          ))}
-
-          <motion.p variants={item} className="text-xs px-2" style={{ color: "var(--text-muted)" }}>
-            En acceptant, vous apparaîtrez automatiquement dans l&apos;équipe de cette agence.
-          </motion.p>
-        </div>
-      ))}
-
-      {tab === "taches" && (myTasks.length === 0 ? (
+      {data.loading ? (
+        <motion.p variants={item} className="text-sm text-center py-10" style={{ color: "var(--text-muted)" }}>
+          Chargement des notifications…
+        </motion.p>
+      ) : notifications.length === 0 ? (
         <motion.div
           variants={item}
           className="flex flex-col items-center justify-center gap-4 min-h-[35vh] text-center"
@@ -276,52 +191,86 @@ export default function NotificationsPage() {
             <Bell className="w-7 h-7" style={{ color: "var(--text-muted)" }} />
           </div>
           <p style={{ color: "var(--text-secondary)" }}>
-            {user?.firstName ? `Aucune notification de tâche pour le moment, ${user.firstName}.` : "Aucune notification de tâche."}
+            {user ? `Aucune notification pour le moment, ${user.firstName}.` : "Aucune notification."}
           </p>
         </motion.div>
       ) : (
         <div className="space-y-3">
-          {myTasks.map((n) => {
-            const meta = TYPE_META[n.type];
-            const Icon = meta.icon;
+          {notifications.map((n) => {
+            const unread = isUnread(n);
             return (
               <motion.div
                 key={n.id}
                 variants={item}
                 className="glass rounded-2xl p-5 flex items-start gap-4"
-                style={{ boxShadow: "var(--shadow-card)", opacity: n.read ? 0.72 : 1 }}
+                style={{ boxShadow: "var(--shadow-card)", opacity: unread ? 1 : 0.72 }}
               >
                 <div
                   className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ background: meta.bg, color: meta.color }}
+                  style={{ background: unread ? "var(--accent-soft)" : "var(--surface)", color: "var(--accent-text)" }}
                 >
-                  <Icon className="w-5 h-5" />
+                  <Bell className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: meta.color }}>
-                      {meta.label}
+                    <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--accent-text)" }}>
+                      {n.type || "Notification"}
                     </span>
                     <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                      {n.createdAt}
+                      {formatDateTime(n.createdAt)}
                     </span>
-                    {!n.read && (
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: meta.color }} />
+                    {unread && (
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "#056cf2" }} />
                     )}
                   </div>
-                  <div className={`mt-1 text-sm ${n.read ? "" : "font-semibold"}`} style={{ color: "var(--text-primary)" }}>
-                    {describe(n)}
+                  <div className={`mt-1 text-sm ${unread ? "font-semibold" : ""}`} style={{ color: "var(--text-primary)" }}>
+                    {n.title}
                   </div>
-                  <div className="mt-1 text-xs truncate" style={{ color: "var(--text-muted)" }}>
-                    Projet : {n.projectName}
-                    {n.fromEmail && <span> · par {n.fromEmail}</span>}
+                  {n.message && (
+                    <div className="mt-1 text-xs truncate" style={{ color: "var(--text-muted)" }}>
+                      {n.message}
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setNotifView(n)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-105"
+                      style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+                    >
+                      <Eye size={13} /> Lire le message
+                    </button>
+                    {unread && (
+                      <button
+                        onClick={() => handleMarkRead(n.id)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-105"
+                        style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+                      >
+                        <Check size={13} /> Marquer comme lu
+                      </button>
+                    )}
                   </div>
+                  {!unread && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>
+                      <CheckCheck size={11} /> Lu
+                    </span>
+                  )}
                 </div>
               </motion.div>
             );
           })}
         </div>
-      ))}
+      )}
+
+      <NotificationDetailModal
+        notification={notifView}
+        onClose={() => setNotifView(null)}
+        onMarkRead={(id) => {
+          void handleMarkRead(id);
+          setNotifView((v) => (v && v.id === id ? { ...v, readAt: new Date().toISOString() } : v));
+        }}
+      />
     </motion.div>
   );
 }

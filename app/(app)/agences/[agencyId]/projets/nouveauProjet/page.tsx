@@ -14,7 +14,6 @@ import {
   ImageOff,
   Send,
   ShieldAlert,
-  UserRound,
   Users,
 } from "lucide-react";
 import { useAppData } from "@/lib/appData";
@@ -36,7 +35,7 @@ export default function NouveauProjetPage() {
   const { agencyId } = useParams<{ agencyId: string }>();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const { data, reload, agencyById } = useAppData();
+  const { reload, agencyById } = useAppData();
 
   const agency = agencyById(agencyId);
 

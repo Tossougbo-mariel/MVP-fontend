@@ -12,7 +12,6 @@ import { useAppData } from "@/lib/appData";
 import {
   markNotificationRead,
   markAllNotificationsRead,
-  getApiErrorMessage,
 } from "@/lib/services";
 import { isUnread, type AppNotification } from "@/lib/types";
 

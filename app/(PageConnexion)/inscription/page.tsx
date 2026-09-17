@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import NextImage from "next/image";
 import { motion } from "framer-motion";
@@ -74,6 +74,10 @@ export default function InscriptionPage() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const register = useAuthStore((s) => s.register);
+
+  // ✅ Invitation éventuellement liée au lien de confirmation (création de compte requise)
+  const searchParams = useSearchParams();
+  const invitationId = searchParams.get("invitation") ?? "";
 
   // ====== États recadrage photo ======
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -155,7 +159,10 @@ export default function InscriptionPage() {
     }
 
     // ✅ Succès : rediriger vers la page de connexion (l'utilisateur n'est PAS connecté)
-    router.push("/connexion?inscrit=1");
+    // Si un lien d'invitation est en cours, on le conserve pour finaliser après connexion.
+    router.push(
+      invitationId ? `/connexion?inscrit=1&invitation=${invitationId}` : "/connexion?inscrit=1",
+    );
   };
 
   const inputStyle = {

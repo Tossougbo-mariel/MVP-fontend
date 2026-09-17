@@ -16,7 +16,6 @@ import {
   Save,
   Trash2,
   UserPlus,
-  UserRound,
   Users,
   X,
 } from "lucide-react";
@@ -24,7 +23,6 @@ import { useAppData, useAsync } from "@/lib/appData";
 import { userRoleInAgency, getProjectStatusFromTasks, type ProjectStatus, type ProjectMember } from "@/lib/types";
 import { useAuthStore } from "@/app/store/authStore";
 import {
-  fetchProject,
   fetchProjectMembers,
   updateProject as apiUpdateProject,
   deleteProject as apiDeleteProject,
@@ -71,7 +69,7 @@ export default function ProjectDetailPage() {
   const { agencyId, projectId } = useParams<{ agencyId: string; projectId: string }>();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const { data, reload, agencyById, getProject, tasksByProject } = useAppData();
+  const { reload, agencyById, getProject, tasksByProject } = useAppData();
 
   const agency = agencyById(agencyId);
   const project = getProject(projectId);

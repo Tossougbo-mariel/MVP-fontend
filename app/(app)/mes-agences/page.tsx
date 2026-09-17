@@ -7,6 +7,8 @@ import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
 import { userAgencies, userRoleInAgency } from "@/lib/types";
 import { getApiErrorMessage } from "@/lib/services";
+import { agencyGradientOf, agencyDarkGradientOf } from "@/app/lib/agencyDecor";
+import { useIsDarkMode } from "@/app/lib/useIsDarkMode";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -23,6 +25,7 @@ export default function MesAgencesPage() {
   const user = useAuthStore((s) => s.user);
   const { data } = useAppData();
   const allAgencies = data.agencies;
+  const isDark = useIsDarkMode();
   const agencies = userAgencies(allAgencies, user?.email ?? "");
 
   if (data.loading) {
@@ -95,51 +98,58 @@ export default function MesAgencesPage() {
               variants={item}
               whileHover={{ y: -6 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
-              className="glass relative rounded-3xl p-5 pt-7 flex flex-col gap-4 cursor-pointer overflow-hidden"
+              className="glass relative rounded-3xl p-5 pt-7 cursor-pointer overflow-hidden"
               style={{ boxShadow: "var(--shadow-card)" }}
             >
+              {/* Couleurs de l'agence : mélange de 2 teintes douces selon la 1re lettre du nom */}
+              <span
+                className="absolute inset-0 rounded-3xl pointer-events-none"
+                style={{ backgroundImage: isDark ? agencyDarkGradientOf(a.name) : agencyGradientOf(a.name) }}
+              />
               <div className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl" style={{ background: "var(--gradient-primary)" }} />
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
-                    style={{ background: "var(--gradient-primary)", boxShadow: "0 6px 16px -6px rgba(37,99,235,0.45)" }}
-                  >
-                    <Building2 className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-bold truncate text-lg" style={{ color: "var(--text-primary)" }}>
-                      {a.name}
-                    </div>
-                    <span
-                      className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
-                      style={
-                        role === "membre"
-                          ? {
-                              background: "var(--surface)",
-                              color: "var(--text-secondary)",
-                              border: "1px solid var(--border-subtle)",
-                            }
-                          : {
-                              background: "var(--gradient-button)",
-                              color: "#fff",
-                              boxShadow: "0 4px 10px -5px rgba(37,99,235,0.45)",
-                            }
-                      }
+              <div className="relative flex flex-col gap-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+                      style={{ background: "var(--gradient-primary)", boxShadow: "0 6px 16px -6px rgba(37,99,235,0.45)" }}
                     >
-                      {role === "owner" ? "Propriétaire" : role === "admin" ? "Administrateur" : "Membre"}
-                    </span>
+                      <Building2 className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold truncate text-lg" style={{ color: "var(--text-primary)" }}>
+                        {a.name}
+                      </div>
+                      <span
+                        className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
+                        style={
+                          role === "membre"
+                            ? {
+                                background: "var(--surface)",
+                                color: "var(--text-secondary)",
+                                border: "1px solid var(--border-subtle)",
+                              }
+                            : {
+                                background: "var(--gradient-button)",
+                                color: "#fff",
+                                boxShadow: "0 4px 10px -5px rgba(37,99,235,0.45)",
+                              }
+                        }
+                      >
+                        {role === "owner" ? "Propriétaire" : role === "admin" ? "Administrateur" : "Membre"}
+                      </span>
+                    </div>
                   </div>
+                  <ChevronRight className="w-5 h-5 shrink-0 transition-transform group-hover:translate-x-1" style={{ color: "var(--text-muted)" }} />
                 </div>
-                <ChevronRight className="w-5 h-5 shrink-0 transition-transform group-hover:translate-x-1" style={{ color: "var(--text-muted)" }} />
-              </div>
 
-              <div
-                className="flex items-center justify-between pt-3 text-xs"
-                style={{ borderTop: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}
-              >
-                <span>{(a.members ?? []).length} membre{(a.members ?? []).length > 1 ? "s" : ""}</span>
-                <span>Créée le {a.createdAt}</span>
+                <div
+                  className="flex items-center justify-between pt-3 text-xs"
+                  style={{ borderTop: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}
+                >
+                  <span>{(a.members ?? []).length} membre{(a.members ?? []).length > 1 ? "s" : ""}</span>
+                  <span>Créée le {a.createdAt}</span>
+                </div>
               </div>
             </MotionLink>
             );
