@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Menu, Search, Bell, LogOut, User, ImageIcon } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
-import { useNotificationsStore } from "@/app/store/notificationsStore";
+import { useAppData } from "@/lib/appData";
 import AvatarViewer from "./AvatarViewer";
 
 export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
@@ -13,29 +13,21 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const invitations = useNotificationsStore((s) => s.invitations);
-  const taskNotifications = useNotificationsStore((s) => s.taskNotifications);
-  const pendingCount = useMemo(
-    () =>
-      invitations.filter(
-        (i) =>
-          i.toEmail.toLowerCase() === (user?.email ?? "").toLowerCase() &&
-          i.status === "pending",
-      ).length,
-    [invitations, user?.email],
-  );
-  const taskUnreadCount = useMemo(
-    () =>
-      taskNotifications.filter(
-        (n) =>
-          (n.toEmail ?? "").toLowerCase() ===
-            (user?.email ?? "").toLowerCase() && !n.read,
-      ).length,
-    [taskNotifications, user?.email],
-  );
-  const notificationCount = pendingCount + taskUnreadCount;
+  const { unreadCount: notificationCount, getTask } = useAppData();
   const last = pathname.split("/").filter(Boolean).at(-1);
   const title = last ? last.replace(/-/g, " ") : "Accueil";
+
+  // ✅ Si on consulte le détail d'une tâche, on affiche son titre réel
+  // dans le header (et non l'id présent dans l'URL).
+  const taskMatch = pathname.match(/\/taches\/([^/]+)$/);
+  const headerTitle =
+    taskMatch && getTask(taskMatch[1]) ? getTask(taskMatch[1])!.title : title;
+
+  // ✅ Contexte d'agence active pour le lien "Mon profil" : le badge de rôle
+  // sur la page profil dépend de l'agence dans laquelle on navigue.
+  const agencyMatch = pathname.match(/^\/agences\/([^/]+)/);
+  const contextAgencyId = agencyMatch ? agencyMatch[1] : null;
+  const profileHref = contextAgencyId ? `/profil?agency=${contextAgencyId}` : "/profil";
 
   const [open, setOpen] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -74,7 +66,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
       </button>
 
       <h1 className="text-lg font-semibold capitalize" style={{ color: "var(--chrome-text)" }}>
-        {title}
+        {headerTitle}
       </h1>
 
       <div className="ml-auto flex items-center gap-2">
@@ -167,7 +159,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
               )}
 
               <Link
-                href="/profil"
+                href={profileHref}
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--chrome-hover)]"
                 style={{ color: "var(--chrome-text)" }}

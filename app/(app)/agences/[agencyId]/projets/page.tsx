@@ -13,10 +13,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useAgencyStore, userRoleInAgency, type ProjectStatus } from "@/app/store/agencyStore";
+import { useAppData } from "@/lib/appData";
+import { userRoleInAgency, getProjectStatusFromTasks, getProjectProgress, memberDisplayName, memberInitials, type ProjectStatus } from "@/lib/types";
 import { useAuthStore } from "@/app/store/authStore";
-import { useProjectStore, getProjectsByAgency } from "@/app/store/projectStore";
-import { useTaskStore, getTasksByProject, getProjectStatusFromTasks } from "@/app/store/taskStore";
 import { getWallpaperBg } from "@/app/store/wallpapers";
 
 const container: Variants = {
@@ -55,18 +54,15 @@ const formatDate = (date: string | null) => {
 export default function ProjetsPage() {
   const { agencyId } = useParams<{ agencyId: string }>();
   const user = useAuthStore((s) => s.user);
-  const agency = useAgencyStore((s) => s.agencies.find((a) => a.id === agencyId));
+  const { data, reload, agencyById, projectsByAgency, tasksByProject } = useAppData();
+
+  const agency = agencyById(agencyId);
 
   const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
-  const isAdmin = role === "admin";
+  const isAdmin = role === "owner" || role === "admin";
 
-  const projects = useProjectStore((s) => s.projects);
-  const tasks = useTaskStore((s) => s.tasks);
+  const visibleProjects = agency ? projectsByAgency(agencyId) : [];
 
-  const visibleProjects =
-    user && agency ? getProjectsByAgency(projects, agencyId, user.email, role) : [];
-
-  // ✅ Si l'agence n'existe pas
   if (!agency) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -84,8 +80,7 @@ export default function ProjetsPage() {
     );
   }
 
-  // ✅ Si l'utilisateur n'est pas membre de l'agence
-  if (!user || !agency.members?.some((m) => m.email.toLowerCase() === user.email.toLowerCase())) {
+  if (!user || !agency.members?.some((m) => m.user.email.toLowerCase() === user.email.toLowerCase())) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
@@ -98,6 +93,25 @@ export default function ProjetsPage() {
         >
           <ArrowLeft size={16} /> Retour à Mes agences
         </Link>
+      </div>
+    );
+  }
+
+  if (data.loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Chargement des projets…</p>
+      </div>
+    );
+  }
+
+  if (data.error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <p className="text-sm font-semibold" style={{ color: "var(--color-error)" }}>{data.error}</p>
+        <button onClick={() => reload()} className="text-sm font-semibold underline" style={{ color: "var(--text-secondary)" }}>
+          Réessayer
+        </button>
       </div>
     );
   }
@@ -159,15 +173,15 @@ export default function ProjetsPage() {
       {visibleProjects.length > 0 && (
         <motion.div variants={item} className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {visibleProjects.map((p) => {
-            const projectTasks = getTasksByProject(tasks, p.id);
+            const projectTasks = tasksByProject(p.id);
             const totalTasks = projectTasks.length;
-            const doneTasks = projectTasks.filter((t) => t.status === "terminee").length;
-            const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+            const progress =
+              typeof p.progress === "number" ? p.progress : getProjectProgress(projectTasks);
 
             const projectStatus = getProjectStatusFromTasks(p.status, projectTasks);
             const startBadge = statusConfig[projectStatus];
             const owner = agency.members?.find(
-              (m) => m.email.toLowerCase() === p.ownerId.toLowerCase()
+              (m) => m.user.id === p.ownerId
             );
             const wallpaperSrc = getWallpaperBg(p.wallpaper);
 
@@ -228,7 +242,7 @@ export default function ProjetsPage() {
                         style={{
                           width: `${progress}%`,
                           background:
-                            progress < 30
+                            progress < 25
                               ? "var(--color-error)"
                               : progress < 50
                               ? "#f59e0b"
@@ -254,13 +268,13 @@ export default function ProjetsPage() {
                   <div className="relative flex items-center justify-between gap-2 pt-3 border-t" style={{ borderColor: "var(--border-subtle)" }}>
                     <div className="pointer-events-none flex items-center gap-2 min-w-0">
                       <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 uppercase"
                         style={{ background: "var(--gradient-primary)" }}
                       >
-                        {owner ? `${owner.firstName.charAt(0)}${owner.lastName.charAt(0)}` : <UserRound className="w-3.5 h-3.5" />}
+                        {owner ? memberInitials(owner) : <UserRound className="w-3.5 h-3.5" />}
                       </div>
                       <span className="text-xs font-medium truncate" style={{ color: "var(--text-secondary)" }}>
-                        {owner ? `${owner.firstName} ${owner.lastName}` : p.ownerId}
+                        {owner ? memberDisplayName(owner) : p.ownerId ? `Utilisateur #${p.ownerId}` : "Responsable inconnu"}
                       </span>
                     </div>
                     {isAdmin && (

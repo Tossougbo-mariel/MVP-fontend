@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
@@ -22,12 +22,28 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useAgencyStore, userRoleInAgency, type TaskPriority, type TaskStatus } from "@/app/store/agencyStore";
+import { useAppData, useAsync } from "@/lib/appData";
+import {
+  userRoleInAgency,
+  getHistoryByTask,
+  ACTIVITY_LABELS,
+  type TaskPriority,
+  type TaskStatus,
+  type ProjectMember,
+} from "@/lib/types";
 import { useAuthStore } from "@/app/store/authStore";
-import { useProjectStore, getProjectById } from "@/app/store/projectStore";
-import { useTaskStore } from "@/app/store/taskStore";
-import { useCommentStore, getCommentsByTask } from "@/app/store/commentStore";
-import { useHistoryStore, getHistoryByTask, type TaskHistoryType } from "@/app/store/historyStore";
+import {
+  fetchTask,
+  fetchProjectMembers,
+  fetchComments,
+  addComment as apiAddComment,
+  deleteComment as apiDeleteComment,
+  fetchActivity,
+  updateTask as apiUpdateTask,
+  updateTaskStatus as apiUpdateTaskStatus,
+  deleteTask as apiDeleteTask,
+  getApiErrorMessage,
+} from "@/lib/services";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -69,13 +85,13 @@ const formatDate = (date: string | null) => {
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 };
 
-const historyConfig: Record<TaskHistoryType, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  creation: { label: "Création", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CalendarPlus },
-  statut: { label: "Statut", color: "#056cf2", bg: "var(--accent-soft)", icon: Flag },
-  responsable: { label: "Responsable", color: "#7c3aed", bg: "rgba(139,92,246,0.12)", icon: UserRound },
-  priorite: { label: "Priorité", color: "#d97706", bg: "rgba(245,158,11,0.15)", icon: Flag },
-  echeance: { label: "Échéance", color: "#db2777", bg: "rgba(219,39,119,0.12)", icon: CalendarClock },
-  terminee: { label: "Terminée", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CheckCircle2 },
+const historyConfig: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
+  creation: { label: ACTIVITY_LABELS["creation"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CalendarPlus },
+  changement_statut: { label: ACTIVITY_LABELS["changement_statut"], color: "#056cf2", bg: "var(--accent-soft)", icon: Flag },
+  changement_responsable: { label: ACTIVITY_LABELS["changement_responsable"], color: "#7c3aed", bg: "rgba(139,92,246,0.12)", icon: UserRound },
+  changement_priorite: { label: ACTIVITY_LABELS["changement_priorite"], color: "#d97706", bg: "rgba(245,158,11,0.15)", icon: Flag },
+  changement_echeance: { label: ACTIVITY_LABELS["changement_echeance"], color: "#db2777", bg: "rgba(219,39,119,0.12)", icon: CalendarClock },
+  commentaire: { label: ACTIVITY_LABELS["commentaire"], color: "var(--accent-text)", bg: "var(--accent-soft)", icon: MessageSquare },
 };
 
 const formatDateTime = (iso: string) =>
@@ -91,21 +107,23 @@ export default function TaskDetailPage() {
   const { agencyId, projectId, taskId } = useParams<{ agencyId: string; projectId: string; taskId: string }>();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const agency = useAgencyStore((s) => s.agencies.find((a) => a.id === agencyId));
-  const project = useProjectStore((s) => getProjectById(s.projects, projectId));
-  const tasks = useTaskStore((s) => s.tasks);
-  const updateTask = useTaskStore((s) => s.updateTask);
-  const updateTaskStatus = useTaskStore((s) => s.updateTaskStatus);
-  const deleteTask = useTaskStore((s) => s.deleteTask);
-  const comments = getCommentsByTask(useCommentStore((s) => s.comments), taskId ?? "");
-  const history = getHistoryByTask(useHistoryStore((s) => s.history), taskId ?? "");
-  const addComment = useCommentStore((s) => s.addComment);
-  const deleteComment = useCommentStore((s) => s.deleteComment);
-  const deleteCommentsByTask = useCommentStore((s) => s.deleteCommentsByTask);
+  const { reload, agencyById, getProject } = useAppData();
 
-  const task = tasks.find((t) => t.id === taskId);
+  const agency = agencyById(agencyId);
+  const project = getProject(projectId);
+
   const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
-  const isAdmin = role === "admin";
+  const isAdmin = role === "owner" || role === "admin";
+
+  // Données via API
+  const taskResult = useAsync(() => fetchTask(taskId), [taskId]);
+  const task = taskResult.data;
+  const membersResult = useAsync(() => fetchProjectMembers(projectId), [projectId]);
+  const projectMembers: ProjectMember[] = membersResult.data ?? [];
+  const commentsResult = useAsync(() => fetchComments(taskId), [taskId]);
+  const comments = commentsResult.data ?? [];
+  const historyResult = useAsync(() => fetchActivity({ taskId }), [taskId]);
+  const history = getHistoryByTask(historyResult.data ?? [], taskId);
 
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -123,23 +141,28 @@ export default function TaskDetailPage() {
   const [editStartDate, setEditStartDate] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  useEffect(() => {
+    document.title = task ? `${task.title} — Détail de la tâche` : "Détail de la tâche";
+  }, [task]);
 
   const openEdit = () => {
     if (!task) return;
     setEditTitle(task.title);
-    setEditDescription(task.description);
+    setEditDescription(task.description ?? "");
     setEditPriority(task.priority);
-    setEditAssignee(task.assignedTo ?? "");
+    setEditAssignee(task.assignedTo !== null ? String(task.assignedTo) : "");
     setEditStartDate(task.startDate ?? "");
     setEditDueDate(task.dueDate ?? "");
     setEditError(null);
     setEditing(true);
   };
 
-  const handleEditSubmit = (e: React.FormEvent) => {
+  const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setEditError(null);
-    if (!task) return;
+    if (!task || !project) return;
 
     if (!editTitle.trim()) {
       setEditError("Le titre de la tâche est obligatoire.");
@@ -157,26 +180,64 @@ export default function TaskDetailPage() {
       setEditError("La date d'échéance doit être postérieure ou égale à la date de début.");
       return;
     }
+    if (editStartDate && project.startDate && editStartDate < project.startDate) {
+      setEditError(`La date de début doit être postérieure ou égale au début du projet (${project.startDate}).`);
+      return;
+    }
+    if (editDueDate && project.dueDate && editDueDate > project.dueDate) {
+      setEditError(`La date d'échéance doit être antérieure ou égale à l'échéance du projet (${project.dueDate}).`);
+      return;
+    }
 
-    updateTask(task.id, {
-      title: editTitle.trim(),
-      description: editDescription.trim(),
-      priority: editPriority,
-      assignedTo: editAssignee || null,
-      startDate: editStartDate,
-      dueDate: editDueDate,
-    });
-    setEditing(false);
+    setActionLoading(true);
+    try {
+      await apiUpdateTask(task.id, {
+        title: editTitle.trim(),
+        description: editDescription.trim() || null,
+        priority: editPriority,
+        assigned_to: editAssignee ? Number(editAssignee) : null,
+        start_date: editStartDate || null,
+        due_date: editDueDate || null,
+      });
+      taskResult.reload();
+      historyResult.reload();
+      void reload();
+      setEditing(false);
+    } catch (err) {
+      setEditError(getApiErrorMessage(err));
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!task) return;
-    deleteCommentsByTask(task.id);
-    deleteTask(task.id);
-    router.push(`/agences/${agencyId}/projets/${projectId}/kanban`);
+    setActionLoading(true);
+    try {
+      await apiDeleteTask(task.id);
+      void reload();
+      router.push(`/agences/${agencyId}/projets/${projectId}/kanban`);
+    } catch (err) {
+      setConfirmingDelete(false);
+      alert(getApiErrorMessage(err));
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleCommentSubmit = (e: React.FormEvent) => {
+  const handleStatusChange = async (status: TaskStatus) => {
+    if (!task) return;
+    try {
+      await apiUpdateTaskStatus(task.id, status);
+      taskResult.reload();
+      historyResult.reload();
+      void reload();
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    }
+  };
+
+  const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setCommentError(null);
     if (!user || !task) return;
@@ -184,17 +245,25 @@ export default function TaskDetailPage() {
       setCommentError("Le commentaire ne peut pas être vide.");
       return;
     }
-    addComment({
-      taskId: task.id,
-      authorEmail: user.email,
-      content: commentContent,
-    });
-    setCommentContent("");
-    setCommentOpen(false);
+    try {
+      await apiAddComment(task.id, commentContent.trim());
+      setCommentContent("");
+      setCommentOpen(false);
+      commentsResult.reload();
+      historyResult.reload();
+    } catch (err) {
+      setCommentError(getApiErrorMessage(err));
+    }
   };
 
-  const handleCommentDelete = (commentId: string) => {
-    deleteComment(commentId);
+  const handleCommentDelete = async (commentId: number) => {
+    if (!task) return;
+    try {
+      await apiDeleteComment(commentId);
+      commentsResult.reload();
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    }
   };
 
   // ✅ Si l'agence n'existe pas
@@ -216,7 +285,7 @@ export default function TaskDetailPage() {
   }
 
   // ✅ Si l'utilisateur n'est pas membre de l'agence
-  const isAgencyMember = user && agency.members?.some((m) => m.email.toLowerCase() === user.email.toLowerCase());
+  const isAgencyMember = user && agency.members?.some((m) => m.user.email.toLowerCase() === user.email.toLowerCase());
   if (!user || !isAgencyMember) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -254,7 +323,7 @@ export default function TaskDetailPage() {
 
   // ✅ Accès : admin toujours, membre uniquement s'il est assigné au projet
   const hasProjectAccess =
-    isAdmin || project.memberIds.some((id) => id.toLowerCase() === user.email.toLowerCase());
+    isAdmin || projectMembers.some((pm) => pm.user.id === user.id);
 
   if (!hasProjectAccess) {
     return (
@@ -276,12 +345,12 @@ export default function TaskDetailPage() {
     );
   }
 
-  // ✅ Si la tâche n'existe pas
+  // ✅ Si la tâche n'existe pas (ou en cours de chargement)
   if (!task) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Tâche introuvable
+          {taskResult.loading ? "Chargement de la tâche…" : "Tâche introuvable"}
         </p>
         <Link
           href={`/agences/${agencyId}/projets/${projectId}/kanban`}
@@ -294,16 +363,15 @@ export default function TaskDetailPage() {
     );
   }
 
-  const projectMembers = agency.members.filter((m) =>
-    project.memberIds.some((id) => id.toLowerCase() === m.email.toLowerCase())
-  );
+  const memberByEmail = (email: string | null) =>
+    agency.members.find((m) => m.user.email.toLowerCase() === (email ?? "").toLowerCase());
 
-  const memberOf = (email: string | null) =>
-    agency.members.find((m) => m.email.toLowerCase() === (email ?? "").toLowerCase());
+  const memberById = (userId: number | null) =>
+    projectMembers.find((pm) => pm.user.id === userId);
 
-  const assignee = memberOf(task.assignedTo);
-  const creator = memberOf(task.createdBy);
-  const isAssigned = task.assignedTo !== null && task.assignedTo.toLowerCase() === user.email.toLowerCase();
+  const assignee = memberById(task.assignedTo);
+  const creator = memberById(task.createdBy);
+  const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
   const canChangeStatus = isAdmin || isAssigned;
 
   const statusBadge = statusConfig[task.status];
@@ -409,7 +477,7 @@ export default function TaskDetailPage() {
                   return (
                     <button
                       key={s}
-                      onClick={() => updateTaskStatus(task.id, s)}
+                      onClick={() => handleStatusChange(s)}
                       className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all hover:scale-[1.02]"
                       style={
                         active
@@ -443,18 +511,18 @@ export default function TaskDetailPage() {
                 className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
                 style={{ background: "var(--gradient-primary)" }}
               >
-                {assignee.avatar ? (
-                  <div className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url(${assignee.avatar})` }} />
+                {assignee.user.avatar ? (
+                  <div className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url(${assignee.user.avatar})` }} />
                 ) : (
-                  `${assignee.firstName.charAt(0)}${assignee.lastName.charAt(0)}`
+                  `${assignee.user.firstName.charAt(0)}${assignee.user.lastName.charAt(0)}`
                 )}
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>
-                  {assignee.firstName} {assignee.lastName}
+                  {assignee.user.firstName} {assignee.user.lastName}
                 </p>
                 <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
-                  {assignee.email}
+                  {assignee.user.email}
                 </p>
               </div>
             </div>
@@ -475,15 +543,15 @@ export default function TaskDetailPage() {
               className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
               style={{ background: "var(--gradient-primary)" }}
             >
-              {creator?.avatar ? (
-                <div className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url(${creator.avatar})` }} />
+              {creator?.user.avatar ? (
+                <div className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url(${creator.user.avatar})` }} />
               ) : (
-                creator ? `${creator.firstName.charAt(0)}${creator.lastName.charAt(0)}` : "?"
+                creator ? `${creator.user.firstName.charAt(0)}${creator.user.lastName.charAt(0)}` : "?"
               )}
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>
-                {creator ? `${creator.firstName} ${creator.lastName}` : task.createdBy}
+                {creator ? `${creator.user.firstName} ${creator.user.lastName}` : task.creatorName ?? "—"}
               </p>
               <p className="text-xs truncate flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
                 <Calendar size={12} /> {formatDate(task.createdAt)}
@@ -507,14 +575,18 @@ export default function TaskDetailPage() {
           </h2>
 
           {/* Liste des commentaires */}
-          {comments.length === 0 ? (
+          {commentsResult.loading ? (
+            <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
+              Chargement des commentaires…
+            </p>
+          ) : comments.length === 0 ? (
             <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
               Aucun commentaire pour cette tâche.
             </p>
           ) : (
             <div className="flex flex-col gap-3">
               {comments.map((c) => {
-                const author = memberOf(c.authorEmail);
+                const author = memberByEmail(c.authorEmail) ?? projectMembers.find((pm) => pm.user.email.toLowerCase() === c.authorEmail.toLowerCase());
                 const isOwn = c.authorEmail.toLowerCase() === user.email.toLowerCase();
                 const dateStr = new Date(c.createdAt).toLocaleString("fr-FR", {
                   day: "numeric",
@@ -533,16 +605,16 @@ export default function TaskDetailPage() {
                       className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
                       style={{ background: "var(--gradient-primary)" }}
                     >
-                      {author?.avatar ? (
-                        <div className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url(${author.avatar})` }} />
+                      {author?.user.avatar ? (
+                        <div className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url(${author.user.avatar})` }} />
                       ) : (
-                        author ? `${author.firstName.charAt(0)}${author.lastName.charAt(0)}` : "?"
+                        author ? `${author.user.firstName.charAt(0)}${author.user.lastName.charAt(0)}` : "?"
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>
-                          {author ? `${author.firstName} ${author.lastName}` : c.authorEmail}
+                          {author ? `${author.user.firstName} ${author.user.lastName}` : c.authorName ?? c.authorEmail}
                         </span>
                         <div className="flex items-center gap-2 shrink-0">
                           <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
@@ -637,16 +709,25 @@ export default function TaskDetailPage() {
             Historique
           </h2>
 
-          {history.length === 0 ? (
+          {historyResult.loading ? (
+            <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
+              Chargement de l&apos;historique…
+            </p>
+          ) : history.length === 0 ? (
             <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
               Aucune action enregistrée pour cette tâche.
             </p>
           ) : (
             <div className="flex flex-col">
               {history.map((h, idx) => {
-                const cfg = historyConfig[h.type];
+                const cfg = historyConfig[h.action] ?? {
+                  label: h.action,
+                  color: "var(--text-secondary)",
+                  bg: "var(--hover-soft)",
+                  icon: History,
+                };
                 const Icon = cfg.icon;
-                const actor = memberOf(h.actorEmail);
+                const actor = memberByEmail(h.actorEmail);
                 const isLast = idx === history.length - 1;
                 return (
                   <div key={h.id} className="flex gap-3">
@@ -677,7 +758,7 @@ export default function TaskDetailPage() {
                         </span>
                       </div>
                       <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                        {actor ? `${actor.firstName} ${actor.lastName}` : h.actorEmail} · {formatDateTime(h.createdAt)}
+                        {actor ? `${actor.user.firstName} ${actor.user.lastName}` : h.actorName ?? h.actorEmail} · {formatDateTime(h.createdAt)}
                       </p>
                     </div>
                   </div>
@@ -746,6 +827,8 @@ export default function TaskDetailPage() {
                 </label>
                 <input
                   type="date"
+                  min={project.startDate || undefined}
+                  max={project.dueDate || undefined}
                   value={editStartDate}
                   onChange={(e) => setEditStartDate(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
@@ -758,7 +841,8 @@ export default function TaskDetailPage() {
                 </label>
                 <input
                   type="date"
-                  min={editStartDate || undefined}
+                  min={editStartDate || project.startDate || undefined}
+                  max={project.dueDate || undefined}
                   value={editDueDate}
                   onChange={(e) => setEditDueDate(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
@@ -796,9 +880,9 @@ export default function TaskDetailPage() {
                   style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 >
                   <option value="">Non assignée</option>
-                  {projectMembers.map((m) => (
-                    <option key={m.email} value={m.email}>
-                      {m.firstName} {m.lastName}
+                  {projectMembers.map((pm) => (
+                    <option key={pm.user.id} value={pm.user.id}>
+                      {pm.user.firstName} {pm.user.lastName}
                     </option>
                   ))}
                 </select>
@@ -822,10 +906,11 @@ export default function TaskDetailPage() {
               </button>
               <button
                 type="submit"
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
+                disabled={actionLoading}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
                 style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
               >
-                <Save size={16} /> Enregistrer
+                <Save size={16} /> {actionLoading ? "Enregistrement…" : "Enregistrer"}
               </button>
             </div>
           </motion.form>
@@ -873,10 +958,11 @@ export default function TaskDetailPage() {
               </button>
               <button
                 onClick={handleDelete}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
+                disabled={actionLoading}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
                 style={{ background: "var(--color-error)" }}
               >
-                <Trash2 size={15} /> Supprimer
+                <Trash2 size={15} /> {actionLoading ? "Suppression…" : "Supprimer"}
               </button>
             </div>
           </motion.div>

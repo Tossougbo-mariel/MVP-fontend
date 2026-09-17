@@ -129,7 +129,7 @@ export default function InscriptionPage() {
   };
 
   // ✅ CORRIGÉ : pas de connexion auto — l'utilisateur retourne sur la page de connexion
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -137,23 +137,23 @@ export default function InscriptionPage() {
       setError("Les mots de passe ne correspondent pas.");
       return;
     }
-    if (password.length < 6) {
-      setError("Le mot de passe doit contenir au moins 6 caractères.");
+    if (password.length < 8) {
+      setError("Le mot de passe doit contenir au moins 8 caractères.");
       return;
     }
 
     setLoading(true);
-    
-    // ✅ Appeler register avec le password et vérifier le résultat
-    const result = register({ firstName, lastName, email, password, avatar });
-    
-    // Si result n'est pas true, c'est un message d'erreur
-    if (result !== true) {
-      setError(result as string);
+
+    // ✅ Appeler register (asynchrone, branché sur l'API backend)
+    const result = await register({ firstName, lastName, email, password, avatar });
+
+    // Si result n'est pas ok, c'est un message d'erreur
+    if (!result.ok) {
+      setError(result.error);
       setLoading(false);
       return;
     }
-    
+
     // ✅ Succès : rediriger vers la page de connexion (l'utilisateur n'est PAS connecté)
     router.push("/connexion?inscrit=1");
   };

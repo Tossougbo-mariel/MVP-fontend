@@ -20,11 +20,18 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useAgencyStore, userRoleInAgency, type ProjectStatus } from "@/app/store/agencyStore";
+import { useAppData, useAsync } from "@/lib/appData";
+import { userRoleInAgency, getProjectStatusFromTasks, type ProjectStatus, type ProjectMember } from "@/lib/types";
 import { useAuthStore } from "@/app/store/authStore";
-import { useProjectStore, getProjectById } from "@/app/store/projectStore";
-import { useTaskStore, getTasksByProject, getProjectStatusFromTasks } from "@/app/store/taskStore";
-import { useCommentStore } from "@/app/store/commentStore";
+import {
+  fetchProject,
+  fetchProjectMembers,
+  updateProject as apiUpdateProject,
+  deleteProject as apiDeleteProject,
+  addProjectMember as apiAddProjectMember,
+  removeProjectMember as apiRemoveProjectMember,
+  getApiErrorMessage,
+} from "@/lib/services";
 import { WALLPAPERS } from "@/app/store/wallpapers";
 
 const container: Variants = {
@@ -64,46 +71,46 @@ export default function ProjectDetailPage() {
   const { agencyId, projectId } = useParams<{ agencyId: string; projectId: string }>();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const agency = useAgencyStore((s) => s.agencies.find((a) => a.id === agencyId));
-  const projects = useProjectStore((s) => s.projects);
-  const addProjectMember = useProjectStore((s) => s.addProjectMember);
-  const removeProjectMember = useProjectStore((s) => s.removeProjectMember);
-  const updateProject = useProjectStore((s) => s.updateProject);
-  const deleteProject = useProjectStore((s) => s.deleteProject);
-  const tasks = useTaskStore((s) => s.tasks);
-  const deleteTasksByProject = useTaskStore((s) => s.deleteTasksByProject);
-  const deleteCommentsByProject = useCommentStore((s) => s.deleteCommentsByProject);
+  const { data, reload, agencyById, getProject, tasksByProject } = useAppData();
+
+  const agency = agencyById(agencyId);
+  const project = getProject(projectId);
 
   const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
-  const isAdmin = role === "admin";
-  const project = getProjectById(projects, projectId);
+  const isAdmin = role === "owner" || role === "admin";
+
+  // Members du projet via API
+  const membersResult = useAsync(() => fetchProjectMembers(projectId), [projectId]);
+  const projectMembers: ProjectMember[] = membersResult.data ?? [];
 
   const [adding, setAdding] = useState(false);
+  const [selectedToAdd, setSelectedToAdd] = useState<number[]>([]);
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   // ====== État du formulaire d'édition ======
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editStartDate, setEditStartDate] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
-  const [editOwnerId, setEditOwnerId] = useState("");
+  const [editStatus, setEditStatus] = useState<ProjectStatus>("a_venir");
   const [editWallpaper, setEditWallpaper] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
 
   const openEdit = () => {
     if (!project) return;
     setEditName(project.name);
-    setEditDescription(project.description);
+    setEditDescription(project.description ?? "");
     setEditStartDate(project.startDate ?? "");
     setEditDueDate(project.dueDate ?? "");
-    setEditOwnerId(project.ownerId);
+    setEditStatus(project.status);
     setEditWallpaper(project.wallpaper ?? null);
     setEditError(null);
     setEditing(true);
   };
 
-  const handleEditSubmit = (e: React.FormEvent) => {
+  const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setEditError(null);
     if (!project) return;
@@ -118,24 +125,74 @@ export default function ProjectDetailPage() {
       return;
     }
 
-    updateProject(project.id, {
-      name: editName.trim(),
-      description: editDescription.trim(),
-      startDate: editStartDate || null,
-      dueDate: editDueDate || null,
-      ownerId: editOwnerId,
-      wallpaper: editWallpaper,
-    });
-    setEditing(false);
+    setActionLoading(true);
+    try {
+      await apiUpdateProject(project.id, {
+        name: editName.trim(),
+        description: editDescription.trim() || null,
+        status: editStatus,
+        start_date: editStartDate || null,
+        due_date: editDueDate || null,
+        wallpaper: editWallpaper,
+      });
+      await reload();
+      setEditing(false);
+    } catch (err) {
+      setEditError(getApiErrorMessage(err));
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!project) return;
-    const projectTaskIds = tasks.filter((t) => t.projectId === project.id).map((t) => t.id);
-    deleteTasksByProject(project.id);
-    deleteCommentsByProject(projectTaskIds);
-    deleteProject(project.id);
-    router.push(`/agences/${agencyId}/projets`);
+    setActionLoading(true);
+    try {
+      await apiDeleteProject(project.id);
+      await reload();
+      router.push(`/agences/${agencyId}/projets`);
+    } catch (err) {
+      setConfirmingDelete(false);
+      alert(getApiErrorMessage(err));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const toggleSelectToAdd = (userId: number) => {
+    setSelectedToAdd((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const handleAddSelected = async () => {
+    if (!project || selectedToAdd.length === 0) return;
+    setActionLoading(true);
+    try {
+      const emails = addableMembers
+        .filter((m) => selectedToAdd.includes(m.user.id))
+        .map((m) => m.user.email);
+      for (const email of emails) {
+        await apiAddProjectMember(project.id, email);
+      }
+      setSelectedToAdd([]);
+      setAdding(false);
+      membersResult.reload();
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRemoveMember = async (projectMemberId: number) => {
+    if (!project) return;
+    try {
+      await apiRemoveProjectMember(project.id, projectMemberId);
+      membersResult.reload();
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    }
   };
 
   // ✅ Si l'agence n'existe pas
@@ -157,7 +214,7 @@ export default function ProjectDetailPage() {
   }
 
   // ✅ Si l'utilisateur n'est pas membre de l'agence
-  const isAgencyMember = user && agency.members?.some((m) => m.email.toLowerCase() === user.email.toLowerCase());
+  const isAgencyMember = user && agency.members?.some((m) => m.user.email.toLowerCase() === user.email.toLowerCase());
   if (!user || !isAgencyMember) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -193,12 +250,8 @@ export default function ProjectDetailPage() {
     );
   }
 
-  // ✅ Le détail du projet est réservé à l'admin de l'agence : c'est là
-  // que se font toutes les actions (modifier, supprimer, ajouter / retirer
-  // des membres, etc.). Les membres n'accèdent pas à cette page.
-  const hasProjectAccess = isAdmin;
-
-  if (!hasProjectAccess) {
+  // ✅ Le détail du projet est réservé à l'admin de l'agence
+  if (!isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
@@ -218,15 +271,14 @@ export default function ProjectDetailPage() {
     );
   }
 
-  const badge = statusConfig[getProjectStatusFromTasks(project.status, getTasksByProject(tasks, project.id))];
-  const projectMembers = agency.members.filter((m) =>
-    project.memberIds.some((id) => id.toLowerCase() === m.email.toLowerCase())
+  const projectTasks = tasksByProject(project.id);
+  const badge = statusConfig[getProjectStatusFromTasks(project.status, projectTasks)];
+
+  // Membres de l'agence pas encore dans le projet (pour l'ajout)
+  const addableMembers = (agency.members ?? []).filter(
+    (am) => !projectMembers.some((pm) => pm.user.id === am.user.id)
   );
-  const addableMembers = agency.members.filter(
-    (m) => !project.memberIds.some((id) => id.toLowerCase() === m.email.toLowerCase())
-  );
-  const canManageMembers =
-    isAdmin || user.email.toLowerCase() === project.ownerId.toLowerCase();
+  const canManageMembers = isAdmin;
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
@@ -321,48 +373,80 @@ export default function ProjectDetailPage() {
             className="overflow-hidden mb-4"
           >
             <div className="rounded-xl p-4 space-y-2" style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                  Choisissez les membres de l&apos;agence à ajouter :
+                </span>
+                <button
+                  onClick={handleAddSelected}
+                  disabled={actionLoading || selectedToAdd.length === 0}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold text-white transition-transform hover:scale-105 disabled:opacity-50 shrink-0"
+                  style={{ background: "var(--gradient-button)" }}
+                >
+                  <UserPlus size={13} />
+                  {actionLoading ? "Ajout…" : `Ajouter (${selectedToAdd.length})`}
+                </button>
+              </div>
               {addableMembers.length === 0 ? (
                 <p className="text-sm py-2 text-center" style={{ color: "var(--text-muted)" }}>
                   Tous les membres de l&apos;agence sont déjà dans ce projet.
                 </p>
               ) : (
-                addableMembers.map((m) => (
-                  <button
-                    key={m.email}
-                    onClick={() => addProjectMember(project.id, m.email)}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    <div
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
-                      style={{ background: "var(--gradient-primary)" }}
+                addableMembers.map((m) => {
+                  const checked = selectedToAdd.includes(m.user.id);
+                  return (
+                    <button
+                      key={m.user.id}
+                      onClick={() => toggleSelectToAdd(m.user.id)}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                        checked ? "ring-1" : ""
+                      }`}
+                      style={
+                        checked
+                          ? { background: "var(--accent-soft)", borderColor: "var(--accent-text)", color: "var(--text-primary)" }
+                          : { color: "var(--text-primary)" }
+                      }
                     >
-                      {m.avatar ? (
-                        <div className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url(${m.avatar})` }} />
-                      ) : (
-                        `${m.firstName.charAt(0)}${m.lastName.charAt(0)}`
-                      )}
-                    </div>
-                    <span className="flex-1 text-left truncate">
-                      {m.firstName} {m.lastName}
-                      <span className="block text-[11px] truncate" style={{ color: "var(--text-muted)" }}>
-                        {m.email}
+                      <span
+                        className="w-4 h-4 rounded-md flex items-center justify-center shrink-0"
+                        style={
+                          checked
+                            ? { background: "var(--gradient-button)", color: "#fff" }
+                            : { border: "1px solid var(--input-border)" }
+                        }
+                      >
+                        {checked && <Check size={11} />}
                       </span>
-                    </span>
-                    <UserPlus size={16} style={{ color: "var(--accent-text)" }} />
-                  </button>
-                ))
+                      <div
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                        style={{ background: "var(--gradient-primary)" }}
+                      >
+                        {m.user.avatar ? (
+                          <div className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url(${m.user.avatar})` }} />
+                        ) : (
+                          `${m.user.firstName.charAt(0)}${m.user.lastName.charAt(0)}`
+                        )}
+                      </div>
+                      <span className="flex-1 text-left truncate">
+                        {m.user.firstName} {m.user.lastName}
+                        <span className="block text-[11px] truncate" style={{ color: "var(--text-muted)" }}>
+                          {m.user.email}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })
               )}
             </div>
           </motion.div>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {projectMembers.map((m) => {
-            const isOwner = m.email.toLowerCase() === project.ownerId.toLowerCase();
+          {projectMembers.map((pm) => {
+            const isOwner = pm.user.id === project.ownerId;
             return (
               <div
-                key={m.email}
+                key={pm.user.id}
                 className="flex items-center gap-3 px-4 py-3 rounded-xl"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
               >
@@ -370,18 +454,18 @@ export default function ProjectDetailPage() {
                   className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
                   style={{ background: "var(--gradient-primary)" }}
                 >
-                  {m.avatar ? (
-                    <div className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url(${m.avatar})` }} />
+                  {pm.user.avatar ? (
+                    <div className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url(${pm.user.avatar})` }} />
                   ) : (
-                    `${m.firstName.charAt(0)}${m.lastName.charAt(0)}`
+                    `${pm.user.firstName.charAt(0)}${pm.user.lastName.charAt(0)}`
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>
-                    {m.firstName} {m.lastName}
+                    {pm.user.firstName} {pm.user.lastName}
                   </div>
                   <div className="text-[11px] truncate flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
-                    {m.email}
+                    {pm.user.email}
                     {isOwner && (
                       <span className="font-semibold" style={{ color: "var(--accent-text)" }}>
                         • Responsable
@@ -391,7 +475,7 @@ export default function ProjectDetailPage() {
                 </div>
                 {canManageMembers && !isOwner && (
                   <button
-                    onClick={() => removeProjectMember(project.id, m.email)}
+                    onClick={() => handleRemoveMember(pm.id)}
                     className="p-1.5 rounded-lg transition-colors hover:opacity-70 shrink-0"
                     style={{ color: "var(--color-error)" }}
                     title="Retirer ce membre du projet"
@@ -458,6 +542,23 @@ export default function ProjectDetailPage() {
               />
             </div>
 
+            <div>
+              <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
+                Statut
+              </label>
+              <select
+                value={editStatus}
+                onChange={(e) => setEditStatus(e.target.value as ProjectStatus)}
+                className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
+                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+              >
+                <option value="a_venir">À venir</option>
+                <option value="en_cours">En cours</option>
+                <option value="termine">Terminé</option>
+                <option value="archive">Archivé</option>
+              </select>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
@@ -485,32 +586,10 @@ export default function ProjectDetailPage() {
               </div>
             </div>
 
+            {/* Fond d'écran du Kanban (optionnel — non persisté par le backend) */}
             <div>
               <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                <UserRound size={14} /> Responsable du projet
-              </label>
-              <select
-                value={editOwnerId}
-                onChange={(e) => setEditOwnerId(e.target.value)}
-                className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
-                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
-              >
-                {agency.members.map((m) => (
-                  <option key={m.email} value={m.email}>
-                    {m.firstName} {m.lastName} — {m.email}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>
-                Le nouveau responsable est automatiquement ajouté aux membres du projet.
-              </p>
-            </div>
-
-            {/* Fond d'écran du Kanban (optionnel) */}
-            <div>
-              <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                <ImageIcon size={14} /> Fond d&apos;écran du Kanban{" "}
-                <span className="font-normal" style={{ color: "var(--text-muted)" }}>(optionnel)</span>
+                <ImageIcon size={14} /> Fond d&apos;écran du Kanban <span className="font-normal" style={{ color: "var(--text-muted)" }}>(optionnel)</span>
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                 <button
@@ -571,10 +650,11 @@ export default function ProjectDetailPage() {
               </button>
               <button
                 type="submit"
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
+                disabled={actionLoading}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
                 style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
               >
-                <Save size={16} /> Enregistrer
+                <Save size={16} /> {actionLoading ? "Enregistrement…" : "Enregistrer"}
               </button>
             </div>
           </motion.form>
@@ -623,10 +703,11 @@ export default function ProjectDetailPage() {
               </button>
               <button
                 onClick={handleDelete}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
+                disabled={actionLoading}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
                 style={{ background: "var(--color-error)" }}
               >
-                <Trash2 size={15} /> Supprimer
+                <Trash2 size={15} /> {actionLoading ? "Suppression…" : "Supprimer"}
               </button>
             </div>
           </motion.div>

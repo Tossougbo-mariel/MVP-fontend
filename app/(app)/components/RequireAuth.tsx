@@ -5,30 +5,43 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/app/store/authStore";
 
 export default function RequireAuth({ children }: { children: React.ReactNode }) {
+  const token = useAuthStore((s) => s.token);
+  const fetchMe = useAuthStore((s) => s.fetchMe);
   const user = useAuthStore((s) => s.user);
   const router = useRouter();
 
-  // ✅ CORRIGÉ : Un seul état pour le montage du composant
-  const [isMounted, setIsMounted] = useState(false);
+  // ✅ CORRIGÉ : un seul état pour la phase de démarrage (hydratation + validation du token)
+  const [ready, setReady] = useState(false);
 
-  // ✅ CORRIGÉ : Un seul useEffect pour tous les traitements
   useEffect(() => {
+    let cancelled = false;
+
     const id = requestAnimationFrame(() => {
-      setIsMounted(true);
-      
-      // Rediriger si l'utilisateur n'existe pas
-      if (!user) {
-        console.log("[RequireAuth] Pas d'utilisateur → redirection vers /connexion");
-        router.replace("/connexion");
-      }
+      (async () => {
+        // Si un token existe (persisté), on réhydrate/valide la session via /api/me
+        if (token) {
+          await fetchMe();
+        }
+        if (cancelled) return;
+
+        const currentUser = useAuthStore.getState().user;
+        setReady(true);
+
+        if (!currentUser) {
+          console.log("[RequireAuth] Pas d'utilisateur → redirection vers /connexion");
+          router.replace("/connexion");
+        }
+      })();
     });
 
-    return () => cancelAnimationFrame(id);
-  }, [user, router]);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(id);
+    };
+  }, [token, fetchMe, router]);
 
-  // ✅ CORRIGÉ : Affichage du chargement tant que le composant n'est pas monté
-  // ou que l'utilisateur n'existe pas
-  if (!isMounted || !user) {
+  // ✅ Affichage du chargement tant que l'app n'est pas prête ou sans utilisateur
+  if (!ready || !user) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"

@@ -7,6 +7,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { Sparkles, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import AuthCard from "../components/AuthCard";
+import api, { getApiErrorMessage } from "@/lib/api";
 
 export default function ReinitialiserMotDePassePage() {
   return (
@@ -28,6 +29,7 @@ export default function ReinitialiserMotDePassePage() {
 function ReinitialiserMotDePasseForm() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
+  const email = searchParams.get("email");
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -51,7 +53,7 @@ function ReinitialiserMotDePasseForm() {
     e.currentTarget.style.boxShadow = "none";
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -59,8 +61,12 @@ function ReinitialiserMotDePasseForm() {
       setError("Lien de réinitialisation invalide ou manquant.");
       return;
     }
-    if (password.length < 6) {
-      setError("Le mot de passe doit contenir au moins 6 caractères.");
+    if (!email) {
+      setError("L'e-mail manque dans ce lien : redemandez votre lien de réinitialisation.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Le mot de passe doit contenir au moins 8 caractères.");
       return;
     }
     if (password !== confirmPassword) {
@@ -69,12 +75,20 @@ function ReinitialiserMotDePasseForm() {
     }
 
     setLoading(true);
-    // TODO backend : appeler POST /api/reset-password avec { token, password }
-    console.log("Nouveau mot de passe avec token:", token);
-    setTimeout(() => {
+    // ✅ Branché : POST /api/password/reset avec token + email
+    try {
+      await api.post("/password/reset", {
+        token,
+        email,
+        password,
+        password_confirmation: password,
+      });
       setLoading(false);
       setSuccess(true);
-    }, 800);
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+      setLoading(false);
+    }
   };
 
   return (

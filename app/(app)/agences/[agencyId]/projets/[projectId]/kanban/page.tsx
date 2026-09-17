@@ -13,16 +13,24 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import { useAppData, useAsync } from "@/lib/appData";
 import {
-  useAgencyStore,
   userRoleInAgency,
+  getProjectStatusFromTasks,
   type ProjectStatus,
   type TaskPriority,
   type TaskStatus,
-} from "@/app/store/agencyStore";
+} from "@/lib/types";
 import { useAuthStore } from "@/app/store/authStore";
-import { useProjectStore, getProjectById } from "@/app/store/projectStore";
-import { useTaskStore, getTasksByProject, getProjectStatusFromTasks } from "@/app/store/taskStore";
+import {
+  fetchProject,
+  fetchProjectMembers,
+  createTask as apiCreateTask,
+  updateTask as apiUpdateTask,
+  updateTaskStatus as apiUpdateTaskStatus,
+  deleteTask as apiDeleteTask,
+  getApiErrorMessage,
+} from "@/lib/services";
 import { getWallpaperBg } from "@/app/store/wallpapers";
 
 const container: Variants = {
@@ -82,18 +90,24 @@ export default function ProjectKanbanPage() {
   const { agencyId, projectId } = useParams<{ agencyId: string; projectId: string }>();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const agency = useAgencyStore((s) => s.agencies.find((a) => a.id === agencyId));
-  const project = useProjectStore((s) => getProjectById(s.projects, projectId));
-  const tasks = useTaskStore((s) => s.tasks);
-  const createTask = useTaskStore((s) => s.createTask);
-  const updateTaskStatus = useTaskStore((s) => s.updateTaskStatus);
+  const { data, reload, agencyById, getProject, tasksByProject } = useAppData();
+
+  const agency = agencyById(agencyId);
+  const project = getProject(projectId);
 
   const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
-  const isAdmin = role === "admin";
+  const isAdmin = role === "owner" || role === "admin";
+
+  // Members du projet via API
+  const membersResult = useAsync(() => fetchProjectMembers(projectId), [projectId]);
+  const projectMembers = membersResult.data ?? [];
 
   // ====== Drag & drop ======
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overColumn, setOverColumn] = useState<TaskStatus | null>(null);
+
+  // Statuts locaux optimistes (déplacement immédiat de la carte avant confirmation API)
+  const [localStatuses, setLocalStatuses] = useState<Record<string, TaskStatus>>({});
 
   // ====== Nouvelle tâche ======
   const [creating, setCreating] = useState(false);
@@ -101,9 +115,10 @@ export default function ProjectKanbanPage() {
   const [taskDescription, setTaskDescription] = useState("");
   const [taskPriority, setTaskPriority] = useState<TaskPriority>("moyenne");
   const [taskStartDate, setTaskStartDate] = useState("");
-  const [taskAssignee, setTaskAssignee] = useState<string>("");
+  const [taskAssigneeId, setTaskAssigneeId] = useState<string>("");
   const [taskDueDate, setTaskDueDate] = useState("");
   const [taskError, setTaskError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   // ✅ Si l'agence n'existe pas
   if (!agency) {
@@ -124,7 +139,7 @@ export default function ProjectKanbanPage() {
   }
 
   // ✅ Si l'utilisateur n'est pas membre de l'agence
-  const isAgencyMember = user && agency.members?.some((m) => m.email.toLowerCase() === user.email.toLowerCase());
+  const isAgencyMember = user && agency.members?.some((m) => m.user.email.toLowerCase() === user.email.toLowerCase());
   if (!user || !isAgencyMember) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -160,10 +175,9 @@ export default function ProjectKanbanPage() {
     );
   }
 
-  // ✅ Accès au Kanban : admin toujours, membre uniquement s'il est assigné
-  // au projet (l'appartenance à l'agence ne suffit pas).
+  // ✅ Accès au Kanban : admin toujours, membre uniquement s'il est assigné au projet
   const hasProjectAccess =
-    isAdmin || project.memberIds.some((id) => id.toLowerCase() === user.email.toLowerCase());
+    isAdmin || projectMembers.some((pm) => pm.user.id === user.id);
 
   if (!hasProjectAccess) {
     return (
@@ -185,34 +199,45 @@ export default function ProjectKanbanPage() {
     );
   }
 
-  const projectTasks = getTasksByProject(tasks, project.id);
+  const projectTasks = tasksByProject(project.id);
   const badge = statusConfig[getProjectStatusFromTasks(project.status, projectTasks)];
   const wallpaperSrc = getWallpaperBg(project.wallpaper);
-  const projectMembers = agency.members.filter((m) =>
-    project.memberIds.some((id) => id.toLowerCase() === m.email.toLowerCase())
-  );
 
-  const memberOf = (email: string | null) =>
-    agency.members.find((m) => m.email.toLowerCase() === (email ?? "").toLowerCase());
+  // Map email→membre pour afficher l'assigné sur les cartes
+  const memberById = (userId: number | null) =>
+    projectMembers.find((pm) => pm.user.id === userId);
 
   // ✅ Règle : admin déplace tout ; membre déplace UNIQUEMENT ses cartes.
-  const canDragTask = (task: { assignedTo: string | null }) =>
+  const canDragTask = (task: { assignedTo: number | null }) =>
     isAdmin ||
     (task.assignedTo !== null &&
-      task.assignedTo.toLowerCase() === user.email.toLowerCase());
+      task.assignedTo === user.id);
 
-  const handleDrop = (taskId: string, targetStatus: TaskStatus) => {
+  const handleDrop = async (taskId: string, targetStatus: TaskStatus) => {
     setOverColumn(null);
     setDraggingId(null);
-    const task = projectTasks.find((t) => t.id === taskId);
+    const task = projectTasks.find((t) => Number(t.id) === Number(taskId));
     if (!task || task.status === targetStatus) return;
-    // Double verrou : on ne déplace jamais une carte non autorisée.
     if (!canDragTask(task)) return;
-    updateTaskStatus(taskId, targetStatus);
+
+    // ✅ Mise à jour optimiste : la carte bouge immédiatement dans la nouvelle colonne.
+    setLocalStatuses((prev) => ({ ...prev, [taskId]: targetStatus }));
+
+    try {
+      await apiUpdateTaskStatus(taskId, targetStatus);
+      // Synchronisation lente en arrière-plan (non bloquante) pour les compteurs/badges du projet.
+      void reload();
+    } catch {
+      // Rollback visuel en cas d'échec.
+      setLocalStatuses((prev) => {
+        const next = { ...prev };
+        delete next[taskId];
+        return next;
+      });
+    }
   };
 
   const openTaskDetail = (taskId: string) => {
-    // Ne rien faire si une carte vient d'être glissée (pas un vrai clic)
     if (draggingId) return;
     router.push(`/agences/${agencyId}/projets/${projectId}/taches/${taskId}`);
   };
@@ -222,42 +247,46 @@ export default function ProjectKanbanPage() {
     setTaskDescription("");
     setTaskPriority("moyenne");
     setTaskStartDate("");
-    setTaskAssignee("");
+    setTaskAssigneeId("");
     setTaskDueDate("");
     setTaskError(null);
     setCreating(true);
   };
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTaskError(null);
     if (!taskTitle.trim()) {
       setTaskError("Le titre de la tâche est obligatoire.");
       return;
     }
-    if (!taskStartDate) {
-      setTaskError("La date de début est obligatoire.");
+
+    if (taskStartDate && project.startDate && taskStartDate < project.startDate) {
+      setTaskError(`La date de début doit être postérieure ou égale au début du projet (${project.startDate}).`);
       return;
     }
-    if (!taskDueDate) {
-      setTaskError("La date d'échéance est obligatoire.");
+    if (taskDueDate && project.dueDate && taskDueDate > project.dueDate) {
+      setTaskError(`La date d'échéance doit être antérieure ou égale à l'échéance du projet (${project.dueDate}).`);
       return;
     }
-    if (taskDueDate < taskStartDate) {
-      setTaskError("La date d'échéance doit être postérieure ou égale à la date de début.");
-      return;
+
+    setActionLoading(true);
+    try {
+      await apiCreateTask(project.id, {
+        title: taskTitle.trim(),
+        description: taskDescription.trim() || null,
+        priority: taskPriority,
+        assigned_to: taskAssigneeId ? Number(taskAssigneeId) : null,
+        start_date: taskStartDate || null,
+        due_date: taskDueDate || null,
+      });
+      await reload();
+      setCreating(false);
+    } catch (err) {
+      setTaskError(getApiErrorMessage(err));
+    } finally {
+      setActionLoading(false);
     }
-    createTask({
-      projectId: project.id,
-      title: taskTitle.trim(),
-      description: taskDescription.trim(),
-      priority: taskPriority,
-      startDate: taskStartDate,
-      assignedTo: taskAssignee || null,
-      createdBy: user.email,
-      dueDate: taskDueDate,
-    });
-    setCreating(false);
   };
 
   return (
@@ -319,7 +348,9 @@ export default function ProjectKanbanPage() {
             <div className={`no-scrollbar overflow-x-auto ${wallpaperSrc ? "" : "pb-1"}`}>
               <div className="grid grid-cols-[repeat(3,280px)] gap-3 w-max items-start">
         {KANBAN_COLUMNS.map((col) => {
-          const colTasks = projectTasks.filter((t) => t.status === col.status);
+          const colTasks = projectTasks.filter(
+            (t) => (localStatuses[String(t.id)] ?? t.status) === col.status
+          );
           return (
             <motion.div
               key={col.status}
@@ -363,24 +394,24 @@ export default function ProjectKanbanPage() {
                 ) : (
                   colTasks.map((task) => {
                     const canDrag = canDragTask(task);
-                    const assignee = memberOf(task.assignedTo);
+                    const assignee = memberById(task.assignedTo);
                     const prio = priorityConfig[task.priority];
                     return (
                       <div
                         key={task.id}
                         draggable={canDrag}
                         onDragStart={(e) => {
-                          e.dataTransfer.setData("text/plain", task.id);
-                          setDraggingId(task.id);
+                          e.dataTransfer.setData("text/plain", String(task.id));
+                          setDraggingId(String(task.id));
                         }}
                         onDragEnd={() => setDraggingId(null)}
-                        onClick={() => openTaskDetail(task.id)}
+                        onClick={() => openTaskDetail(String(task.id))}
                         className="rounded-lg p-2.5 flex flex-col gap-2 transition-all hover:opacity-95"
                         style={{
                           background: "var(--card-bg)",
-                          border: draggingId === task.id ? "1px solid var(--accent-text)" : "1px solid var(--border-subtle)",
+                          border: draggingId === String(task.id) ? "1px solid var(--accent-text)" : "1px solid var(--border-subtle)",
                           boxShadow: "var(--shadow-card)",
-                          opacity: draggingId === task.id ? 0.5 : 1,
+                          opacity: draggingId === String(task.id) ? 0.5 : 1,
                           cursor: canDrag ? "grab" : "pointer",
                         }}
                         title={canDrag ? "Cliquer pour les détails — glisser pour changer de colonne" : "Déplacement réservé à l'assigné ou à l'admin — cliquer pour les détails"}
@@ -419,10 +450,10 @@ export default function ProjectKanbanPage() {
                               className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0"
                               style={{ background: "var(--gradient-primary)" }}
                             >
-                              {assignee.avatar ? (
-                                <span className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url(${assignee.avatar})` }} />
+                              {assignee.user.avatar ? (
+                                <span className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url(${assignee.user.avatar})` }} />
                               ) : (
-                                `${assignee.firstName.charAt(0)}${assignee.lastName.charAt(0)}`
+                                `${assignee.user.firstName.charAt(0)}${assignee.user.lastName.charAt(0)}`
                               )}
                             </span>
                           ) : (
@@ -438,19 +469,21 @@ export default function ProjectKanbanPage() {
           );
         })}
 
-        {/* Cadre « Nouvelle tâche » en fin de board, façon Trello */}
-        <button
-          onClick={openCreateModal}
-          className="w-[280px] shrink-0 rounded-xl px-4 py-3 text-sm font-semibold flex items-center gap-2 transition-all hover:scale-[1.02]"
-          style={{
-            background: "var(--surface)",
-            border: "1px dashed var(--border-subtle)",
-            color: "var(--text-secondary)",
-            boxShadow: "var(--shadow-card)",
-          }}
-        >
-          <Plus size={16} /> Nouvelle tâche
-        </button>
+        {/* Cadre « Nouvelle tâche » en fin de board, façon Trello — admin uniquement */}
+        {isAdmin && (
+          <button
+            onClick={openCreateModal}
+            className="w-[280px] shrink-0 rounded-xl px-4 py-3 text-sm font-semibold flex items-center gap-2 transition-all hover:scale-[1.02]"
+            style={{
+              background: "var(--surface)",
+              border: "1px dashed var(--border-subtle)",
+              color: "var(--text-secondary)",
+              boxShadow: "var(--shadow-card)",
+            }}
+          >
+            <Plus size={16} /> Nouvelle tâche
+          </button>
+        )}
             </div>
           </div>
           </div>
@@ -511,10 +544,12 @@ export default function ProjectKanbanPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                  Date de début *
+                  Date de début
                 </label>
                 <input
                   type="date"
+                  min={project.startDate || undefined}
+                  max={project.dueDate || undefined}
                   value={taskStartDate}
                   onChange={(e) => setTaskStartDate(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
@@ -523,11 +558,12 @@ export default function ProjectKanbanPage() {
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                  Date d&apos;échéance *
+                  Date d&apos;échéance
                 </label>
                 <input
                   type="date"
-                  min={taskStartDate || undefined}
+                  min={taskStartDate || project.startDate || undefined}
+                  max={project.dueDate || undefined}
                   value={taskDueDate}
                   onChange={(e) => setTaskDueDate(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
@@ -559,15 +595,15 @@ export default function ProjectKanbanPage() {
                   Assignée à
                 </label>
                 <select
-                  value={taskAssignee}
-                  onChange={(e) => setTaskAssignee(e.target.value)}
+                  value={taskAssigneeId}
+                  onChange={(e) => setTaskAssigneeId(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
                   style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 >
                   <option value="">Non assignée</option>
-                  {projectMembers.map((m) => (
-                    <option key={m.email} value={m.email}>
-                      {m.firstName} {m.lastName}
+                  {projectMembers.map((pm) => (
+                    <option key={pm.user.id} value={pm.user.id}>
+                      {pm.user.firstName} {pm.user.lastName}
                     </option>
                   ))}
                 </select>
@@ -591,10 +627,11 @@ export default function ProjectKanbanPage() {
               </button>
               <button
                 type="submit"
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
+                disabled={actionLoading}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
                 style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
               >
-                <Save size={16} /> Créer la tâche
+                <Save size={16} /> {actionLoading ? "Création…" : "Créer la tâche"}
               </button>
             </div>
           </motion.form>

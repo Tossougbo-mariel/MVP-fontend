@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
 import { Building2, ArrowLeft, Plus } from "lucide-react";
-import { useAgencyStore } from "@/app/store/agencyStore";
+import { useAppData } from "@/lib/appData";
+import { createAgency, getApiErrorMessage } from "@/lib/services";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -24,13 +25,13 @@ const inputStyle = {
 
 export default function NouvelleAgencePage() {
   const router = useRouter();
-  const addAgency = useAgencyStore((s) => s.addAgency);
+  const { reload } = useAppData();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -40,14 +41,18 @@ export default function NouvelleAgencePage() {
     }
 
     setLoading(true);
-    // 🔮 MOCK — sera remplacé par : POST /api/agences (l'API renvoie l'id et le nom)
-    // Le créateur devient admin de l'agence par défaut.
-    const agency = addAgency(name.trim());
-    console.log("Création agence:", { id: agency.id, name, description });
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const agency = await createAgency({
+        name: name.trim(),
+        description: description.trim() || undefined,
+      });
+      await reload();
       router.push(`/agences/${agency.id}/dashboard`);
-    }, 800);
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

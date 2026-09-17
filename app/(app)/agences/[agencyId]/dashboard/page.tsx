@@ -8,8 +8,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useAgencyStore, userRoleInAgency } from "@/app/store/agencyStore";
 import { useAuthStore } from "@/app/store/authStore";
+import { useAppData, useAsync } from "@/lib/appData";
+import { fetchActivity } from "@/lib/services";
+import { userRoleInAgency, type AgencyRole, overdueTasks } from "@/lib/types";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -19,15 +21,6 @@ const item: Variants = {
   hidden: { y: 16, opacity: 0 },
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
 };
-
-// 🔮 MOCK : dès que l'API est branchée, ces valeurs viendront des vraies tables
-const taskStatuses = [
-  { label: "À faire", value: 6, color: "#0c79f2" },
-  { label: "En cours", value: 9, color: "#056cf2" },
-  { label: "En révision", value: 4, color: "#589bff" },
-  { label: "Terminées", value: 5, color: "var(--color-success)" },
-  { label: "En retard", value: 2, color: "var(--color-error)" },
-];
 
 const weeklyReport = [
   { day: "Lun", value: 3 },
@@ -39,22 +32,41 @@ const weeklyReport = [
   { day: "Dim", value: 5 },
 ];
 
-const activity = [
-  { text: "Jean a créé la tâche « Créer la maquette du site »", time: "il y a 2 h" },
-  { text: "Marie a changé le statut de « Footer » en « En cours »", time: "il y a 5 h" },
-  { text: "Paul a terminé la tâche « Configurer le serveur »", time: "hier" },
-];
+const timeAgo = (iso: string | null | undefined): string => {
+  if (!iso) return "";
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const diffSeconds = Math.floor((Date.now() - then) / 1000);
+  if (diffSeconds < 60) return "à l'instant";
+  const minutes = Math.floor(diffSeconds / 60);
+  if (minutes < 60) return `il y a ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `il y a ${hours} h`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "hier";
+  if (days < 7) return `il y a ${days} j`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `il y a ${weeks} sem`;
+  return new Date(iso).toLocaleDateString("fr-FR");
+};
 
 export default function AgencyDashboardPage() {
   const { agencyId } = useParams<{ agencyId: string }>();
   const user = useAuthStore((s) => s.user);
-  const agency = useAgencyStore((s) => s.agencies.find((a) => a.id === agencyId));
+  const { agencyById, data } = useAppData();
+  const agency = agencyById(agencyId);
 
-  // ✅ Rôle dérivé de la fiche membre (owner = créateur, au-dessus des admins promus)
   const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
   const isAdmin = role === "owner" || role === "admin";
 
-  // ✅ Si l'agence n'existe pas ou l'utilisateur n'en est pas membre
+  if (data.loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+      </div>
+    );
+  }
+
   if (!agency) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -72,7 +84,7 @@ export default function AgencyDashboardPage() {
     );
   }
 
-  if (!user || !agency.members?.some((m) => m.email.toLowerCase() === user.email.toLowerCase())) {
+  if (!user || !agency.members?.some((m) => m.user.email.toLowerCase() === user.email.toLowerCase())) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
@@ -89,12 +101,12 @@ export default function AgencyDashboardPage() {
     );
   }
 
-  const me = agency.members.find((m) => m.email.toLowerCase() === user.email.toLowerCase());
+  const me = agency.members.find((m) => m.user.email.toLowerCase() === user.email.toLowerCase());
 
   return isAdmin ? (
-    <AdminDashboard agencyId={agencyId} role={role} userName={me?.firstName ?? user.firstName ?? "vous"} agencyName={agency.name} />
+    <AdminDashboard agencyId={agencyId} role={role} userName={me?.user.firstName ?? user.firstName ?? "vous"} agencyName={agency.name} />
   ) : (
-    <MemberDashboard userName={me?.firstName ?? user.firstName ?? "vous"} />
+    <MemberDashboard userName={me?.user.firstName ?? user.firstName ?? "vous"} agencyId={agencyId} />
   );
 }
 
@@ -159,25 +171,47 @@ function AdminDashboard({
   agencyName,
 }: {
   agencyId: string;
-  role: "owner" | "admin" | "membre";
+  role: AgencyRole;
   userName: string;
   agencyName: string;
 }) {
   const isOwner = role === "owner";
-  const agency = useAgencyStore((s) => s.agencies.find((a) => a.id === agencyId));
+  const { agencyById, tasksByAgency, projectsByAgency } = useAppData();
+  const agency = agencyById(agencyId);
+
+  const { data: activity, loading: activityLoading } = useAsync(
+    () => fetchActivity({ agencyId }),
+    [agencyId],
+  );
 
   const members = agency?.members ?? [];
   const totalMembers = members.length;
   const activeMembers = members.filter((m) => m.status === "actif").length;
   const inactiveMembers = members.filter((m) => m.status === "inactif").length;
-  const totalTasks = members.reduce((sum, m) => sum + (m.taskCount ?? 0), 0);
+
+  const agencyTasks = tasksByAgency(agencyId);
+  const agencyProjects = projectsByAgency(agencyId);
+  const totalTasks = agencyTasks.length;
+  const totalProjects = agencyProjects.length;
+  const overdueCount = overdueTasks(
+    agencyTasks.map((t) => ({ deadline: t.dueDate, status: t.status })),
+  ).length;
+
+  const taskStatuses = [
+    { label: "À faire", value: agencyTasks.filter((t) => t.status === "a_faire").length, color: "#0c79f2" },
+    { label: "En cours", value: agencyTasks.filter((t) => t.status === "en_cours").length, color: "#056cf2" },
+    { label: "En révision", value: agencyTasks.filter((t) => t.status === "en_revision").length, color: "#589bff" },
+    { label: "Terminées", value: agencyTasks.filter((t) => t.status === "terminee").length, color: "var(--color-success)" },
+    { label: "En retard", value: overdueCount, color: "var(--color-error)" },
+  ];
+
   const maxReport = Math.max(...weeklyReport.map((r) => r.value));
 
   const statCards = [
-    { label: "Total projets", value: "12", icon: FolderKanban, bg: "rgba(5,108,242,0.12)", color: "#056cf2" },
-    { label: "Total tâches", value: String(totalTasks || 24), icon: ListTodo, bg: "rgba(139,92,246,0.14)", color: "#7C3AED" },
+    { label: "Total projets", value: String(totalProjects), icon: FolderKanban, bg: "rgba(5,108,242,0.12)", color: "#056cf2" },
+    { label: "Total tâches", value: String(totalTasks), icon: ListTodo, bg: "rgba(139,92,246,0.14)", color: "#7C3AED" },
     { label: "Membres", value: String(totalMembers), icon: Users, bg: "rgba(16,185,129,0.12)", color: "var(--color-success)" },
-    { label: "En retard", value: "2", icon: AlarmClock, bg: "rgba(239,68,68,0.12)", color: "var(--color-error)" },
+    { label: "En retard", value: String(overdueCount), icon: AlarmClock, bg: "rgba(239,68,68,0.12)", color: "var(--color-error)" },
   ];
 
   return (
@@ -282,15 +316,28 @@ function AdminDashboard({
               <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Activité récente</h2>
             </div>
             <ul className="space-y-3">
-              {activity.map((a) => (
-                <li key={a.text} className="flex items-start gap-3 text-sm">
-                  <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: "#056cf2" }} />
-                  <div>
-                    <div style={{ color: "var(--text-primary)" }}>{a.text}</div>
-                    <div className="text-xs" style={{ color: "var(--text-muted)" }}>{a.time}</div>
-                  </div>
+              {activityLoading ? (
+                <li className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  Chargement de l&apos;activité…
                 </li>
-              ))}
+              ) : activity && activity.length > 0 ? (
+                activity.map((a) => (
+                  <li key={a.id} className="flex items-start gap-3 text-sm">
+                    <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: "#056cf2" }} />
+                    <div>
+                      <div style={{ color: "var(--text-primary)" }}>
+                        <span className="font-semibold">{a.actorName ?? a.actorEmail}</span>{" "}
+                        {a.description}
+                      </div>
+                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>{timeAgo(a.createdAt)}</div>
+                    </div>
+                  </li>
+                ))
+              ) : (
+                <li className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  Aucune activité récente.
+                </li>
+              )}
             </ul>
           </motion.div>
         </div>
@@ -324,32 +371,34 @@ function AdminDashboard({
             </ul>
           </motion.div>
 
-          {/* Gestion */}
-          <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(221,166,28,0.14)" }}>
-                <Crown size={16} style={{ color: "#C7961A" }} />
+          {/* Gestion (masqué pour le propriétaire) */}
+          {!isOwner && (
+            <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(221,166,28,0.14)" }}>
+                  <Crown size={16} style={{ color: "#C7961A" }} />
+                </div>
+                <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Gestion</h2>
               </div>
-              <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Gestion</h2>
-            </div>
-            <div className="space-y-3">
-              {[
-                { label: "Créer un projet", href: `/agences/${agencyId}/projets/nouveau`, icon: Plus },
-                { label: "Gérer l'équipe", href: `/agences/${agencyId}/equipe`, icon: Users },
-                { label: "Voir les tâches", href: `/agences/${agencyId}/mes-taches`, icon: ListTodo },
-              ].map((b) => (
-                <Link
-                  key={b.label}
-                  href={b.href}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:opacity-80"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
-                >
-                  <b.icon className="w-5 h-5" style={{ color: "#056cf2" }} />
-                  <span className="font-medium text-sm">{b.label}</span>
-                </Link>
-              ))}
-            </div>
-          </motion.div>
+              <div className="space-y-3">
+                {[
+                  { label: "Créer un projet", href: `/agences/${agencyId}/projets/nouveau`, icon: Plus },
+                  { label: "Gérer l'équipe", href: `/agences/${agencyId}/equipe`, icon: Users },
+                  { label: "Voir les tâches", href: `/agences/${agencyId}/mes-taches`, icon: ListTodo },
+                ].map((b) => (
+                  <Link
+                    key={b.label}
+                    href={b.href}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:opacity-80"
+                    style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                  >
+                    <b.icon className="w-5 h-5" style={{ color: "#056cf2" }} />
+                    <span className="font-medium text-sm">{b.label}</span>
+                  </Link>
+                ))}
+              </div>
+            </motion.div>
+          )}
 
           {/* Droits */}
           <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
@@ -409,12 +458,16 @@ const badPractices = [
   },
 ];
 
-function MemberDashboard({ userName }: { userName: string }) {
+function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: string }) {
+  const { myTasksInAgency } = useAppData();
+  const myT = myTasksInAgency(agencyId);
+
+  const today = new Date().toISOString().slice(0, 10);
   const memberTasks = [
-    { label: "À faire", value: 2, icon: CalendarClock, color: "#0c79f2" },
-    { label: "En cours", value: 3, icon: Clock, color: "#056cf2" },
-    { label: "Terminées", value: 1, icon: CheckCircle2, color: "var(--color-success)" },
-    { label: "En retard", value: 1, icon: AlertTriangle, color: "var(--color-error)" },
+    { label: "À faire", value: myT.filter((t) => t.status === "a_faire").length, icon: CalendarClock, color: "#0c79f2" },
+    { label: "En cours", value: myT.filter((t) => t.status === "en_cours").length, icon: Clock, color: "#056cf2" },
+    { label: "Terminées", value: myT.filter((t) => t.status === "terminee").length, icon: CheckCircle2, color: "var(--color-success)" },
+    { label: "En retard", value: myT.filter((t) => t.status !== "terminee" && t.deadline !== null && t.deadline < today).length, icon: AlertTriangle, color: "var(--color-error)" },
   ];
 
   return (

@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
 import { Plus, Building2, ChevronRight } from "lucide-react";
-import { useAgencyStore, userAgencies, userRoleInAgency } from "@/app/store/agencyStore";
 import { useAuthStore } from "@/app/store/authStore";
+import { useAppData } from "@/lib/appData";
+import { userAgencies, userRoleInAgency } from "@/lib/types";
+import { getApiErrorMessage } from "@/lib/services";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -19,9 +21,30 @@ const MotionLink = motion(Link);
 
 export default function MesAgencesPage() {
   const user = useAuthStore((s) => s.user);
-  const allAgencies = useAgencyStore((s) => s.agencies);
-  // ✅ Uniquement les agences dont l'utilisateur est membre/admin
+  const { data } = useAppData();
+  const allAgencies = data.agencies;
   const agencies = userAgencies(allAgencies, user?.email ?? "");
+
+  if (data.loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div
+          className="w-10 h-10 rounded-full border-4 border-t-transparent animate-spin"
+          style={{ borderColor: "var(--border-subtle)", borderTopColor: "transparent" }}
+        />
+      </div>
+    );
+  }
+
+  if (data.error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <p className="text-lg font-bold" style={{ color: "var(--color-error)" }}>
+          {getApiErrorMessage(data.error)}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">

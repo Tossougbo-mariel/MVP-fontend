@@ -17,9 +17,10 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import { useAgencyStore, userRoleInAgency } from "@/app/store/agencyStore";
+import { useAppData } from "@/lib/appData";
+import { userRoleInAgency } from "@/lib/types";
 import { useAuthStore } from "@/app/store/authStore";
-import { useProjectStore } from "@/app/store/projectStore";
+import { createProject as apiCreateProject, addProjectMember, getApiErrorMessage } from "@/lib/services";
 import { WALLPAPERS } from "@/app/store/wallpapers";
 
 const container: Variants = {
@@ -35,33 +36,34 @@ export default function NouveauProjetPage() {
   const { agencyId } = useParams<{ agencyId: string }>();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const agency = useAgencyStore((s) => s.agencies.find((a) => a.id === agencyId));
-  const createProject = useProjectStore((s) => s.createProject);
+  const { data, reload, agencyById } = useAppData();
+
+  const agency = agencyById(agencyId);
 
   const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
-  const isAdmin = role === "admin";
+  const isAdmin = role === "owner" || role === "admin";
 
   // ====== Champs du formulaire ======
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
-  const [ownerId, setOwnerId] = useState(user?.email ?? "");
-  const [memberIds, setMemberIds] = useState<string[]>(user?.email ? [user.email] : []);
-  const [wallpaperId, setWallpaperId] = useState<string | null>(null); // fond du Kanban (optionnel)
+  const [memberEmails, setMemberEmails] = useState<string[]>([]);
+  const [wallpaperId, setWallpaperId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const members = agency?.members ?? [];
+  const activeMembers = (agency?.members ?? []).filter((m) => m.status === "actif");
 
   const toggleMember = (email: string) => {
-    setMemberIds((prev) =>
-      prev.some((id) => id.toLowerCase() === email.toLowerCase())
-        ? prev.filter((id) => id.toLowerCase() !== email.toLowerCase())
+    setMemberEmails((prev) =>
+      prev.some((e) => e.toLowerCase() === email.toLowerCase())
+        ? prev.filter((e) => e.toLowerCase() !== email.toLowerCase())
         : [...prev, email]
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -85,18 +87,32 @@ export default function NouveauProjetPage() {
       return;
     }
 
-    const project = createProject({
-      agencyId,
-      name: name.trim(),
-      description: description.trim(),
-      ownerId,
-      memberIds,
-      startDate: startDate || null,
-      dueDate: dueDate || null,
-      wallpaper: wallpaperId,
-    });
+    setSubmitting(true);
+    try {
+      const project = await apiCreateProject(agencyId, {
+        name: name.trim(),
+        description: description.trim() || null,
+        start_date: startDate || null,
+        due_date: dueDate || null,
+        wallpaper: wallpaperId,
+      });
 
-    router.push(`/agences/${agencyId}/projets/${project.id}`);
+      // Ajouter les membres sélectionnés (y compris le user connecté si sélectionné)
+      for (const email of memberEmails) {
+        try {
+          await addProjectMember(project.id, email);
+        } catch {
+          // ignorer les erreurs individuelles (ex: email non membre actif)
+        }
+      }
+
+      await reload();
+      router.push(`/agences/${agencyId}/projets/${project.id}`);
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // ✅ Si l'agence n'existe pas
@@ -118,7 +134,7 @@ export default function NouveauProjetPage() {
   }
 
   // ✅ Si l'utilisateur n'est pas membre
-  if (!user || !members.some((m) => m.email.toLowerCase() === user.email.toLowerCase())) {
+  if (!user || !activeMembers.some((m) => m.user.email.toLowerCase() === user.email.toLowerCase())) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
@@ -238,40 +254,21 @@ export default function NouveauProjetPage() {
           </div>
         </div>
 
-        {/* Responsable */}
-        <div>
-          <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-            <UserRound size={14} /> Responsable du projet
-          </label>
-          <select
-            value={ownerId}
-            onChange={(e) => setOwnerId(e.target.value)}
-            className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
-            style={inputStyle}
-          >
-            {members.map((m) => (
-              <option key={m.email} value={m.email}>
-                {m.firstName} {m.lastName} — {m.email}
-              </option>
-            ))}
-          </select>
-        </div>
-
         {/* Membres assignés */}
         <div>
           <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
             <Users size={14} /> Membres assignés
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {members.map((m) => {
-              const checked = memberIds.some(
-                (id) => id.toLowerCase() === m.email.toLowerCase()
+            {activeMembers.map((m) => {
+              const checked = memberEmails.some(
+                (e) => e.toLowerCase() === m.user.email.toLowerCase()
               );
               return (
                 <button
-                  key={m.email}
+                  key={m.user.email}
                   type="button"
-                  onClick={() => toggleMember(m.email)}
+                  onClick={() => toggleMember(m.user.email)}
                   className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all"
                   style={
                     checked
@@ -290,9 +287,9 @@ export default function NouveauProjetPage() {
                     {checked && <Check size={11} />}
                   </span>
                   <span className="truncate">
-                    {m.firstName} {m.lastName}
+                    {m.user.firstName} {m.user.lastName}
                     <span className="block text-[11px] truncate" style={{ color: "var(--text-muted)" }}>
-                      {m.email}
+                      {m.user.email}
                     </span>
                   </span>
                 </button>
@@ -300,15 +297,14 @@ export default function NouveauProjetPage() {
             })}
           </div>
           <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-            Le responsable est automatiquement ajouté aux membres du projet.
+            Les membres sélectionnés seront ajoutés au projet après sa création.
           </p>
         </div>
 
         {/* Fond d'écran du Kanban (optionnel) */}
         <div>
           <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-            <ImageIcon size={14} /> Fond d&apos;écran du Kanban{" "}
-            <span className="font-normal" style={{ color: "var(--text-muted)" }}>(optionnel)</span>
+            <ImageIcon size={14} /> Fond d&apos;écran du Kanban <span className="font-normal" style={{ color: "var(--text-muted)" }}>(optionnel)</span>
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             <button
@@ -370,10 +366,11 @@ export default function NouveauProjetPage() {
           </Link>
           <button
             type="submit"
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
+            disabled={submitting}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
             style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
           >
-            <Send size={16} /> Créer le projet
+            <Send size={16} /> {submitting ? "Création…" : "Créer le projet"}
           </button>
         </div>
       </motion.form>

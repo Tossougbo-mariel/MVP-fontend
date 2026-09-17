@@ -48,24 +48,20 @@ export default function ConnexionPage() {
 
   const login = useAuthStore((s) => s.login);
   
-  // ✅ CORRIGÉ : Ajout de setLoading(false) après succès
+  // ✅ CORRIGÉ : Login asynchrone branché sur l'API backend
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    const ok = login(email, password);
-    if (!ok) {
-      setError("Email ou mot de passe incorrect.");
+    const result = await login(email, password);
+    if (!result.ok) {
+      setError(result.error);
       setLoading(false);
       return;
     }
-    
-    // Petite délai avant redirection pour voir l'effet visuel
-    // (optionnel, mais améliore l'UX)
-    setTimeout(() => {
-      router.push("/mes-agences");
-    }, 300);
+
+    router.push("/mes-agences");
   };
 
   // --- Entrée en cascade : chaque enfant apparaît l'un après l'autre ---

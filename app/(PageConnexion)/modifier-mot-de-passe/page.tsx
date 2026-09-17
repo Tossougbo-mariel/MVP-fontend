@@ -6,6 +6,7 @@ import { motion, type Variants } from "framer-motion";
 import { Lock, Eye, EyeOff, ShieldCheck, KeyRound, CheckCircle2 } from "lucide-react";
 import AuthCard from "../components/AuthCard";
 import MagneticButton from "../components/MagneticButton";
+import api, { getApiErrorMessage } from "@/lib/api";
 
 export default function ModifierMotDePassePage() {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -45,8 +46,8 @@ export default function ModifierMotDePassePage() {
     e.preventDefault();
     setError(null);
 
-    if (password.length < 6) {
-      setError("Le nouveau mot de passe doit contenir au moins 6 caractères.");
+    if (password.length < 8) {
+      setError("Le nouveau mot de passe doit contenir au moins 8 caractères.");
       return;
     }
     if (password !== confirmPassword) {
@@ -59,12 +60,19 @@ export default function ModifierMotDePassePage() {
     }
 
     setLoading(true);
-    // TODO backend : appeler POST /api/change-password
-    console.log("Modification du mot de passe:", { currentPassword, password });
-    setTimeout(() => {
+    // ✅ Branché : POST /api/change-password
+    try {
+      await api.post("/change-password", {
+        current_password: currentPassword,
+        password,
+        password_confirmation: password,
+      });
       setLoading(false);
       setSuccess(true);
-    }, 900);
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+      setLoading(false);
+    }
   };
 
   return (

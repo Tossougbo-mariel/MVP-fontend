@@ -1,14 +1,15 @@
 "use client";
 
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
-import { useRegisteredUsersStore } from "./registeredUsersStore";
+import { persist } from "zustand/middleware";
+import api, { getApiErrorMessage } from "@/lib/api";
+import { apiUserToLocalUser, type ApiUser } from "@/lib/mappers";
 
 // ====== Type de l'utilisateur (TypeScript) ======
 export type UserRole = "admin" | "membre";
 
 export type User = {
-  id: string;
+  id: number;
   firstName: string;
   lastName: string;
   email: string;
@@ -21,194 +22,144 @@ export type User = {
   createdAt: string;
 };
 
-// ✅ Utilisateurs de DÉMO uniquement (se réinitialisent à chaque refresh)
-const DEMO_USERS: User[] = [
-  {
-    id: "u1",
-    firstName: "Jean",
-    lastName: "Dupont",
-    email: "admin@demo.com",
-    role: "admin",
-    avatar: null,
-    createdAt: "2026-01-10",
-  },
-  {
-    id: "u2",
-    firstName: "Marie",
-    lastName: "Curie",
-    email: "membre@demo.com",
-    role: "membre",
-    avatar: null,
-    createdAt: "2026-03-22",
-  },
-];
+export type AuthStatus = "idle" | "loading" | "authenticated" | "guest";
 
-export const MOCK_PASSWORD = "secret123";
+type LoginResult = { ok: true; error: null } | { ok: false; error: string };
+type RegisterResult = { ok: true; error: null } | { ok: false; error: string };
+
+type RegisterData = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  avatar?: string | null;
+};
 
 type AuthState = {
   user: User | null;
-  login: (email: string, password: string) => boolean;
-  register: (data: { 
-    firstName: string; 
-    lastName: string; 
-    email: string;
-    password: string;
-    avatar?: string | null;
-  }) => boolean | string;
-  logout: () => void;
-  updateUser: (patch: Partial<User>) => void;
+  token: string | null;
+  status: AuthStatus;
+  login: (email: string, password: string) => Promise<LoginResult>;
+  register: (data: RegisterData) => Promise<RegisterResult>;
+  logout: () => Promise<void>;
+  fetchMe: () => Promise<void>;
+  clearAuth: () => void;
+  updateUser: (patch: Partial<User>) => Promise<void>;
 };
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
+      token: null,
+      status: "idle",
 
-      // ✅ CORRIGÉ : Vérifier d'abord les users de démo, puis les users enregistrés
-      login: (email, password) => {
-        const trimmedEmail = email.toLowerCase().trim();
+      // POST /api/login — connecte l'utilisateur et stocke le token Sanctum
+      login: async (email, password) => {
+        set({ status: "loading" });
+        try {
+          const { data } = await api.post("/login", { email, password });
+          const { token, user } = data as { token: string; user: ApiUser };
+          set({
+            user: apiUserToLocalUser(user),
+            token,
+            status: "authenticated",
+          });
+          console.log("[authStore] Connexion réussie:", email);
+          return { ok: true, error: null };
+        } catch (error) {
+          set({ status: "guest" });
+          return { ok: false, error: getApiErrorMessage(error) };
+        }
+      },
 
-        // 1️⃣ Vérifier d'abord les users de démo (avec le password de démo)
-        const demoUser = DEMO_USERS.find(
-          (u) => u.email.toLowerCase() === trimmedEmail
-        );
-        
-        if (demoUser && password === MOCK_PASSWORD) {
-          // Si un enregistrement persistant existe (photo/infos modifiées via le
-          // profil), on l'utilise pour garder les changements après reconnexion.
-          const regUsers = useRegisteredUsersStore.getState();
-          const persisted = regUsers.findUser(trimmedEmail);
-          if (persisted) {
-            const user: User = {
-              id: demoUser.id,
-              firstName: persisted.firstName,
-              lastName: persisted.lastName,
-              email: persisted.email,
-              role: demoUser.role,
-              avatar: persisted.avatar ?? null,
-              phone: persisted.phone,
-              city: persisted.city,
-              bio: persisted.bio,
-              jobTitle: persisted.jobTitle ?? (demoUser.role === "admin" ? "Administrateur" : "Membre"),
-              createdAt: persisted.createdAt,
-            };
-            set({ user });
-            console.log("[authStore] Connexion démo (avec modifs persistées):", email);
-            return true;
+      // POST /api/register — crée le compte SANS connexion automatique
+      // (UX conservée : l'utilisateur doit ensuite se connecter).
+      register: async ({ firstName, lastName, email, password, avatar }) => {
+        try {
+          await api.post("/register", {
+            first_name: firstName,
+            last_name: lastName,
+            email,
+            password,
+            password_confirmation: password,
+            avatar: avatar ?? null,
+          });
+          console.log("[authStore] Nouvel utilisateur enregistré:", email);
+          return { ok: true, error: null };
+        } catch (error) {
+          return { ok: false, error: getApiErrorMessage(error) };
+        }
+      },
+
+      // POST /api/logout — révoque le token côté serveur puis déconnecte localement
+      logout: async () => {
+        const { token } = get();
+        if (token) {
+          try {
+            await api.post("/logout");
+          } catch {
+            // Même si l'API échoue, on déconnecte localement
           }
-          set({ user: demoUser });
-          console.log("[authStore] Connexion avec compte démo:", email);
-          return true;
         }
-
-        // 2️⃣ ✅ Vérifier les utilisateurs enregistrés (depuis le localStorage)
-        const registeredUsers = useRegisteredUsersStore.getState();
-        const registeredUser = registeredUsers.findUser(email);
-
-        if (registeredUser && registeredUser.password === password) {
-          // Créer un objet User à partir du RegisteredUser
-          const user: User = {
-            id: `reg-${registeredUser.email.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-            firstName: registeredUser.firstName,
-            lastName: registeredUser.lastName,
-            email: registeredUser.email,
-            role: "membre",
-            avatar: registeredUser.avatar ?? null,
-            phone: registeredUser.phone,
-            city: registeredUser.city,
-            bio: registeredUser.bio,
-            jobTitle: registeredUser.jobTitle ?? "Membre",
-            createdAt: registeredUser.createdAt,
-          };
-          set({ user });
-          console.log("[authStore] Connexion avec utilisateur enregistré:", email);
-          return true;
-        }
-
-        console.log("[authStore] Connexion échouée (identifiants incorrects):", email);
-        return false;
-      },
-
-      // ✅ CORRIGÉ : Accepter le password, utiliser le registeredUsersStore
-      // et NE PAS connecter l'utilisateur après l'inscription (comme super-agent :
-      // l'utilisateur doit ensuite se connecter avec les identifiants enregistrés)
-      register: ({ firstName, lastName, email, password, avatar = null }) => {
-        // Validation du password
-        if (password.length < 6) {
-          return "Le mot de passe doit contenir au moins 6 caractères";
-        }
-
-        // ✅ Utiliser le store des users enregistrés pour persister
-        const registeredUsers = useRegisteredUsersStore.getState();
-        const result = registeredUsers.registerUser({
-          email,
-          password,
-          firstName,
-          lastName,
-          avatar: avatar ?? null,
-          createdAt: new Date().toISOString().slice(0, 10),
-        });
-
-        if (result !== true) {
-          return result; // Message d'erreur (email déjà utilisé, etc.)
-        }
-
-        // ❌ PAS de set({ user }) : après l'inscription l'utilisateur n'est PAS
-        // connecté, il doit se rendre sur la page de connexion.
-        console.log("[authStore] Nouvel utilisateur enregistré (pas de connexion auto):", email);
-        return true;
-      },
-
-      logout: () => {
         console.log("[authStore] Déconnexion");
-        set({ user: null });
+        set({ user: null, token: null, status: "guest" });
       },
 
-      updateUser: (patch) => {
-        set((state) => {
-          if (!state.user) return {};
-          const nextUser: User = { ...state.user, ...patch };
+      // GET /api/me — réhydrate le user au démarrage et valide le token
+      fetchMe: async () => {
+        if (!get().token) {
+          set({ user: null, token: null, status: "guest" });
+          return;
+        }
+        set({ status: "loading" });
+        try {
+          const { data } = await api.get<ApiUser>("/me");
+          set({ user: apiUserToLocalUser(data), status: "authenticated" });
+        } catch {
+          // Token invalide/expiré → session réinitialisée
+          set({ user: null, token: null, status: "guest" });
+        }
+      },
 
-          // ✅ Synchroniser l'enregistrement persistant (registeredUsers)
-          // pour que les modifs (avatar, prénom, nom, email...)
-          // survivent à la reconnexion.
-          const regUsers = useRegisteredUsersStore.getState();
-          if (regUsers.userExists(state.user.email)) {
-            regUsers.updateUser(state.user.email, {
-              firstName: nextUser.firstName,
-              lastName: nextUser.lastName,
-              email: nextUser.email,
-              avatar: nextUser.avatar,
-              phone: nextUser.phone,
-              city: nextUser.city,
-              bio: nextUser.bio,
-              jobTitle: nextUser.jobTitle,
-            });
-          } else {
-            // Comptes démo (ou sans enregistrement) : on crée un enregistrement
-            // persistant pour que les modifs restent après déconnexion.
-            regUsers.registerUser({
-              email: patch.email ?? state.user.email,
-              password: MOCK_PASSWORD,
-              firstName: nextUser.firstName,
-              lastName: nextUser.lastName,
-              avatar: nextUser.avatar,
-              phone: nextUser.phone,
-              city: nextUser.city,
-              bio: nextUser.bio,
-              jobTitle: nextUser.jobTitle,
-              createdAt: nextUser.createdAt ?? new Date().toISOString().slice(0, 10),
-            });
-          }
+      clearAuth: () => {
+        set({ user: null, token: null, status: "guest" });
+      },
 
-          return { user: nextUser };
-        });
+      // PUT /api/me — met à jour le profil dans la base et rafraîchit l'état local
+      updateUser: async (patch) => {
+        const prev = get().user;
+        if (!prev) return;
+        const merged = { ...prev, ...patch };
+        try {
+          const { data } = await api.put<ApiUser>("/me", {
+            first_name: merged.firstName,
+            last_name: merged.lastName,
+            email: merged.email,
+            phone: merged.phone ?? null,
+            city: merged.city ?? null,
+            bio: merged.bio ?? null,
+            job_title: merged.jobTitle ?? null,
+            ...(patch.avatar !== undefined ? { avatar: patch.avatar } : {}),
+          });
+          set({ user: apiUserToLocalUser(data) });
+        } catch (error) {
+          set({ user: prev });
+          throw error;
+        }
       },
     }),
     {
       name: "mvp-auth",
-      storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ user: state.user }),
+      version: 1,
+      partialize: (state) => ({ user: state.user, token: state.token, status: state.status }),
+      migrate: (persisted) => {
+        const state = persisted as { user?: User | null };
+        if (state.user && typeof state.user.id === "string") {
+          return { ...state, user: { ...state.user, id: Number(state.user.id) } };
+        }
+        return state;
+      },
     },
   ),
 );

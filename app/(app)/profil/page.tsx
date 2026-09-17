@@ -10,7 +10,8 @@ import {
   CheckSquare, AlertTriangle, Eye, Plus,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
-import { useAgencyStore, userAgencies, userRoleInAgency } from "@/app/store/agencyStore";
+import { useAppData } from "@/lib/appData";
+import { userAgencies, userRoleInAgency, type MyTask } from "@/lib/types";
 import AvatarViewer from "@/app/(app)/components/AvatarViewer";
 
 const container: Variants = {
@@ -34,20 +35,6 @@ type InfosPersonnelles = {
 type CropperArea = { x: number; y: number; width: number; height: number };
 
 type TacheStatus = "Assignée" | "Terminée" | "En retard";
-type Tache = {
-  name: string;
-  project: string;
-  agency: string;
-  due: string;
-  status: TacheStatus;
-};
-
-const TACHES: Tache[] = [
-  { name: "Créer la maquette du site", project: "Refonte web", agency: "MVP Studio", due: "12 sept 2026", status: "Terminée" },
-  { name: "Configurer le serveur", project: "Backend API", agency: "MVP Studio", due: "18 sept 2026", status: "En retard" },
-  { name: "Rédiger la documentation", project: "Documentation", agency: "MVP Studio", due: "25 sept 2026", status: "Assignée" },
-  { name: "Footer du site", project: "Refonte web", agency: "Studio Créatif", due: "30 sept 2026", status: "Assignée" },
-];
 
 const STATUS_STYLE: Record<TacheStatus, React.CSSProperties> = {
   "Assignée": { background: "rgba(5,108,242,0.15)", color: "#0c79f2" },
@@ -59,6 +46,20 @@ const statusIcon = (status: TacheStatus) => {
   if (status === "Terminée") return <CheckCircle2 size={13} />;
   if (status === "En retard") return <AlertTriangle size={13} />;
   return <CheckSquare size={13} />;
+};
+
+const displayStatus = (t: MyTask): TacheStatus => {
+  if (t.status === "terminee") return "Terminée";
+  const today = new Date().toISOString().slice(0, 10);
+  if (t.deadline && t.deadline < today) return "En retard";
+  return "Assignée";
+};
+
+const formatEcheance = (d: string | null): string => {
+  if (!d) return "—";
+  const date = new Date(d + "T00:00:00");
+  if (Number.isNaN(date.getTime())) return d;
+  return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 };
 
 function blobToDataURL(blob: Blob): Promise<string> {
@@ -139,8 +140,25 @@ export default function ProfilPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
-  const agencies = useAgencyStore((s) => s.agencies);
+  const { data, myTasksInAgency, agencyById } = useAppData();
+  const agencies = data.agencies;
   const myAgencies = user ? userAgencies(agencies, user.email) : [];
+
+  // ✅ Agence active : transmise via ?agency= depuis le Header quand on navigue
+  // depuis une agence. Sans contexte → pas de badge de rôle ni de bloc de tâches.
+  const contextAgencyId = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("agency")
+    : null;
+  const contextAgency = contextAgencyId ? agencyById(contextAgencyId) : undefined;
+  const contextRole: "owner" | "admin" | "membre" | null =
+    contextAgency && user ? userRoleInAgency(contextAgency, user.email) : null;
+
+  const taches = contextRole === "admin" || contextRole === "membre"
+    ? myTasksInAgency(contextAgencyId!).map((t) => ({
+        ...t,
+        agencyName: agencyById(t.agencyId)?.name ?? contextAgency?.name ?? "—",
+      }))
+    : [];
 
   const [photo, setPhoto] = useState<string | null>(null);
   // ✅ CORRIGÉ : on reprend phone/city/bio/jobTitle déjà persistés dans `user`
@@ -151,12 +169,13 @@ export default function ProfilPage() {
     email: user?.email ?? "",
     phone: user?.phone ?? "",
     city: user?.city ?? "",
-    jobTitle: user?.jobTitle ?? (user?.role === "admin" ? "Administrateur" : "Membre"),
+    jobTitle: user?.jobTitle ?? (contextRole ? (contextRole === "owner" ? "Propriétaire" : contextRole === "admin" ? "Administrateur" : "Membre") : ""),
     bio: user?.bio ?? "",
   });
   const [draft, setDraft] = useState<InfosPersonnelles>(infos);
   const [editing, setEditing] = useState<"personnel" | "professionnel" | null>(null);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [lastRaw, setLastRaw] = useState<string | null>(null);
@@ -173,20 +192,25 @@ export default function ProfilPage() {
     setEditing("personnel");
   };
 
-  const handleSave = () => {
-    setInfos(draft);
-    updateUser({
-      firstName: draft.firstName,
-      lastName: draft.lastName,
-      email: draft.email,
-      phone: draft.phone,
-      city: draft.city,
-      bio: draft.bio,
-      jobTitle: draft.jobTitle,
-    });
-    setEditing(null);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const handleSave = async () => {
+    setSaveError(null);
+    try {
+      await updateUser({
+        firstName: draft.firstName,
+        lastName: draft.lastName,
+        email: draft.email,
+        phone: draft.phone,
+        city: draft.city,
+        bio: draft.bio,
+        jobTitle: draft.jobTitle,
+      });
+      setInfos(draft);
+      setEditing(null);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Impossible d'enregistrer les modifications.");
+    }
   };
 
   const onCropComplete = useCallback((_: CropperArea, croppedPixels: CropperArea) => {
@@ -207,13 +231,16 @@ export default function ProfilPage() {
   const handleApplyCrop = async () => {
     if (!selectedImage || !croppedAreaPixels) return;
     setCropping(true);
+    setSaveError(null);
     try {
       const blob = await getCroppedImg(selectedImage, croppedAreaPixels);
       const url = await blobToDataURL(blob);
+      await updateUser({ avatar: url });
       setPhoto(url);
-      updateUser({ avatar: url });
       setLastRaw(selectedImage);
       setSelectedImage(null);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Impossible d'enregistrer la photo.");
     } finally {
       setCropping(false);
     }
@@ -244,6 +271,17 @@ export default function ProfilPage() {
             style={{ background: "var(--surface)", border: "1px solid rgba(16,185,129,0.3)", color: "var(--color-success)" }}
           >
             <CheckCircle2 size={16} /> Profil mis à jour
+          </motion.div>
+        )}
+
+        {saveError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-2 text-sm px-4 py-3 rounded-xl"
+            style={{ background: "var(--surface)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--color-error)" }}
+          >
+            <AlertTriangle size={16} /> {saveError}
           </motion.div>
         )}
 
@@ -284,12 +322,15 @@ export default function ProfilPage() {
                 <p className="mt-1 flex items-center justify-center md:justify-start gap-2" style={{ color: "var(--text-secondary)" }}>
                   <Briefcase size={15} /> {infos.jobTitle}
                 </p>
-                <span
-                  className="inline-flex items-center gap-1.5 mt-3 text-xs font-semibold text-white px-3 py-1 rounded-full"
-                  style={{ background: "var(--gradient-button)", boxShadow: "0 4px 10px -4px rgba(37,99,235,0.4)" }}
-                >
-                  <ShieldCheck size={13} /> {user?.role === "admin" ? "Administrateur" : "Membre"}
-                </span>
+                {contextRole && (
+                  <span
+                    className="inline-flex items-center gap-1.5 mt-3 text-xs font-semibold text-white px-3 py-1 rounded-full"
+                    style={{ background: "var(--gradient-button)", boxShadow: "0 4px 10px -4px rgba(37,99,235,0.4)" }}
+                  >
+                    <ShieldCheck size={13} />{" "}
+                    {contextRole === "owner" ? "Propriétaire" : contextRole === "admin" ? "Administrateur" : "Membre"}
+                  </span>
+                )}
               </div>
 
               {avatarUrl && (
@@ -352,7 +393,7 @@ export default function ProfilPage() {
               <Briefcase size={18} /> Informations professionnelles
             </h2>
             <span className="text-xs inline-flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
-              <Calendar size={13} /> Inscrit depuis janvier 2026
+              <Calendar size={13} /> Inscrit depuis {user?.createdAt ? formatEcheance(user.createdAt) : "peu"}
             </span>
           </div>
 
@@ -408,21 +449,22 @@ export default function ProfilPage() {
           </div>
         </motion.div>
 
+        {(contextRole === "admin" || contextRole === "membre") && (
         <motion.div variants={item} className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
           <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
             <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
               <ClipboardList size={18} /> Mes tâches
             </h2>
             <span className="text-xs inline-flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
-              <Calendar size={13} /> {TACHES.length} tâches au total
+              <Calendar size={13} /> {taches.length} tâche(s) assignée(s)
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             {[
-              { label: "Tâches assignées", count: TACHES.filter((t) => t.status === "Assignée").length, icon: CheckSquare, color: "#0c79f2" },
-              { label: "Tâches terminées", count: TACHES.filter((t) => t.status === "Terminée").length, icon: CheckCircle2, color: "var(--color-success)" },
-              { label: "Tâches en retard", count: TACHES.filter((t) => t.status === "En retard").length, icon: AlertTriangle, color: "var(--color-error)" },
+              { label: "Tâches assignées", count: taches.filter((t) => displayStatus(t) === "Assignée").length, icon: CheckSquare, color: "#0c79f2" },
+              { label: "Tâches terminées", count: taches.filter((t) => displayStatus(t) === "Terminée").length, icon: CheckCircle2, color: "var(--color-success)" },
+              { label: "Tâches en retard", count: taches.filter((t) => displayStatus(t) === "En retard").length, icon: AlertTriangle, color: "var(--color-error)" },
             ].map((s) => (
               <div
                 key={s.label}
@@ -454,34 +496,55 @@ export default function ProfilPage() {
                 </tr>
               </thead>
               <tbody>
-                {TACHES.map((t) => (
-                  <tr key={t.name} className="transition-colors hover:bg-[var(--hover-soft)]">
-                    <td className="px-4 py-3 font-medium" style={{ color: "var(--text-primary)", borderBottom: "1px solid var(--border-subtle)" }}>
-                      {t.name}
-                    </td>
-                    <td className="px-4 py-3" style={{ color: "var(--text-secondary)", borderBottom: "1px solid var(--border-subtle)" }}>
-                      {t.project}
-                    </td>
-                    <td className="px-4 py-3" style={{ color: "var(--text-secondary)", borderBottom: "1px solid var(--border-subtle)" }}>
-                      {t.agency}
-                    </td>
-                    <td className="px-4 py-3" style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border-subtle)" }}>
-                      {t.due}
-                    </td>
-                    <td className="px-4 py-3" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                      <span
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
-                        style={STATUS_STYLE[t.status]}
-                      >
-                        {statusIcon(t.status)} {t.status}
-                      </span>
+                {taches.map((t) => {
+                  const status = displayStatus(t);
+                  return (
+                    <tr key={t.id} className="transition-colors hover:bg-[var(--hover-soft)]">
+                      <td className="px-4 py-3 font-medium" style={{ color: "var(--text-primary)", borderBottom: "1px solid var(--border-subtle)" }}>
+                        <Link
+                          href={`/agences/${t.agencyId}/projets/${t.projectId}/taches/${t.id}`}
+                          className="hover:underline"
+                          style={{ color: "inherit" }}
+                        >
+                          {t.title}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3" style={{ color: "var(--text-secondary)", borderBottom: "1px solid var(--border-subtle)" }}>
+                        {t.projectName || "—"}
+                      </td>
+                      <td className="px-4 py-3" style={{ color: "var(--text-secondary)", borderBottom: "1px solid var(--border-subtle)" }}>
+                        {t.agencyName}
+                      </td>
+                      <td className="px-4 py-3" style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border-subtle)" }}>
+                        {formatEcheance(t.deadline)}
+                      </td>
+                      <td className="px-4 py-3" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                        <span
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
+                          style={STATUS_STYLE[status]}
+                        >
+                          {statusIcon(status)} {status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {taches.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="px-4 py-8 text-center"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      Aucune tâche ne vous est assignée pour le moment.
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
         </motion.div>
+      )}
 
         <motion.div variants={item} className="grid lg:grid-cols-2 gap-6">
           <div className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>

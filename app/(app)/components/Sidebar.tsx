@@ -8,7 +8,8 @@ import {
   CheckSquare, FolderKanban, Users, Bell, Settings, ArrowLeft, Plus, User,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
-import { useAgencyStore, userAgencies, userRoleInAgency } from "@/app/store/agencyStore";
+import { useAppData } from "@/lib/appData";
+import { userAgencies, userRoleInAgency } from "@/lib/types";
 
 const ADMIN_GLOBAL_ITEMS = [
   { href: "/mes-agences", label: "Mes agences", icon: Building2 },
@@ -55,13 +56,13 @@ export default function Sidebar({
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const agencies = useAgencyStore((s) => s.agencies);
+  const { data, agencyById } = useAppData();
 
   const agencyMatch = pathname.match(/^\/agences\/([^/]+)/);
   const agencyId = agencyMatch ? agencyMatch[1] : null;
   const isInAgency = agencyId !== null;
 
-  const currentAgency = agencies.find((a) => a.id === agencyId);
+  const currentAgency = agencyId ? agencyById(agencyId) : undefined;
   const agencyName = currentAgency?.name ?? "Agence";
   // ✅ Rôle dérivé de la fiche membre de l'utilisateur dans cette agence
   const agencyRole = currentAgency && user
@@ -70,7 +71,7 @@ export default function Sidebar({
 
   // ✅ Agences visibles : uniquement celles où l'utilisateur est membre/admin
   const myAgencies = user
-    ? userAgencies(agencies, user.email)
+    ? userAgencies(data.agencies, user.email)
     : [];
 
   const handleLogout = () => {
@@ -169,7 +170,7 @@ export default function Sidebar({
       );
     }
 
-    const items = user?.role === "admin" ? ADMIN_GLOBAL_ITEMS : MEMBER_GLOBAL_ITEMS;
+    const items = MEMBER_GLOBAL_ITEMS;
 
     return (
       <div className="space-y-0.5">

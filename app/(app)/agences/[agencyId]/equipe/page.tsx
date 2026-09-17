@@ -6,14 +6,19 @@ import { useState, useRef } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import {
   Users, Mail, ShieldCheck, UserRound, UserPlus, Plus,
-  LayoutGrid, List, Settings, CheckCircle2, MoreHorizontal, Ban, Trash2, ClipboardList, ArrowLeft, Crown, Sparkles,
+  LayoutGrid, List, Settings, CheckCircle2, MoreHorizontal, Trash2, ArrowLeft, Crown, Sparkles,
 } from "lucide-react";
 import {
-  useAgencyStore, userRoleInAgency, hasRight, type AgencyMember, MEMBER_COLORS, OWNER_COLOR,
-} from "@/app/store/agencyStore";
+  useAppData,
+} from "@/lib/appData";
+import {
+  userRoleInAgency, hasRight, OWNER_COLOR, colorizeMembers,
+  type AgencyMember, type DisplayMember,
+} from "@/lib/types";
+import {
+  inviteAgencyMember, updateAgencyMember, removeAgencyMember, getApiErrorMessage,
+} from "@/lib/services";
 import { useAuthStore } from "@/app/store/authStore";
-import { useNotificationsStore } from "@/app/store/notificationsStore";
-import { useRegisteredUsersStore } from "@/app/store/registeredUsersStore";
 import AvatarViewer from "@/app/(app)/components/AvatarViewer";
 
 const container: Variants = {
@@ -27,10 +32,8 @@ const item: Variants = {
 
 const hexToRgba = (hex: string, alpha: number) => {
   const n = parseInt(hex.replace("#", ""), 16);
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${(n & 255)},${alpha})`;
 };
-const memberColor = (m: { color?: string } | null | undefined) =>
-  m?.color ?? MEMBER_COLORS[0];
 
 function InviteConfirmModal({
   email,
@@ -189,7 +192,6 @@ function MemberMenu({
   buttonClassName,
   panelClassName,
   onChangeRole,
-  onToggleStatus,
   onRemove,
 }: {
   member: AgencyMember;
@@ -198,7 +200,6 @@ function MemberMenu({
   buttonClassName?: string;
   panelClassName?: string;
   onChangeRole: () => void;
-  onToggleStatus: () => void;
   onRemove: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -247,10 +248,10 @@ function MemberMenu({
               style={{ background: "var(--surface)", borderBottom: "1px solid var(--border-subtle)" }}
             >
               <div className="text-xs font-bold truncate" style={{ color: "var(--text-primary)" }}>
-                {member.firstName} {member.lastName}
+                {member.user.firstName} {member.user.lastName}
               </div>
               <div className="text-[10px] truncate" style={{ color: "var(--text-muted)" }}>
-                {member.email}
+                {member.user.email}
               </div>
             </div>
             <button
@@ -260,14 +261,6 @@ function MemberMenu({
             >
               <ShieldCheck size={15} style={{ color: "#056cf2" }} />
               {member.role === "admin" ? "Rétrograder en Membre" : "Promouvoir en Admin"}
-            </button>
-            <button
-              onClick={() => { setOpen(false); onToggleStatus(); }}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left rounded-lg transition-colors hover:bg-[var(--hover-soft)]"
-              style={{ color: member.status === "inactif" ? "var(--color-success)" : "var(--color-error)" }}
-            >
-              <Ban size={15} />
-              {member.status === "inactif" ? "Réactiver le compte" : "Désactiver le compte"}
             </button>
             <div className="my-1" style={{ borderTop: "1px solid var(--border-subtle)" }} />
             <button
@@ -286,22 +279,20 @@ function MemberMenu({
 
 export default function EquipePage() {
   const { agencyId } = useParams<{ agencyId: string }>();
-  const agency = useAgencyStore((s) => s.agencies.find((a) => a.id === agencyId));
+  const { data, reload } = useAppData();
+  const agency = data.agencies.find((a) => a.id === Number(agencyId));
   const user = useAuthStore((s) => s.user);
-  const sendInvitation = useNotificationsStore((s) => s.sendInvitation);
-  const userExists = useRegisteredUsersStore((s) => s.userExists);
-  const updateMember = useAgencyStore((s) => s.updateMember);
-  const removeMember = useAgencyStore((s) => s.removeMember);
 
-  // ====== États (toujours déclarés AVANT tout retour anticipé) ======
   const [viewMode, setViewMode] = useState<"grid" | "list">(() =>
     (agency?.members?.length ?? 0) <= 8 ? "grid" : "list",
   );
   const [viewerMail, setViewerMail] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [inviteFocused, setInviteFocused] = useState(false);
+  const [inviteRole, setInviteRole] = useState<"admin" | "membre">("membre");
   const [confirmEmail, setConfirmEmail] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
@@ -323,99 +314,81 @@ export default function EquipePage() {
     );
   }
 
-  const members = (agency?.members ?? []).filter(
-    (m) => m.email.toLowerCase() !== (agency?.createdBy ?? "").toLowerCase()
-  );
-  const owner = (agency?.members ?? []).find(
-    (m) => m.email.toLowerCase() === (agency?.createdBy ?? "").toLowerCase()
-  ) ?? null;
-  // ✅ Le propriétaire est affiché comme n'importe quel membre, avec son badge.
-  const people = owner ? [owner, ...members] : members;
-  const isOwnerMember = (m: { email: string }) =>
-    m.email.toLowerCase() === (agency?.createdBy ?? "").toLowerCase();
-  // ✅ Le propriétaire a une couleur dédiée (rouge sombre), distincte des membres.
-  const accentOf = (m: { email: string; color?: string }): string =>
-    isOwnerMember(m) ? OWNER_COLOR : memberColor(m);
-  const myRole = user && agency ? userRoleInAgency(agency, user.email) : "membre";
-const isAdmin = myRole === "owner" || myRole === "admin";
+  const people = colorizeMembers(agency.members ?? [], agency.ownerId);
+  const isOwnerMember = (m: AgencyMember) =>
+    m.user.id === agency.ownerId;
+  const accentOf = (m: DisplayMember): string =>
+    isOwnerMember(m) ? OWNER_COLOR : m.color;
+  const myRole = user ? userRoleInAgency(agency, user.email) : "membre";
+  const isAdmin = myRole === "owner" || myRole === "admin";
 
-  const canInvite = hasRight(agency ?? null, user?.email ?? "", "invite");
-  const canManageUsers = hasRight(agency ?? null, user?.email ?? "", "manageUsers");
+  const canInvite = hasRight(agency, user?.email ?? "", "invite");
+  const canManageUsers = hasRight(agency, user?.email ?? "", "manageUsers");
 
-type PendingAction =
-  | { type: "changeRole"; member: AgencyMember }
-  | { type: "toggleStatus"; member: AgencyMember }
-  | { type: "remove"; member: AgencyMember };
+  type PendingAction =
+    | { type: "changeRole"; member: AgencyMember }
+    | { type: "remove"; member: AgencyMember };
 
-const requestChangeRole = (m: AgencyMember) => {
-  if (m.email === user?.email) { alert("Vous ne pouvez pas modifier votre propre rôle."); return; }
-  setPendingAction({ type: "changeRole", member: m });
-};
+  const requestChangeRole = (m: AgencyMember) => {
+    if (m.user.id === user?.id) { alert("Vous ne pouvez pas modifier votre propre rôle."); return; }
+    setPendingAction({ type: "changeRole", member: m });
+  };
 
-const requestToggleStatus = (m: AgencyMember) => {
-  if (m.email === user?.email) { alert("Vous ne pouvez pas désactiver votre propre compte."); return; }
-  setPendingAction({ type: "toggleStatus", member: m });
-};
+  const requestRemove = (m: AgencyMember) => {
+    if (m.user.id === user?.id) { alert("Vous ne pouvez pas supprimer votre propre compte."); return; }
+    setPendingAction({ type: "remove", member: m });
+  };
 
-const requestRemove = (m: AgencyMember) => {
-  if (m.email === user?.email) { alert("Vous ne pouvez pas supprimer votre propre compte."); return; }
-  setPendingAction({ type: "remove", member: m });
-};
+  const confirmPendingAction = async () => {
+    if (!pendingAction) return;
+    const { type, member } = pendingAction;
+    const fullName = `${member.user.firstName} ${member.user.lastName}`.trim() || member.user.email;
 
-const confirmPendingAction = () => {
-  if (!pendingAction) return;
-  const { type, member } = pendingAction;
-  const fullName = `${member.firstName} ${member.lastName}`.trim() || member.email;
+    try {
+      if (type === "changeRole") {
+        const newRole = member.role === "admin" ? "membre" : "admin";
+        await updateAgencyMember(agencyId, member.id, { role: newRole });
+        await reload();
+        setActionSuccess(`« ${fullName} » est désormais ${newRole === "admin" ? "Admin" : "Membre"}.`);
+      } else {
+        await removeAgencyMember(agencyId, member.id);
+        await reload();
+        setActionSuccess(`« ${fullName} » a été supprimé(e) de l'agence.`);
+      }
+    } catch (err) {
+      setActionSuccess(null);
+      alert(getApiErrorMessage(err));
+    }
 
-  if (type === "changeRole") {
-    const newRole = member.role === "admin" ? "membre" : "admin";
-    updateMember(agencyId, member.email, { role: newRole });
-    setActionSuccess(`« ${fullName} » est désormais ${newRole === "admin" ? "Admin" : "Membre"}.`);
-  } else if (type === "toggleStatus") {
-    const newStatus = member.status === "inactif" ? "actif" : "inactif";
-    updateMember(agencyId, member.email, { status: newStatus });
-    setActionSuccess(`Le compte de « ${fullName} » a été ${newStatus === "actif" ? "réactivé" : "désactivé"}.`);
-  } else {
-    removeMember(agencyId, member.email);
-    setActionSuccess(`« ${fullName} » a été supprimé(e) de l'agence.`);
-  }
+    setPendingAction(null);
+    setTimeout(() => setActionSuccess(null), 3000);
+  };
 
-  setPendingAction(null);
-  setTimeout(() => setActionSuccess(null), 3000);
-};
-
-  const viewerMember = people.find((m) => m.email === viewerMail);
+  const viewerMember = people.find((m) => m.user.email === viewerMail);
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = email.trim().toLowerCase();
-    if (!agencyId || !trimmed) return;
-
-    if (!userExists(trimmed)) {
-      alert("Aucun compte enregistré avec cet email. L'utilisateur doit d'abord créer un compte.");
-      return;
-    }
-    if (trimmed === user?.email.toLowerCase()) {
+    if (!trimmed) return;
+    if (trimmed === (user?.email ?? "").toLowerCase()) {
       alert("Vous ne pouvez pas vous inviter vous-même.");
       return;
     }
     setConfirmEmail(trimmed);
   };
 
-  const confirmSendInvitation = () => {
-    if (!agencyId || !confirmEmail) return;
-    const ok = sendInvitation({
-      agencyId,
-      agencyName: agency?.name ?? "Agence",
-      toEmail: confirmEmail,
-      fromEmail: user?.email ?? "",
-    });
-    if (ok) {
+  const confirmSendInvitation = async () => {
+    if (!confirmEmail) return;
+    setInviteError(null);
+    try {
+      await inviteAgencyMember(agencyId, { email: confirmEmail, role: inviteRole });
+      await reload();
       setEmail("");
       setInviteSuccess(confirmEmail);
       setTimeout(() => setInviteSuccess(null), 3000);
-    } else {
-      alert("Une invitation active existe déjà pour cet email.");
+    } catch (err) {
+      setInviteError(getApiErrorMessage(err));
+      setTimeout(() => setInviteError(null), 4000);
     }
     setConfirmEmail(null);
   };
@@ -445,7 +418,7 @@ const confirmPendingAction = () => {
               <span className="font-bold" style={{ color: "#056cf2" }}>{people.length}</span>
               membre{people.length > 1 ? "s" : ""} dans
               <span className="font-semibold" style={{ color: "var(--text-primary)" }}>
-                {agency?.name ?? "cette agence"}
+                {agency.name}
               </span>
               <Sparkles size={13} className="ml-0.5" style={{ color: "#056cf2", opacity: 0.6 }} />
             </p>
@@ -505,8 +478,28 @@ const confirmPendingAction = () => {
             <CheckCircle2 className="w-5 h-5 shrink-0" />
             <p className="text-sm">
               <span className="font-semibold">Invitation envoyée à {inviteSuccess}.</span>{" "}
-              Un e-mail lui a été réservé pour rejoindre {agency?.name}.
+              Un e-mail lui a été envoyé pour rejoindre {agency.name}.
             </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {inviteError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="rounded-2xl px-5 py-4 flex items-center gap-3 overflow-hidden"
+            style={{
+              background: "rgba(239,68,68,0.12)",
+              border: "1px solid rgba(239,68,68,0.35)",
+              color: "var(--color-error)",
+            }}
+          >
+            <CheckCircle2 className="w-5 h-5 shrink-0" />
+            <p className="text-sm font-semibold">{inviteError}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -531,7 +524,7 @@ const confirmPendingAction = () => {
         )}
       </AnimatePresence>
 
-      {members.length === 0 && (
+      {people.length <= 1 && (
         <motion.div variants={item} className="glass rounded-3xl p-10 text-center" style={{ boxShadow: "var(--shadow-card)" }}>
           <div
             className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center mb-4"
@@ -552,7 +545,7 @@ const confirmPendingAction = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {people.map((m) => (
             <motion.div
-              key={m.email}
+              key={m.user.id}
               variants={item}
               whileHover={{ y: -6 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
@@ -577,7 +570,6 @@ const confirmPendingAction = () => {
                   panelClassName="absolute left-full ml-2 top-3 z-30 w-60 rounded-2xl p-2 pointer-events-auto"
                   member={m}
                   onChangeRole={() => requestChangeRole(m)}
-                  onToggleStatus={() => requestToggleStatus(m)}
                   onRemove={() => requestRemove(m)}
                 />
               )}
@@ -592,17 +584,17 @@ const confirmPendingAction = () => {
                         : isOwnerMember(m)
                           ? "linear-gradient(145deg, #056cf2, #0a2a6b)"
                           : accentOf(m),
-                    boxShadow: m.status === "actif" ? `0 8px 20px -8px ${hexToRgba(accentOf(m), 0.45)}` : "none",
+                    boxShadow: m.status !== "inactif" ? `0 8px 20px -8px ${hexToRgba(accentOf(m), 0.45)}` : "none",
                   }}
-                  onClick={m.avatar ? () => setViewerMail(m.email) : undefined}
-                  title={m.avatar ? "Voir la photo de profil" : undefined}
+                  onClick={m.user.avatar ? () => setViewerMail(m.user.email) : undefined}
+                  title={m.user.avatar ? "Voir la photo de profil" : undefined}
                 >
                   <div
                     className="w-full h-full rounded-full overflow-hidden flex items-center justify-center"
                     style={{ background: "var(--card-bg)" }}
                   >
-                    {m.avatar ? (
-                      <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(${m.avatar})` }} />
+                    {m.user.avatar ? (
+                      <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(${m.user.avatar})` }} />
                     ) : (
                       <UserRound
                         className="w-9 h-9"
@@ -635,10 +627,10 @@ const confirmPendingAction = () => {
 
               <div className="text-center">
                 <div className="font-bold" style={{ color: "var(--text-primary)" }}>
-                  {m.firstName} {m.lastName}
+                  {m.user.firstName} {m.user.lastName}
                 </div>
                 <div className="text-xs mt-1 flex items-center justify-center gap-1" style={{ color: "var(--text-muted)" }}>
-                  <Mail size={11} /> {m.email}
+                  <Mail size={11} /> {m.user.email}
                 </div>
               </div>
 
@@ -672,17 +664,13 @@ const confirmPendingAction = () => {
                   style={
                     m.status === "inactif"
                       ? { background: "rgba(239,68,68,0.12)", color: "var(--color-error)" }
-                      : { background: "rgba(16,185,129,0.12)", color: "var(--color-success)" }
+                      : m.status === "en_attente"
+                        ? { background: "rgba(245,158,11,0.12)", color: "#f59e0b" }
+                        : { background: "rgba(16,185,129,0.12)", color: "var(--color-success)" }
                   }
                 >
                   <CheckCircle2 size={11} />
-                  {m.status === "inactif" ? "Inactif" : "Actif"}
-                </span>
-                <span
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1 rounded-full"
-                  style={{ background: "var(--surface)", color: "var(--text-muted)", border: "1px solid var(--border-subtle)" }}
-                >
-                  <ClipboardList size={11} /> {m.taskCount} tâche{m.taskCount > 1 ? "s" : ""}
+                  {m.status === "inactif" ? "Inactif" : m.status === "en_attente" ? "En attente" : "Actif"}
                 </span>
               </div>
               {m.status === "inactif" && (
@@ -693,11 +681,6 @@ const confirmPendingAction = () => {
                   Aucune tâche possible
                 </div>
               )}
-              <div className="w-full mt-2 pt-3 text-center" style={{ borderTop: "1px solid var(--border-subtle)" }}>
-                <span className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>
-                  Membre depuis le {m.joinedAt}
-                </span>
-              </div>
             </motion.div>
           ))}
         </div>
@@ -705,7 +688,7 @@ const confirmPendingAction = () => {
   <div className="space-y-3">
     {people.map((m) => (
       <motion.div
-        key={m.email}
+        key={m.user.id}
         variants={item}
         whileHover={{ x: 4 }}
         transition={{ duration: 0.25, ease: "easeOut" }}
@@ -738,17 +721,17 @@ const confirmPendingAction = () => {
                     : isOwnerMember(m)
                       ? "linear-gradient(145deg, #056cf2, #0a2a6b)"
                       : accentOf(m),
-                boxShadow: m.status === "actif" ? `0 6px 14px -6px ${hexToRgba(accentOf(m), 0.4)}` : "none",
+                boxShadow: m.status !== "inactif" ? `0 6px 14px -6px ${hexToRgba(accentOf(m), 0.4)}` : "none",
               }}
-              onClick={m.avatar ? () => setViewerMail(m.email) : undefined}
-              title={m.avatar ? "Voir la photo de profil" : undefined}
+              onClick={m.user.avatar ? () => setViewerMail(m.user.email) : undefined}
+              title={m.user.avatar ? "Voir la photo de profil" : undefined}
             >
               <div
                 className="w-full h-full rounded-full overflow-hidden flex items-center justify-center"
                 style={{ background: "var(--card-bg)" }}
               >
-                {m.avatar ? (
-                  <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(${m.avatar})` }} />
+                {m.user.avatar ? (
+                  <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(${m.user.avatar})` }} />
                 ) : (
                   <UserRound className="w-6 h-6" style={{ color: m.status === "inactif" ? "var(--text-muted)" : accentOf(m) }} />
                 )}
@@ -777,10 +760,10 @@ const confirmPendingAction = () => {
           </div>
           <div className="min-w-0">
             <div className="font-bold truncate flex items-center gap-1.5" style={{ color: "var(--text-primary)" }}>
-              {m.firstName} {m.lastName}
+              {m.user.firstName} {m.user.lastName}
             </div>
             <div className="text-xs truncate flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
-              <Mail size={10} /> {m.email}
+              <Mail size={10} /> {m.user.email}
             </div>
           </div>
         </div>
@@ -811,20 +794,16 @@ const confirmPendingAction = () => {
           </span>
           <span
             className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1 rounded-full"
-            style={{ background: "var(--surface)", color: "var(--text-muted)", border: "1px solid var(--border-subtle)" }}
-          >
-            <ClipboardList size={11} /> {m.taskCount} tâche{m.taskCount > 1 ? "s" : ""}
-          </span>
-          <span
-            className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1 rounded-full"
             style={
               m.status === "inactif"
                 ? { background: "rgba(239,68,68,0.12)", color: "var(--color-error)" }
-                : { background: "rgba(16,185,129,0.12)", color: "var(--color-success)" }
+                : m.status === "en_attente"
+                  ? { background: "rgba(245,158,11,0.12)", color: "#f59e0b" }
+                  : { background: "rgba(16,185,129,0.12)", color: "var(--color-success)" }
             }
           >
             <CheckCircle2 size={11} />
-            {m.status === "inactif" ? "Inactif" : "Actif"}
+            {m.status === "inactif" ? "Inactif" : m.status === "en_attente" ? "En attente" : "Actif"}
           </span>
         </div>
 
@@ -832,7 +811,6 @@ const confirmPendingAction = () => {
           <MemberMenu
             member={m}
             onChangeRole={() => requestChangeRole(m)}
-            onToggleStatus={() => requestToggleStatus(m)}
             onRemove={() => requestRemove(m)}
           />
         ) : (
@@ -878,6 +856,19 @@ const confirmPendingAction = () => {
                 color: "var(--text-primary)",
               }}
             />
+            <select
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value as "admin" | "membre")}
+              className="rounded-xl px-4 py-3 text-sm focus:outline-none transition-all duration-200"
+              style={{
+                background: "var(--input-bg)",
+                border: "1px solid var(--input-border)",
+                color: "var(--text-primary)",
+              }}
+            >
+              <option value="membre">Membre</option>
+              <option value="admin">Admin</option>
+            </select>
             <motion.button
               type="submit"
               whileHover={{ y: -2 }}
@@ -914,7 +905,7 @@ const confirmPendingAction = () => {
 
       {pendingAction && (() => {
         const { type, member } = pendingAction;
-        const fullName = `${member.firstName} ${member.lastName}`.trim() || member.email;
+        const fullName = `${member.user.firstName} ${member.user.lastName}`.trim() || member.user.email;
 
         if (type === "changeRole") {
           const isPromote = member.role === "membre";
@@ -931,27 +922,6 @@ const confirmPendingAction = () => {
               }
               confirmLabel={isPromote ? "Promouvoir" : "Rétrograder"}
               tone="primary"
-              onConfirm={confirmPendingAction}
-              onCancel={() => setPendingAction(null)}
-            />
-          );
-        }
-
-        if (type === "toggleStatus") {
-          const isDeactivate = member.status === "actif";
-          return (
-            <ConfirmActionModal
-              icon={<Ban size={20} />}
-              tone={isDeactivate ? "danger" : "success"}
-              title={isDeactivate ? "Désactiver ce compte" : "Réactiver ce compte"}
-              description={
-                <>
-                  Confirmer la {isDeactivate ? "désactivation" : "réactivation"} du compte de{" "}
-                  <strong>{fullName}</strong> ?
-                  {isDeactivate && " Ce membre ne pourra plus recevoir de nouvelles tâches."}
-                </>
-              }
-              confirmLabel={isDeactivate ? "Désactiver" : "Réactiver"}
               onConfirm={confirmPendingAction}
               onCancel={() => setPendingAction(null)}
             />
@@ -978,13 +948,13 @@ const confirmPendingAction = () => {
 
       <AvatarViewer
         open={!!viewerMember}
-        src={viewerMember?.avatar}
+        src={viewerMember?.user.avatar}
         onClose={() => setViewerMail(null)}
       />
 
       <InviteConfirmModal
         email={confirmEmail}
-        agencyName={agency?.name ?? "cette agence"}
+        agencyName={agency.name}
         onConfirm={confirmSendInvitation}
         onCancel={cancelSendInvitation}
       />

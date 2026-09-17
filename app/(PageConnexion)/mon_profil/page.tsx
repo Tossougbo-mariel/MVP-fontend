@@ -13,9 +13,11 @@ import {
   AlertTriangle,
   Save,
 } from "lucide-react";
+import { useAuthStore } from "@/app/store/authStore";
 
 export default function ProfilPage() {
   const router = useRouter();
+  const logout = useAuthStore((s) => s.logout);
 
   // Données utilisateur (factice — viendra du backend)
   const [firstName, setFirstName] = useState("Jean");
@@ -35,9 +37,8 @@ export default function ProfilPage() {
   };
 
   const handleLogout = () => {
-    // TODO backend : appeler POST /api/logout
-    localStorage.removeItem("token");
-    sessionStorage.clear();
+    // ✅ Branché : POST /api/logout (révocation du token Sanctum)
+    logout();
     router.push("/connexion");
   };
 

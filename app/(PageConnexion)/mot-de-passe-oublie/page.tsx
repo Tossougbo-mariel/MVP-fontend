@@ -6,11 +6,13 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { Sparkles, ArrowLeft } from "lucide-react";
 import AuthCard from "../components/AuthCard";
+import api, { getApiErrorMessage } from "@/lib/api";
 
 export default function MotDePasseOubliePage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const inputStyle = {
     background: "var(--input-bg)",
@@ -26,15 +28,19 @@ export default function MotDePasseOubliePage() {
     e.currentTarget.style.boxShadow = "none";
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setLoading(true);
-    // TODO backend : appeler POST /api/forgot-password
-    console.log("Réinitialisation demandée pour:", email);
-    setTimeout(() => {
+    // ✅ Branché : POST /api/password/forgot
+    try {
+      await api.post("/password/forgot", { email });
       setLoading(false);
       setSent(true);
-    }, 800);
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+      setLoading(false);
+    }
   };
 
   return (
@@ -130,6 +136,16 @@ export default function MotDePasseOubliePage() {
 
           {!sent && (
             <form onSubmit={handleSubmit} className="space-y-5">
+              {error && (
+                <motion.p
+                  initial={{ y: -10, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  className="text-sm"
+                  style={{ color: "var(--color-error)", animation: "shake 0.4s" }}
+                >
+                  {error}
+                </motion.p>
+              )}
               <motion.div
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
