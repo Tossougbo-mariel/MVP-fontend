@@ -5,6 +5,8 @@ import { motion, type Variants } from "framer-motion";
 import { Plus, Building2, ChevronRight } from "lucide-react";
 import { useAgencyStore, userAgencies, userRoleInAgency } from "@/app/store/agencyStore";
 import { useAuthStore } from "@/app/store/authStore";
+import { agencyGradientOf, agencyDarkGradientOf } from "@/app/lib/agencyDecor";
+import { useIsDarkMode } from "@/app/lib/useIsDarkMode";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -20,6 +22,7 @@ const MotionLink = motion(Link);
 export default function MesAgencesPage() {
   const user = useAuthStore((s) => s.user);
   const allAgencies = useAgencyStore((s) => s.agencies);
+  const isDark = useIsDarkMode();
   // ✅ Uniquement les agences dont l'utilisateur est membre/admin
   const agencies = userAgencies(allAgencies, user?.email ?? "");
 
@@ -75,7 +78,13 @@ export default function MesAgencesPage() {
               className="glass relative rounded-3xl p-5 pt-7 flex flex-col gap-4 cursor-pointer overflow-hidden"
               style={{ boxShadow: "var(--shadow-card)" }}
             >
+              {/* Couleurs de l'agence : mélange de 2 teintes douces selon la 1re lettre du nom */}
+              <span
+                className="absolute inset-0 rounded-3xl pointer-events-none"
+                style={{ backgroundImage: isDark ? agencyDarkGradientOf(a.name) : agencyGradientOf(a.name) }}
+              />
               <div className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl" style={{ background: "var(--gradient-primary)" }} />
+              <div className="relative flex flex-col gap-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div
@@ -117,6 +126,7 @@ export default function MesAgencesPage() {
               >
                 <span>{(a.members ?? []).length} membre{(a.members ?? []).length > 1 ? "s" : ""}</span>
                 <span>Créée le {a.createdAt}</span>
+              </div>
               </div>
             </MotionLink>
             );

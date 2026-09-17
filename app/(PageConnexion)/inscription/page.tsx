@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import NextImage from "next/image";
 import { motion } from "framer-motion";
@@ -9,6 +9,7 @@ import Cropper from "react-easy-crop";
 import { Sparkles, Eye, EyeOff, Camera, User, X, ZoomIn, CheckCircle2, ArrowLeft } from "lucide-react";
 import AuthCard from "../components/AuthCard";
 import { useAuthStore } from "@/app/store/authStore";
+import { useNotificationsStore } from "@/app/store/notificationsStore";
 
 type CropperArea = { x: number; y: number; width: number; height: number };
 
@@ -74,6 +75,13 @@ export default function InscriptionPage() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const register = useAuthStore((s) => s.register);
+
+  // ✅ Invitation éventuellement liée au lien de confirmation (création de compte requise)
+  const searchParams = useSearchParams();
+  const invitationId = searchParams.get("invitation") ?? "";
+  const pendingInvitation = useNotificationsStore((s) =>
+    s.invitations.find((i) => i.id === invitationId && i.status === "pending"),
+  );
 
   // ====== États recadrage photo ======
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -155,7 +163,10 @@ export default function InscriptionPage() {
     }
     
     // ✅ Succès : rediriger vers la page de connexion (l'utilisateur n'est PAS connecté)
-    router.push("/connexion?inscrit=1");
+    // Si un lien d'invitation est en cours, on le conserve pour finaliser après connexion.
+    router.push(
+      invitationId ? `/connexion?inscrit=1&invitation=${invitationId}` : "/connexion?inscrit=1",
+    );
   };
 
   const inputStyle = {
@@ -273,6 +284,26 @@ export default function InscriptionPage() {
               Créez votre compte gratuitement
             </motion.p>
           </div>
+
+          {pendingInvitation && (
+            <motion.div
+              initial={{ y: -10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="flex items-center gap-2 text-sm mb-4 px-4 py-3 rounded-xl"
+              style={{
+                background: "rgba(5,108,242,0.1)",
+                border: "1px solid rgba(5,108,242,0.3)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              <Sparkles className="w-4 h-4 shrink-0" style={{ color: "#056cf2" }} />
+              <span>
+                Vous êtes invité(e) à rejoindre{" "}
+                <span className="font-semibold" style={{ color: "#056cf2" }}>{pendingInvitation.agencyName}</span>.
+                Après création de votre compte, vous pourrez accepter l&apos;invitation.
+              </span>
+            </motion.div>
+          )}
 
           {error && (
             <motion.p

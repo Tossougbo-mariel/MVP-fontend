@@ -20,7 +20,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useAgencyStore, userRoleInAgency, type ProjectStatus } from "@/app/store/agencyStore";
+import { useAgencyStore, userRoleInAgency, isAgencyOwner, type ProjectStatus } from "@/app/store/agencyStore";
 import { useAuthStore } from "@/app/store/authStore";
 import { useProjectStore, getProjectById } from "@/app/store/projectStore";
 import { useTaskStore, getTasksByProject, getProjectStatusFromTasks } from "@/app/store/taskStore";
@@ -75,7 +75,8 @@ export default function ProjectDetailPage() {
   const deleteCommentsByProject = useCommentStore((s) => s.deleteCommentsByProject);
 
   const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
-  const isAdmin = role === "admin";
+  const isAdmin = role === "admin" || role === "owner";
+  const currentIsOwner = role === "owner";
   const project = getProjectById(projects, projectId);
 
   const [adding, setAdding] = useState(false);
@@ -223,7 +224,9 @@ export default function ProjectDetailPage() {
     project.memberIds.some((id) => id.toLowerCase() === m.email.toLowerCase())
   );
   const addableMembers = agency.members.filter(
-    (m) => !project.memberIds.some((id) => id.toLowerCase() === m.email.toLowerCase())
+    (m) =>
+      !project.memberIds.some((id) => id.toLowerCase() === m.email.toLowerCase()) &&
+      (currentIsOwner || !isAgencyOwner(agency, m.email))
   );
   const canManageMembers =
     isAdmin || user.email.toLowerCase() === project.ownerId.toLowerCase();
@@ -389,7 +392,7 @@ export default function ProjectDetailPage() {
                     )}
                   </div>
                 </div>
-                {canManageMembers && !isOwner && (
+                {canManageMembers && !isOwner && (currentIsOwner || !isAgencyOwner(agency, m.email)) && (
                   <button
                     onClick={() => removeProjectMember(project.id, m.email)}
                     className="p-1.5 rounded-lg transition-colors hover:opacity-70 shrink-0"
@@ -496,7 +499,7 @@ export default function ProjectDetailPage() {
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
               >
                 {agency.members.map((m) => (
-                  <option key={m.email} value={m.email}>
+                  <option key={m.email} value={m.email} disabled={!currentIsOwner && isAgencyOwner(agency, m.email)}>
                     {m.firstName} {m.lastName} — {m.email}
                   </option>
                 ))}

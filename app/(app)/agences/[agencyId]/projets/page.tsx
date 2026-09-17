@@ -58,7 +58,7 @@ export default function ProjetsPage() {
   const agency = useAgencyStore((s) => s.agencies.find((a) => a.id === agencyId));
 
   const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
-  const isAdmin = role === "admin";
+  const isAdmin = role === "admin" || role === "owner";
 
   const projects = useProjectStore((s) => s.projects);
   const tasks = useTaskStore((s) => s.tasks);

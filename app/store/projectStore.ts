@@ -14,7 +14,7 @@ export const getProjectsByAgency = (
   role: AgencyRole
 ): Project[] => {
   const scoped = projects.filter((p) => p.agencyId === agencyId);
-  if (role === "admin") return scoped;
+  if (role === "admin" || role === "owner") return scoped;
   return scoped.filter((p) =>
     (p.memberIds ?? []).some(
       (id) => id.toLowerCase() === userId.toLowerCase()

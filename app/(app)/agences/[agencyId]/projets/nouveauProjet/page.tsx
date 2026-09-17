@@ -17,9 +17,10 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import { useAgencyStore, userRoleInAgency } from "@/app/store/agencyStore";
+import { useAgencyStore, userRoleInAgency, isAgencyOwner } from "@/app/store/agencyStore";
 import { useAuthStore } from "@/app/store/authStore";
 import { useProjectStore } from "@/app/store/projectStore";
+import { useNotificationsStore } from "@/app/store/notificationsStore";
 import { WALLPAPERS } from "@/app/store/wallpapers";
 
 const container: Variants = {
@@ -37,9 +38,11 @@ export default function NouveauProjetPage() {
   const user = useAuthStore((s) => s.user);
   const agency = useAgencyStore((s) => s.agencies.find((a) => a.id === agencyId));
   const createProject = useProjectStore((s) => s.createProject);
+  const addTaskNotification = useNotificationsStore((s) => s.addTaskNotification);
 
   const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
-  const isAdmin = role === "admin";
+  const isAdmin = role === "admin" || role === "owner";
+  const canSelectOwner = role === "owner";
 
   // ====== Champs du formulaire ======
   const [name, setName] = useState("");
@@ -52,6 +55,10 @@ export default function NouveauProjetPage() {
   const [error, setError] = useState<string | null>(null);
 
   const members = agency?.members ?? [];
+  const assignableMembers =
+    canSelectOwner || !agency
+      ? members
+      : members.filter((m) => !isAgencyOwner(agency, m.email));
 
   const toggleMember = (email: string) => {
     setMemberIds((prev) =>
@@ -64,6 +71,8 @@ export default function NouveauProjetPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!user) return;
 
     if (!name.trim()) {
       setError("Le nom du projet est obligatoire.");
@@ -94,6 +103,18 @@ export default function NouveauProjetPage() {
       startDate: startDate || null,
       dueDate: dueDate || null,
       wallpaper: wallpaperId,
+    });
+
+    memberIds.forEach((email) => {
+      if (email.toLowerCase() === user.email.toLowerCase()) return;
+      addTaskNotification({
+        type: "nouveau_projet",
+        agencyId,
+        projectId: project.id,
+        projectName: project.name,
+        toEmail: email,
+        fromEmail: user.email,
+      });
     });
 
     router.push(`/agences/${agencyId}/projets/${project.id}`);
@@ -249,7 +270,7 @@ export default function NouveauProjetPage() {
             className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
             style={inputStyle}
           >
-            {members.map((m) => (
+            {assignableMembers.map((m) => (
               <option key={m.email} value={m.email}>
                 {m.firstName} {m.lastName} — {m.email}
               </option>
@@ -263,7 +284,7 @@ export default function NouveauProjetPage() {
             <Users size={14} /> Membres assignés
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {members.map((m) => {
+            {assignableMembers.map((m) => {
               const checked = memberIds.some(
                 (id) => id.toLowerCase() === m.email.toLowerCase()
               );

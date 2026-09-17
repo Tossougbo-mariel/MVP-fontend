@@ -6,11 +6,12 @@ import { motion, type Variants } from "framer-motion";
 import {
   Bell, UserPlus, Check, X, ListPlus, UserMinus, MessageSquare,
   Clock, AlertTriangle, CheckCheck, Star, Mail, CheckCircle2,
+  FolderPlus, Eye,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
-import { useAgencyStore } from "@/app/store/agencyStore";
 import { useNotificationsStore } from "@/app/store/notificationsStore";
 import type { TaskNotification, TaskNotificationType, Invitation } from "@/app/store/notificationsStore";
+import { acceptInvitationForUser, invitationAcceptLink } from "@/app/lib/invitations";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -55,6 +56,12 @@ const TYPE_META: Record<
     color: "#ef4444",
     bg: "rgba(239,68,68,0.12)",
   },
+  nouveau_projet: {
+    label: "Nouveau projet",
+    icon: FolderPlus,
+    color: "#0ea5e9",
+    bg: "rgba(14,165,233,0.12)",
+  },
 };
 
 const describe = (n: TaskNotification): string => {
@@ -69,6 +76,8 @@ const describe = (n: TaskNotification): string => {
       return `« ${n.taskTitle} » arrive à échéance bientôt`;
     case "en_retard":
       return `« ${n.taskTitle} » est en retard`;
+    case "nouveau_projet":
+      return `Vous avez été ajouté au projet « ${n.projectName} »`;
   }
 };
 
@@ -82,10 +91,7 @@ function InvitationEmailModal({
   const [copied, setCopied] = useState(false);
   if (!invitation) return null;
 
-  const acceptLink =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/notifications?invitation=${invitation.id}`
-      : `/notifications?invitation=${invitation.id}`;
+  const acceptLink = invitationAcceptLink(invitation.id);
 
   const copyLink = async () => {
     try {
@@ -168,6 +174,139 @@ function InvitationEmailModal({
   );
 }
 
+function NotificationDetailModal({
+  notification,
+  onClose,
+  onMarkRead,
+}: {
+  notification: TaskNotification | null;
+  onClose: () => void;
+  onMarkRead: (id: string) => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  if (!notification) return null;
+
+  const meta = TYPE_META[notification.type];
+  const Icon = meta.icon;
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        `${meta.label} — ${describe(notification)}. Projet : ${notification.projectName}.`,
+      );
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      window.prompt("Copiez ce message :", describe(notification));
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0"
+        style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+        onClick={onClose}
+      />
+      <div
+        className="relative w-full max-w-lg rounded-2xl p-6 space-y-4"
+        style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)", boxShadow: "var(--shadow-card)" }}
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: meta.bg, color: meta.color }}>
+            <Icon className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: meta.color }}>
+              {meta.label}
+            </span>
+            <h2 className="text-lg font-bold leading-tight" style={{ color: "var(--text-primary)" }}>
+              Notification
+            </h2>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+              {notification.createdAt}
+              {notification.toEmail && <> · pour {notification.toEmail}</>}
+            </p>
+          </div>
+        </div>
+
+        <div
+          className="rounded-xl p-4 space-y-3"
+          style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
+        >
+          <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>
+            {describe(notification)}
+          </p>
+          {notification.taskTitle && (
+            <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Tâche :</span>{" "}
+              {notification.taskTitle}
+            </div>
+          )}
+          <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Projet :</span>{" "}
+            {notification.projectName}
+          </div>
+          {notification.fromEmail && (
+<div className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            <span className="font-semibold" style={{ color: "var(--text-primary)" }}>De :</span>{" "}
+            {notification.fromEmail}
+          </div>
+          )}
+
+          {notification.message ? (
+            <div className="mt-2 space-y-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: meta.color }}>
+                Contenu
+              </span>
+              <div
+                className="rounded-xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap"
+                style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)" }}
+              >
+                {notification.message}
+              </div>
+            </div>
+          ) : (
+            <div
+              className="rounded-xl px-4 py-3 text-sm"
+              style={{ background: "var(--card-bg)", border: "1px dashed var(--border-subtle)", color: "var(--text-secondary)" }}
+            >
+              « {meta.label} : {describe(notification)} — {notification.projectName} »
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {!notification.read && (
+            <button
+              onClick={() => { onMarkRead(notification.id); }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
+              style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+            >
+              <Check size={14} /> Marquer comme lu
+            </button>
+          )}
+          <button
+            onClick={copyLink}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80"
+            style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+          >
+            {copied ? <CheckCircle2 size={14} /> : <Mail size={14} />}
+            {copied ? "Copié !" : "Copier le message"}
+          </button>
+          <button
+            onClick={onClose}
+            className="ml-auto px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80"
+            style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function NotificationsPage() {
   const searchParams = useSearchParams();
   const linkedInvitationId = searchParams.get("invitation");
@@ -181,6 +320,7 @@ export default function NotificationsPage() {
   const markAllTaskNotificationsRead = useNotificationsStore(
     (s) => s.markAllTaskNotificationsRead,
   );
+  const markAsRead = useNotificationsStore((s) => s.markAsRead);
   const pending = useMemo(
     () =>
       invitations.filter(
@@ -190,10 +330,7 @@ export default function NotificationsPage() {
       ),
     [invitations, user?.email],
   );
-  const acceptInvitation = useNotificationsStore((s) => s.acceptInvitation);
   const declineInvitation = useNotificationsStore((s) => s.declineInvitation);
-  const addMember = useAgencyStore((s) => s.addMember);
-  const agencies = useAgencyStore((s) => s.agencies);
 
   const myTasks = useMemo(
     () =>
@@ -214,6 +351,7 @@ export default function NotificationsPage() {
   );
 
   const [emailView, setEmailView] = useState<Invitation | null>(null);
+  const [notifView, setNotifView] = useState<TaskNotification | null>(null);
 
   useEffect(() => {
     if (!linkedInvitationId) return;
@@ -221,33 +359,10 @@ export default function NotificationsPage() {
     return () => clearTimeout(t);
   }, [linkedInvitationId]);
 
-  const handleAccept = (id: string, agencyId: string) => {
+  const handleAccept = (id: string) => {
     if (!user) return;
-
-    const agencyStillExists = agencies.some((a) => a.id === agencyId);
-    if (!agencyStillExists) {
-      alert("Cette agence n'existe plus.");
-      declineInvitation(id);
-      return;
-    }
-
-    const agency = agencies.find((a) => a.id === agencyId);
-    const ok = addMember(agencyId, {
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      avatar: user.avatar ?? null,
-      role: agency?.settings?.defaultMemberRole ?? "membre",
-      status: "actif",
-      joinedAt: new Date().toISOString().slice(0, 10),
-      taskCount: 0,
-    });
-    if (ok) {
-      acceptInvitation(id);
-    } else {
-      alert("Vous êtes déjà membre de cette agence.");
-      declineInvitation(id);
-    }
+    const res = acceptInvitationForUser(id, user);
+    if (!res.ok) alert(res.message);
   };
 
   const handleDecline = (id: string) => declineInvitation(id);
@@ -397,7 +512,7 @@ export default function NotificationsPage() {
                     <Mail size={13} /> Voir l&apos;email
                   </button>
                   <button
-                    onClick={() => handleAccept(inv.id, inv.agencyId)}
+                    onClick={() => handleAccept(inv.id)}
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white transition-transform hover:scale-105"
                     style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
                   >
@@ -474,6 +589,31 @@ export default function NotificationsPage() {
                     {n.fromEmail && <span> · par {n.fromEmail}</span>}
                   </div>
                 </div>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setNotifView(n)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-105"
+                      style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+                    >
+                      <Eye size={13} /> Lire le message
+                    </button>
+                    {!n.read && (
+                      <button
+                        onClick={() => markAsRead(n.id)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-105"
+                        style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+                      >
+                        <Check size={13} /> Marquer comme lu
+                      </button>
+                    )}
+                  </div>
+                  {n.read && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>
+                      <CheckCheck size={11} /> Lu
+                    </span>
+                  )}
+                </div>
               </motion.div>
             );
           })}
@@ -483,6 +623,15 @@ export default function NotificationsPage() {
       <InvitationEmailModal
         invitation={emailView}
         onClose={() => setEmailView(null)}
+      />
+
+      <NotificationDetailModal
+        notification={notifView}
+        onClose={() => setNotifView(null)}
+        onMarkRead={(id) => {
+          markAsRead(id);
+          setNotifView((v) => (v && v.id === id ? { ...v, read: true } : v));
+        }}
       />
     </motion.div>
   );

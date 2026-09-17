@@ -6,14 +6,14 @@ import { useState, useRef } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import {
   Users, Mail, ShieldCheck, UserRound, UserPlus, Plus,
-  LayoutGrid, List, Settings, CheckCircle2, MoreHorizontal, Ban, Trash2, ClipboardList, ArrowLeft, Crown, Sparkles,
+  LayoutGrid, List, Settings, CheckCircle2, MoreHorizontal, Ban, Trash2, ClipboardList, ArrowLeft, Crown, Sparkles, Copy,
 } from "lucide-react";
 import {
   useAgencyStore, userRoleInAgency, hasRight, type AgencyMember, MEMBER_COLORS, OWNER_COLOR,
 } from "@/app/store/agencyStore";
 import { useAuthStore } from "@/app/store/authStore";
-import { useNotificationsStore } from "@/app/store/notificationsStore";
-import { useRegisteredUsersStore } from "@/app/store/registeredUsersStore";
+import { useNotificationsStore, type Invitation } from "@/app/store/notificationsStore";
+import { invitationAcceptLink } from "@/app/lib/invitations";
 import AvatarViewer from "@/app/(app)/components/AvatarViewer";
 
 const container: Variants = {
@@ -289,7 +289,6 @@ export default function EquipePage() {
   const agency = useAgencyStore((s) => s.agencies.find((a) => a.id === agencyId));
   const user = useAuthStore((s) => s.user);
   const sendInvitation = useNotificationsStore((s) => s.sendInvitation);
-  const userExists = useRegisteredUsersStore((s) => s.userExists);
   const updateMember = useAgencyStore((s) => s.updateMember);
   const removeMember = useAgencyStore((s) => s.removeMember);
 
@@ -302,6 +301,8 @@ export default function EquipePage() {
   const [inviteFocused, setInviteFocused] = useState(false);
   const [confirmEmail, setConfirmEmail] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+  const [lastInvite, setLastInvite] = useState<Invitation | null>(null);
+  const [copiedInvite, setCopiedInvite] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
@@ -391,10 +392,6 @@ const confirmPendingAction = () => {
     const trimmed = email.trim().toLowerCase();
     if (!agencyId || !trimmed) return;
 
-    if (!userExists(trimmed)) {
-      alert("Aucun compte enregistré avec cet email. L'utilisateur doit d'abord créer un compte.");
-      return;
-    }
     if (trimmed === user?.email.toLowerCase()) {
       alert("Vous ne pouvez pas vous inviter vous-même.");
       return;
@@ -412,12 +409,26 @@ const confirmPendingAction = () => {
     });
     if (invitation) {
       setEmail("");
+      setLastInvite(invitation);
+      setCopiedInvite(false);
       setInviteSuccess(confirmEmail);
-      setTimeout(() => setInviteSuccess(null), 4000);
+      setTimeout(() => setInviteSuccess(null), 8000);
     } else {
       alert("Une invitation active existe déjà pour cet email.");
     }
     setConfirmEmail(null);
+  };
+
+  const copyInviteLink = async () => {
+    if (!lastInvite) return;
+    const link = invitationAcceptLink(lastInvite.id);
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiedInvite(true);
+      setTimeout(() => setCopiedInvite(false), 1800);
+    } catch {
+      window.prompt("Copiez ce lien :", link);
+    }
   };
 
   const cancelSendInvitation = () => setConfirmEmail(null);
@@ -489,24 +500,47 @@ const confirmPendingAction = () => {
       </motion.div>
 
       <AnimatePresence>
-        {inviteSuccess && (
+        {inviteSuccess && lastInvite && (
           <motion.div
             initial={{ opacity: 0, y: -10, height: 0 }}
             animate={{ opacity: 1, y: 0, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.25, ease: "easeOut" }}
-            className="rounded-2xl px-5 py-4 flex items-center gap-3 overflow-hidden"
+            className="rounded-2xl px-5 py-4 overflow-hidden"
             style={{
               background: "rgba(16,185,129,0.12)",
               border: "1px solid rgba(16,185,129,0.35)",
               color: "var(--color-success)",
             }}
           >
-            <CheckCircle2 className="w-5 h-5 shrink-0" />
-            <p className="text-sm">
-              <span className="font-semibold">Invitation envoyée à {inviteSuccess}.</span>{" "}
-              Un e-mail avec un lien d&apos;acceptation lui a été envoyé · la notification apparaît aussi dans ses notifications.
-            </p>
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-sm">
+                  <span className="font-semibold">Invitation envoyée à {inviteSuccess}.</span>{" "}
+                  Un e-mail avec un lien de confirmation a été envoyé à cette adresse.
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <code
+                    className="text-xs px-2.5 py-1.5 rounded-lg break-all"
+                    style={{ background: "rgba(16,185,129,0.15)", color: "var(--text-secondary)" }}
+                  >
+                    {invitationAcceptLink(lastInvite.id)}
+                  </code>
+                  <button
+                    onClick={copyInviteLink}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                    style={{ background: "rgba(16,185,129,0.2)", color: "var(--color-success)" }}
+                  >
+                    {copiedInvite ? <CheckCircle2 size={13} /> : <Copy size={13} />}
+                    {copiedInvite ? "Lien copié !" : "Copier le lien"}
+                  </button>
+                </div>
+                <p className="text-xs mt-2 opacity-80" style={{ color: "var(--text-muted)" }}>
+                  Si la personne n&apos;a pas encore de compte, ce lien la conduira à la création de compte avant l&apos;acceptation.
+                </p>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -558,10 +592,14 @@ const confirmPendingAction = () => {
               transition={{ duration: 0.25, ease: "easeOut" }}
               className="glass relative rounded-3xl p-6 pt-7 flex flex-col items-center gap-3"
               style={{
-                boxShadow: isOwnerMember(m)
-                  ? `0 14px 32px -12px ${hexToRgba(OWNER_COLOR, 0.35)}`
-                  : "var(--shadow-card)",
-                border: isOwnerMember(m) ? `1px solid ${hexToRgba(OWNER_COLOR, 0.3)}` : undefined,
+                boxShadow:
+                  m.status === "inactif"
+                    ? "var(--shadow-card)"
+                    : `0 14px 32px -12px ${hexToRgba(accentOf(m), 0.35)}`,
+                border:
+                  m.status === "inactif"
+                    ? "1px solid var(--border-subtle)"
+                    : `1px solid ${hexToRgba(accentOf(m), 0.42)}`,
               }}
             >
               {isOwnerMember(m) && (
@@ -711,8 +749,14 @@ const confirmPendingAction = () => {
         transition={{ duration: 0.25, ease: "easeOut" }}
         className="glass relative rounded-2xl pl-7 pr-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5"
         style={{
-          boxShadow: isOwnerMember(m) ? `0 10px 26px -12px ${hexToRgba(OWNER_COLOR, 0.4)}` : "var(--shadow-card)",
-          border: isOwnerMember(m) ? `1px solid ${hexToRgba(OWNER_COLOR, 0.28)}` : undefined,
+          boxShadow:
+            m.status === "inactif"
+              ? "var(--shadow-card)"
+              : `0 10px 26px -12px ${hexToRgba(accentOf(m), 0.4)}`,
+          border:
+            m.status === "inactif"
+              ? "1px solid var(--border-subtle)"
+              : `1px solid ${hexToRgba(accentOf(m), 0.35)}`,
         }}
       >
         <div

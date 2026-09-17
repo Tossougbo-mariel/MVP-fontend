@@ -7,9 +7,14 @@ import {
   Lightbulb, Award, AlarmClock, Ban, Crown, TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useParams } from "next/navigation";
 import { useAgencyStore, userRoleInAgency } from "@/app/store/agencyStore";
 import { useAuthStore } from "@/app/store/authStore";
+import { useProjectStore } from "@/app/store/projectStore";
+import { useTaskStore } from "@/app/store/taskStore";
+import { useHistoryStore } from "@/app/store/historyStore";
+import { useRegisteredUsersStore } from "@/app/store/registeredUsersStore";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -19,25 +24,6 @@ const item: Variants = {
   hidden: { y: 16, opacity: 0 },
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
 };
-
-// 🔮 MOCK : dès que l'API est branchée, ces valeurs viendront des vraies tables
-const taskStatuses = [
-  { label: "À faire", value: 6, color: "#0c79f2" },
-  { label: "En cours", value: 9, color: "#056cf2" },
-  { label: "En révision", value: 4, color: "#589bff" },
-  { label: "Terminées", value: 5, color: "var(--color-success)" },
-  { label: "En retard", value: 2, color: "var(--color-error)" },
-];
-
-const weeklyReport = [
-  { day: "Lun", value: 3 },
-  { day: "Mar", value: 7 },
-  { day: "Mer", value: 4 },
-  { day: "Jeu", value: 8 },
-  { day: "Ven", value: 6 },
-  { day: "Sam", value: 2 },
-  { day: "Dim", value: 5 },
-];
 
 function smoothCurve(pts: { x: number; y: number }[]) {
   if (pts.length < 2) return "";
@@ -56,11 +42,24 @@ function smoothCurve(pts: { x: number; y: number }[]) {
   return d;
 }
 
-const activity = [
-  { text: "Jean a créé la tâche « Créer la maquette du site »", time: "il y a 2 h" },
-  { text: "Marie a changé le statut de « Footer » en « En cours »", time: "il y a 5 h" },
-  { text: "Paul a terminé la tâche « Configurer le serveur »", time: "hier" },
-];
+// ✅ Formatage relatif d'un horodatage (« il y a 2 h », « hier », ...)
+function relativeTime(iso: string) {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return "à l'instant";
+  if (mins < 60) return `il y a ${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `il y a ${hours} h`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "hier";
+  return `il y a ${days} jours`;
+}
+
+const projectStatusLabel: Record<string, string> = {
+  a_venir: "À venir",
+  en_cours: "En cours",
+  termine: "Terminé",
+  archive: "Archivé",
+};
 
 export default function AgencyDashboardPage() {
   const { agencyId } = useParams<{ agencyId: string }>();
@@ -111,7 +110,7 @@ export default function AgencyDashboardPage() {
   return isAdmin ? (
     <AdminDashboard agencyId={agencyId} role={role} userName={me?.firstName ?? user.firstName ?? "vous"} agencyName={agency.name} />
   ) : (
-    <MemberDashboard userName={me?.firstName ?? user.firstName ?? "vous"} />
+    <MemberDashboard userName={me?.firstName ?? user.firstName ?? "vous"} agencyId={agencyId} email={user.email} />
   );
 }
 
@@ -187,9 +186,86 @@ function AdminDashboard({
   const totalMembers = members.length;
   const activeMembers = members.filter((m) => m.status === "actif").length;
   const inactiveMembers = members.filter((m) => m.status === "inactif").length;
-  const totalTasks = members.reduce((sum, m) => sum + (m.taskCount ?? 0), 0);
-  const maxReport = Math.max(...weeklyReport.map((r) => r.value));
 
+  const projects = useProjectStore((s) => s.projects);
+  const tasks = useTaskStore((s) => s.tasks);
+  const history = useHistoryStore((s) => s.history);
+  const regUsers = useRegisteredUsersStore((s) => s.users);
+
+  const agencyProjects = projects.filter((p) => p.agencyId === agencyId);
+  const projectIds = new Set(agencyProjects.map((p) => p.id));
+  const agencyTasks = tasks.filter((t) => projectIds.has(t.projectId));
+  const taskById = new Map(agencyTasks.map((t) => [t.id, t]));
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayKey = today.toISOString().slice(0, 10);
+  const toDayKey = (d: Date) => d.toISOString().slice(0, 10);
+  const dayLabels = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+
+  // ✅ Tâches terminées par jour (lundi → dimanche de la semaine courante)
+  const dayIndex = (today.getDay() + 6) % 7;
+  const weekDates = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - dayIndex + i);
+    return d;
+  });
+  const doneEntries = history.filter((h) => h.type === "terminee" && taskById.has(h.taskId));
+  const weeklyReport = weekDates.map((d) => ({
+    day: dayLabels[d.getDay()],
+    value: doneEntries.filter((h) => h.createdAt.slice(0, 10) === toDayKey(d)).length,
+  }));
+
+  const doneThisWeek = weeklyReport.reduce((s, r) => s + r.value, 0);
+  const prevWeekDates = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - dayIndex - 7 + i);
+    return d;
+  });
+  const doneLastWeek = prevWeekDates.reduce(
+    (sum, d) => sum + doneEntries.filter((h) => h.createdAt.slice(0, 10) === toDayKey(d)).length,
+    0,
+  );
+  const deltaPct = doneLastWeek > 0 ? Math.round(((doneThisWeek - doneLastWeek) / doneLastWeek) * 100) : null;
+
+  const lateCount = agencyTasks.filter(
+    (t) => t.status !== "terminee" && t.dueDate !== null && t.dueDate < todayKey,
+  ).length;
+
+  // ✅ Répartition réelle par statut
+  const statusCounts = { a_faire: 0, en_cours: 0, en_revision: 0, terminee: 0 };
+  for (const t of agencyTasks) statusCounts[t.status] += 1;
+  const taskStatuses = [
+    { label: "À faire", value: statusCounts.a_faire, color: "#0c79f2" },
+    { label: "En cours", value: statusCounts.en_cours, color: "#056cf2" },
+    { label: "En révision", value: statusCounts.en_revision, color: "#589bff" },
+    { label: "Terminées", value: statusCounts.terminee, color: "var(--color-success)" },
+    { label: "En retard", value: lateCount, color: "var(--color-error)" },
+  ];
+
+  // ✅ Activité récente réelle (derniers événements d'historique de l'agence)
+  const nameOfEmail = (email: string) => {
+    const u = regUsers.find((x) => x.email.toLowerCase() === email.toLowerCase());
+    return u ? `${u.firstName} ${u.lastName}` : email;
+  };
+  const verbOfType: Record<string, string> = {
+    creation: "a créé la tâche",
+    statut: "a modifié le statut de la tâche",
+    responsable: "a modifié le responsable de la tâche",
+    priorite: "a modifié la priorité de la tâche",
+    echeance: "a modifié l'échéance de la tâche",
+    terminee: "a terminé la tâche",
+  };
+  const activity = history
+    .filter((h) => taskById.has(h.taskId))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 6)
+    .map((h) => ({
+      text: `${nameOfEmail(h.actorEmail)} ${verbOfType[h.type] ?? "a modifié"} « ${taskById.get(h.taskId)?.title ?? "tâche supprimée"} »`,
+      time: relativeTime(h.createdAt),
+    }));
+
+  const maxReport = Math.max(1, ...weeklyReport.map((r) => r.value));
   const chartWidth = 640;
   const chartHeight = 166;
   const chartTop = 16;
@@ -207,10 +283,10 @@ function AdminDashboard({
   const avgY = chartTop + (1 - avg / chartMax) * (chartHeight - chartTop - chartBottom);
 
   const statCards = [
-  { label: "Total projets", value: "12", icon: FolderKanban, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
-  { label: "Total tâches", value: String(totalTasks || 24), icon: ListTodo, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
+  { label: "Total projets", value: String(agencyProjects.length), icon: FolderKanban, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
+  { label: "Total tâches", value: String(agencyTasks.length), icon: ListTodo, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
   { label: "Membres", value: String(totalMembers), icon: Users, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
-  { label: "En retard", value: "2", icon: AlarmClock, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
+  { label: "En retard", value: String(lateCount), icon: AlarmClock, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
 ];
 
   return (
@@ -321,7 +397,9 @@ function AdminDashboard({
                 className="text-[11px] font-semibold px-3 py-1 rounded-full"
                 style={{ background: "rgba(16,185,129,0.12)", color: "var(--color-success)" }}
               >
-                +18% cette semaine
+                {deltaPct === null
+                  ? `${doneThisWeek} terminée${doneThisWeek > 1 ? "s" : ""} cette semaine`
+                  : `${deltaPct >= 0 ? "+" : ""}${deltaPct}% cette semaine`}
               </span>
             </div>
             <div className="mb-4 flex items-center gap-5 text-xs">
@@ -500,7 +578,7 @@ function AdminDashboard({
               <li className="flex items-center gap-3 text-sm">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "#C7961A", boxShadow: "0 0 8px #C7961A" }} />
                 Tâches cumulées
-                <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{totalTasks}</span>
+                <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{agencyTasks.length}</span>
               </li>
             </ul>
           </motion.div>
@@ -603,12 +681,38 @@ const badPractices = [
   },
 ];
 
-function MemberDashboard({ userName }: { userName: string }) {
+function MemberDashboard({
+  userName,
+  agencyId,
+  email,
+}: {
+  userName: string;
+  agencyId: string;
+  email: string;
+}) {
+  const projects = useProjectStore((s) => s.projects).filter((p) => p.agencyId === agencyId);
+  const projectIds = new Set(projects.map((p) => p.id));
+  const myTasks = useTaskStore((s) => s.tasks).filter(
+    (t) =>
+      projectIds.has(t.projectId) &&
+      t.assignedTo !== null &&
+      t.assignedTo.toLowerCase() === email.toLowerCase(),
+  );
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayKey = today.toISOString().slice(0, 10);
+  const lateCount = myTasks.filter(
+    (t) => t.status !== "terminee" && t.dueDate !== null && t.dueDate < todayKey,
+  ).length;
+  const myProjects = projects.filter(
+    (p) => p.ownerId.toLowerCase() === email.toLowerCase() || p.memberIds.includes(email),
+  );
+
   const memberTasks = [
-    { label: "À faire", value: 2, icon: CalendarClock, color: "#6ea8ff" },
-    { label: "En cours", value: 3, icon: Clock, color: "#589bff" },
-    { label: "Terminées", value: 1, icon: CheckCircle2, color: "var(--color-success)" },
-    { label: "En retard", value: 1, icon: AlertTriangle, color: "var(--color-error)" },
+    { label: "À faire", value: myTasks.filter((t) => t.status === "a_faire").length, icon: CalendarClock, color: "#6ea8ff" },
+    { label: "En cours", value: myTasks.filter((t) => t.status === "en_cours").length, icon: Clock, color: "#589bff" },
+    { label: "Terminées", value: myTasks.filter((t) => t.status === "terminee").length, icon: CheckCircle2, color: "var(--color-success)" },
+    { label: "En retard", value: lateCount, icon: AlertTriangle, color: "var(--color-error)" },
   ];
 
   return (
@@ -672,9 +776,11 @@ function MemberDashboard({ userName }: { userName: string }) {
           <h4 className="font-bold flex items-center gap-2" style={{ color: "var(--color-success)" }}>
             ✅ Bonnes pratiques
           </h4>
-          <img
+          <Image
             src="/bonnes_pratiques.png"
             alt="Bonnes pratiques"
+            width={440}
+            height={440}
             className="mx-auto rounded-xl mb-2"
             style={{ width: "70%", maxWidth: "220px", height: "auto" }}
           />
@@ -715,9 +821,11 @@ function MemberDashboard({ userName }: { userName: string }) {
           <h4 className="font-bold flex items-center gap-2" style={{ color: "var(--color-error)" }}>
             ❌ Erreurs à éviter
           </h4>
-          <img
+          <Image
             src="/mauvaises_pratiques.png"
             alt="Erreurs à éviter"
+            width={440}
+            height={440}
             className="mx-auto rounded-xl mb-2"
             style={{ width: "70%", maxWidth: "220px", height: "auto" }}
           />
@@ -763,7 +871,27 @@ function MemberDashboard({ userName }: { userName: string }) {
           <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Vos projets</h2>
         </div>
         <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          Ici s&apos;afficheront les projets auxquels vous participez.
+          {myProjects.length === 0 ? (
+            "Ici s&apos;afficheront les projets auxquels vous participez."
+          ) : (
+            <ul className="space-y-2">
+              {myProjects.map((p) => (
+                <li
+                  key={p.id}
+                  className="flex items-center justify-between px-4 py-2.5 rounded-xl"
+                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
+                >
+                  <span className="font-medium" style={{ color: "var(--text-primary)" }}>{p.name}</span>
+                  <span
+                    className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                    style={{ background: "rgba(5,108,242,0.12)", color: "#056cf2" }}
+                  >
+                    {projectStatusLabel[p.status] ?? p.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </motion.div>
     </motion.div>

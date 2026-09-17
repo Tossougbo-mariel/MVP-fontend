@@ -22,18 +22,20 @@ export type TaskNotificationType =
   | "retrait_tache"
   | "commentaire"
   | "echeance_proche"
-  | "en_retard";
+  | "en_retard"
+  | "nouveau_projet";
 
 export type TaskNotification = {
   id: string;
   type: TaskNotificationType;
   agencyId: string;
-  taskId: string;
-  taskTitle: string;
+  taskId?: string;
+  taskTitle?: string;
   projectId: string;
   projectName: string;
-  toEmail: string; // destinataire
-  fromEmail?: string; // qui a déclenché (absent pour les automatiques)
+  toEmail: string;
+  fromEmail?: string;
+  message?: string;
   read: boolean;
   createdAt: string;
 };
@@ -76,7 +78,6 @@ type NotificationsState = {
       assigneeEmail: string;
     }[],
   ) => void;
-  seedDemoTaskNotifications: (agencyId: string, email: string) => void;
 };
 
 export const useNotificationsStore = create<NotificationsState>()(
@@ -262,66 +263,6 @@ export const useNotificationsStore = create<NotificationsState>()(
             taskNotifications: [...toAdd, ...s.taskNotifications],
           }));
         }
-      },
-
-      // ✅ Seed 5 notifications démo (une par type) — idempotent
-      seedDemoTaskNotifications: (agencyId, email) => {
-        const existing = get().taskNotifications.filter(
-          (n) => n.agencyId === agencyId && n.toEmail.toLowerCase() === email.toLowerCase(),
-        );
-        if (existing.length > 0) return;
-
-        const today = new Date();
-        const fmt = (d: Date) => d.toISOString().slice(0, 10);
-        const dayOffset = (offset: number) => {
-          const d = new Date(today);
-          d.setDate(d.getDate() + offset);
-          return fmt(d);
-        };
-
-        const demos: TaskNotification[] = [
-          {
-            id: "tn-demo-1",
-            type: "nouvelle_tache",
-            agencyId,
-            taskId: "task-demo-1",
-            taskTitle: "Refonte page d'accueil",
-            projectId: "proj-demo-1",
-            projectName: "Site Vitrine",
-            toEmail: email,
-            fromEmail: "admin@demo.com",
-            read: false,
-            createdAt: dayOffset(-2),
-          },
-          {
-            id: "tn-demo-2",
-            type: "retrait_tache",
-            agencyId,
-            taskId: "task-demo-5",
-            taskTitle: "Setup CI/CD",
-            projectId: "proj-demo-3",
-            projectName: "Outils Interne",
-            toEmail: email,
-            fromEmail: "admin@demo.com",
-            read: false,
-            createdAt: dayOffset(-1),
-          },
-          {
-            id: "tn-demo-3",
-            type: "commentaire",
-            agencyId,
-            taskId: "task-demo-1",
-            taskTitle: "Refonte page d'accueil",
-            projectId: "proj-demo-1",
-            projectName: "Site Vitrine",
-            toEmail: email,
-            fromEmail: "membre@demo.com",
-            read: false,
-            createdAt: dayOffset(0),
-          },
-        ];
-
-        set((s) => ({ taskNotifications: [...demos, ...s.taskNotifications] }));
       },
     }),
     {

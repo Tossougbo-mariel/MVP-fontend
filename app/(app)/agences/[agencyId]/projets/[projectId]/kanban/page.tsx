@@ -16,6 +16,7 @@ import {
 import {
   useAgencyStore,
   userRoleInAgency,
+  isAgencyOwner,
   type ProjectStatus,
   type TaskPriority,
   type TaskStatus,
@@ -23,6 +24,7 @@ import {
 import { useAuthStore } from "@/app/store/authStore";
 import { useProjectStore, getProjectById } from "@/app/store/projectStore";
 import { useTaskStore, getTasksByProject, getProjectStatusFromTasks } from "@/app/store/taskStore";
+import { useNotificationsStore } from "@/app/store/notificationsStore";
 import { getWallpaperBg } from "@/app/store/wallpapers";
 
 const container: Variants = {
@@ -87,9 +89,11 @@ export default function ProjectKanbanPage() {
   const tasks = useTaskStore((s) => s.tasks);
   const createTask = useTaskStore((s) => s.createTask);
   const updateTaskStatus = useTaskStore((s) => s.updateTaskStatus);
+  const addTaskNotification = useNotificationsStore((s) => s.addTaskNotification);
 
   const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
-  const isAdmin = role === "admin";
+  const isAdmin = role === "admin" || role === "owner";
+  const canAssignToOwner = role === "owner";
 
   // ====== Drag & drop ======
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -247,7 +251,7 @@ export default function ProjectKanbanPage() {
       setTaskError("La date d'échéance doit être postérieure ou égale à la date de début.");
       return;
     }
-    createTask({
+    const created = createTask({
       projectId: project.id,
       title: taskTitle.trim(),
       description: taskDescription.trim(),
@@ -257,6 +261,18 @@ export default function ProjectKanbanPage() {
       createdBy: user.email,
       dueDate: taskDueDate,
     });
+    if (taskAssignee && taskAssignee.toLowerCase() !== user.email.toLowerCase()) {
+      addTaskNotification({
+        type: "nouvelle_tache",
+        agencyId,
+        taskId: created.id,
+        taskTitle: created.title,
+        projectId: project.id,
+        projectName: project.name,
+        toEmail: taskAssignee,
+        fromEmail: user.email,
+      });
+    }
     setCreating(false);
   };
 
@@ -566,7 +582,7 @@ export default function ProjectKanbanPage() {
                 >
                   <option value="">Non assignée</option>
                   {projectMembers.map((m) => (
-                    <option key={m.email} value={m.email}>
+                    <option key={m.email} value={m.email} disabled={!canAssignToOwner && isAgencyOwner(agency, m.email)}>
                       {m.firstName} {m.lastName}
                     </option>
                   ))}

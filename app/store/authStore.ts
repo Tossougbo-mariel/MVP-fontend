@@ -21,30 +21,6 @@ export type User = {
   createdAt: string;
 };
 
-// ✅ Utilisateurs de DÉMO uniquement (se réinitialisent à chaque refresh)
-const DEMO_USERS: User[] = [
-  {
-    id: "u1",
-    firstName: "Jean",
-    lastName: "Dupont",
-    email: "admin@demo.com",
-    role: "admin",
-    avatar: null,
-    createdAt: "2026-01-10",
-  },
-  {
-    id: "u2",
-    firstName: "Marie",
-    lastName: "Curie",
-    email: "membre@demo.com",
-    role: "membre",
-    avatar: null,
-    createdAt: "2026-03-22",
-  },
-];
-
-export const MOCK_PASSWORD = "secret123";
-
 type AuthState = {
   user: User | null;
   login: (email: string, password: string) => boolean;
@@ -64,46 +40,12 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
 
-      // ✅ CORRIGÉ : Vérifier d'abord les users de démo, puis les users enregistrés
       login: (email, password) => {
         const trimmedEmail = email.toLowerCase().trim();
 
-        // 1️⃣ Vérifier d'abord les users de démo (avec le password de démo)
-        const demoUser = DEMO_USERS.find(
-          (u) => u.email.toLowerCase() === trimmedEmail
-        );
-        
-        if (demoUser && password === MOCK_PASSWORD) {
-          // Si un enregistrement persistant existe (photo/infos modifiées via le
-          // profil), on l'utilise pour garder les changements après reconnexion.
-          const regUsers = useRegisteredUsersStore.getState();
-          const persisted = regUsers.findUser(trimmedEmail);
-          if (persisted) {
-            const user: User = {
-              id: demoUser.id,
-              firstName: persisted.firstName,
-              lastName: persisted.lastName,
-              email: persisted.email,
-              role: demoUser.role,
-              avatar: persisted.avatar ?? null,
-              phone: persisted.phone,
-              city: persisted.city,
-              bio: persisted.bio,
-              jobTitle: persisted.jobTitle ?? (demoUser.role === "admin" ? "Administrateur" : "Membre"),
-              createdAt: persisted.createdAt,
-            };
-            set({ user });
-            console.log("[authStore] Connexion démo (avec modifs persistées):", email);
-            return true;
-          }
-          set({ user: demoUser });
-          console.log("[authStore] Connexion avec compte démo:", email);
-          return true;
-        }
-
-        // 2️⃣ ✅ Vérifier les utilisateurs enregistrés (depuis le localStorage)
+        // Vérifier uniquement les utilisateurs enregistrés (localStorage)
         const registeredUsers = useRegisteredUsersStore.getState();
-        const registeredUser = registeredUsers.findUser(email);
+        const registeredUser = registeredUsers.findUser(trimmedEmail);
 
         if (registeredUser && registeredUser.password === password) {
           // Créer un objet User à partir du RegisteredUser
@@ -183,21 +125,6 @@ export const useAuthStore = create<AuthState>()(
               city: nextUser.city,
               bio: nextUser.bio,
               jobTitle: nextUser.jobTitle,
-            });
-          } else {
-            // Comptes démo (ou sans enregistrement) : on crée un enregistrement
-            // persistant pour que les modifs restent après déconnexion.
-            regUsers.registerUser({
-              email: patch.email ?? state.user.email,
-              password: MOCK_PASSWORD,
-              firstName: nextUser.firstName,
-              lastName: nextUser.lastName,
-              avatar: nextUser.avatar,
-              phone: nextUser.phone,
-              city: nextUser.city,
-              bio: nextUser.bio,
-              jobTitle: nextUser.jobTitle,
-              createdAt: nextUser.createdAt ?? new Date().toISOString().slice(0, 10),
             });
           }
 

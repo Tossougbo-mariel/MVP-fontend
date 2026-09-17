@@ -2,7 +2,7 @@
 
 import { useAuthStore } from "@/app/store/authStore";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, useMotionValue, useSpring, type Variants } from "framer-motion";
 import Image from "next/image";
@@ -20,6 +20,8 @@ export default function ConnexionPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const invitationId = searchParams.get("invitation") ?? "";
 
   // --- Tilt 3D de la carte (rotation douce, type "spring") ---
   const rotateX = useSpring(useMotionValue(0), { stiffness: 200, damping: 22 });
@@ -64,7 +66,9 @@ export default function ConnexionPage() {
     // Petite délai avant redirection pour voir l'effet visuel
     // (optionnel, mais améliore l'UX)
     setTimeout(() => {
-      router.push("/mes-agences");
+      // Si l'utilisateur arrivait via un lien d'invitation, on le ramène
+      // vers l'acceptation de l'invitation après connexion.
+      router.push(invitationId ? `/accepter-invitation?id=${invitationId}` : "/mes-agences");
     }, 300);
   };
 
