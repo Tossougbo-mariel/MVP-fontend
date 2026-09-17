@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { Suspense, useState, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import NextImage from "next/image";
@@ -61,6 +61,14 @@ async function getCroppedImg(
 }
 
 export default function InscriptionPage() {
+  return (
+    <Suspense fallback={null}>
+      <InscriptionContent />
+    </Suspense>
+  );
+}
+
+function InscriptionContent() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");

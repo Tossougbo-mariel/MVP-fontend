@@ -114,7 +114,8 @@ export default function ProjectKanbanPage() {
   const [taskStartDate, setTaskStartDate] = useState("");
   const [taskAssigneeId, setTaskAssigneeId] = useState<string>("");
   const [taskDueDate, setTaskDueDate] = useState("");
-  const [taskError, setTaskError] = useState<string | null>(null);
+  const [taskFieldErrors, setTaskFieldErrors] = useState<Record<string, string>>({});
+  const [taskApiError, setTaskApiError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
   // ✅ Si l'agence n'existe pas
@@ -246,24 +247,35 @@ export default function ProjectKanbanPage() {
     setTaskStartDate("");
     setTaskAssigneeId("");
     setTaskDueDate("");
-    setTaskError(null);
+    setTaskFieldErrors({});
+    setTaskApiError(null);
     setCreating(true);
+  };
+
+  const clearTaskFieldError = (field: string) => {
+    setTaskFieldErrors((prev) => {
+      if (!(field in prev)) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setTaskError(null);
-    if (!taskTitle.trim()) {
-      setTaskError("Le titre de la tâche est obligatoire.");
-      return;
-    }
+    setTaskFieldErrors({});
+    setTaskApiError(null);
 
+    const fe: Record<string, string> = {};
+    if (!taskTitle.trim()) fe.title = "Le titre de la tâche est obligatoire.";
     if (taskStartDate && project.startDate && taskStartDate < project.startDate) {
-      setTaskError(`La date de début doit être postérieure ou égale au début du projet (${project.startDate}).`);
-      return;
+      fe.startDate = `Doit être postérieure ou égale au début du projet (${project.startDate}).`;
     }
     if (taskDueDate && project.dueDate && taskDueDate > project.dueDate) {
-      setTaskError(`La date d'échéance doit être antérieure ou égale à l'échéance du projet (${project.dueDate}).`);
+      fe.dueDate = `Doit être antérieure ou égale à l'échéance du projet (${project.dueDate}).`;
+    }
+    if (Object.keys(fe).length > 0) {
+      setTaskFieldErrors(fe);
       return;
     }
 
@@ -280,7 +292,7 @@ export default function ProjectKanbanPage() {
       await reload();
       setCreating(false);
     } catch (err) {
-      setTaskError(getApiErrorMessage(err));
+      setTaskApiError(getApiErrorMessage(err));
     } finally {
       setActionLoading(false);
     }
@@ -517,11 +529,19 @@ export default function ProjectKanbanPage() {
               </label>
               <input
                 value={taskTitle}
-                onChange={(e) => setTaskTitle(e.target.value)}
+                onChange={(e) => {
+                  setTaskTitle(e.target.value);
+                  clearTaskFieldError("title");
+                }}
                 placeholder="Intitulé de la tâche"
                 className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-shadow"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
               />
+              {taskFieldErrors.title && (
+                <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
+                  {taskFieldErrors.title}
+                </p>
+              )}
             </div>
 
             <div>
@@ -548,10 +568,19 @@ export default function ProjectKanbanPage() {
                   min={project.startDate || undefined}
                   max={project.dueDate || undefined}
                   value={taskStartDate}
-                  onChange={(e) => setTaskStartDate(e.target.value)}
+                  onChange={(e) => {
+                    setTaskStartDate(e.target.value);
+                    clearTaskFieldError("startDate");
+                    clearTaskFieldError("dueDate");
+                  }}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
                   style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 />
+                {taskFieldErrors.startDate && (
+                  <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
+                    {taskFieldErrors.startDate}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
@@ -562,10 +591,18 @@ export default function ProjectKanbanPage() {
                   min={taskStartDate || project.startDate || undefined}
                   max={project.dueDate || undefined}
                   value={taskDueDate}
-                  onChange={(e) => setTaskDueDate(e.target.value)}
+                  onChange={(e) => {
+                    setTaskDueDate(e.target.value);
+                    clearTaskFieldError("dueDate");
+                  }}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
                   style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 />
+                {taskFieldErrors.dueDate && (
+                  <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
+                    {taskFieldErrors.dueDate}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -607,9 +644,9 @@ export default function ProjectKanbanPage() {
               </div>
             </div>
 
-            {taskError && (
+            {taskApiError && (
               <p className="text-sm font-semibold" style={{ color: "var(--color-error)" }}>
-                {taskError}
+                {taskApiError}
               </p>
             )}
 

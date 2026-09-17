@@ -94,7 +94,8 @@ export default function ProjectDetailPage() {
   const [editDueDate, setEditDueDate] = useState("");
   const [editStatus, setEditStatus] = useState<ProjectStatus>("a_venir");
   const [editWallpaper, setEditWallpaper] = useState<string | null>(null);
-  const [editError, setEditError] = useState<string | null>(null);
+  const [editFieldErrors, setEditFieldErrors] = useState<Record<string, string>>({});
+  const [editApiError, setEditApiError] = useState<string | null>(null);
 
   const openEdit = () => {
     if (!project) return;
@@ -104,22 +105,33 @@ export default function ProjectDetailPage() {
     setEditDueDate(project.dueDate ?? "");
     setEditStatus(project.status);
     setEditWallpaper(project.wallpaper ?? null);
-    setEditError(null);
+    setEditFieldErrors({});
+    setEditApiError(null);
     setEditing(true);
+  };
+
+  const clearEditFieldError = (field: string) => {
+    setEditFieldErrors((prev) => {
+      if (!(field in prev)) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setEditError(null);
+    setEditFieldErrors({});
+    setEditApiError(null);
     if (!project) return;
 
-    if (!editName.trim()) {
-      setEditError("Le nom du projet est obligatoire.");
-      return;
-    }
-
+    const fe: Record<string, string> = {};
+    if (!editName.trim()) fe.name = "Le nom du projet est obligatoire.";
     if (editStartDate && editDueDate && editDueDate < editStartDate) {
-      setEditError("La date d'échéance doit être postérieure ou égale à la date de début.");
+      fe.dueDate = "La date d'échéance doit être postérieure ou égale à la date de début.";
+    }
+    if (Object.keys(fe).length > 0) {
+      setEditFieldErrors(fe);
       return;
     }
 
@@ -136,7 +148,7 @@ export default function ProjectDetailPage() {
       await reload();
       setEditing(false);
     } catch (err) {
-      setEditError(getApiErrorMessage(err));
+      setEditApiError(getApiErrorMessage(err));
     } finally {
       setActionLoading(false);
     }
@@ -521,10 +533,18 @@ export default function ProjectDetailPage() {
               <input
                 type="text"
                 value={editName}
-                onChange={(e) => setEditName(e.target.value)}
+                onChange={(e) => {
+                  setEditName(e.target.value);
+                  clearEditFieldError("name");
+                }}
                 className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
               />
+              {editFieldErrors.name && (
+                <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
+                  {editFieldErrors.name}
+                </p>
+              )}
             </div>
 
             <div>
@@ -565,10 +585,19 @@ export default function ProjectDetailPage() {
                 <input
                   type="date"
                   value={editStartDate}
-                  onChange={(e) => setEditStartDate(e.target.value)}
+                  onChange={(e) => {
+                    setEditStartDate(e.target.value);
+                    clearEditFieldError("startDate");
+                    clearEditFieldError("dueDate");
+                  }}
                   className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
                   style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 />
+                {editFieldErrors.startDate && (
+                  <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
+                    {editFieldErrors.startDate}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
@@ -577,10 +606,18 @@ export default function ProjectDetailPage() {
                 <input
                   type="date"
                   value={editDueDate}
-                  onChange={(e) => setEditDueDate(e.target.value)}
+                  onChange={(e) => {
+                    setEditDueDate(e.target.value);
+                    clearEditFieldError("dueDate");
+                  }}
                   className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
                   style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 />
+                {editFieldErrors.dueDate && (
+                  <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
+                    {editFieldErrors.dueDate}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -631,9 +668,9 @@ export default function ProjectDetailPage() {
               </div>
             </div>
 
-            {editError && (
+            {editApiError && (
               <p className="text-sm font-semibold" style={{ color: "var(--color-error)" }}>
-                {editError}
+                {editApiError}
               </p>
             )}
 

@@ -22,9 +22,30 @@ export type AgencyMember = {
   role: AgencyMemberRole;
   status: AgencyMemberStatus;
   user: UserLite;
+  joinedAt: string | null; // date d'adhésion (created_at du membership), si fournie par l'API
 };
 
 export type AgencyRole = "owner" | "admin" | "membre";
+
+// ---------- Réglages d'agence (gérés par le propriétaire) ----------
+export type AgencyPermission = "owner" | "admin" | "all";
+export type AgencyTaskView = "grid" | "list" | "kanban";
+
+export type AgencySettings = {
+  whoCanInvite: AgencyPermission;
+  whoCanCreateProjects: AgencyPermission;
+  defaultTaskView: AgencyTaskView;
+  defaultMemberRole: AgencyMemberRole;
+  emailNotifications: boolean;
+};
+
+export const DEFAULT_AGENCY_SETTINGS: AgencySettings = {
+  whoCanInvite: "owner",
+  whoCanCreateProjects: "admin",
+  defaultTaskView: "grid",
+  defaultMemberRole: "membre",
+  emailNotifications: true,
+};
 
 export type Agency = {
   id: number;
@@ -34,6 +55,7 @@ export type Agency = {
   myRole: AgencyMemberRole | null; // rôle de l'utilisateur connecté
   createdAt: string;
   members: AgencyMember[];
+  settings: AgencySettings | null;
 };
 
 export type DisplayMember = AgencyMember & { color: string };

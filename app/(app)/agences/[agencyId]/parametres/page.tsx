@@ -6,12 +6,17 @@ import { useState } from "react";
 import { motion, type Variants } from "framer-motion";
 import {
   ShieldCheck, ArrowLeft, Settings, Users, Trash2, CheckCircle2, Save,
-  AlertTriangle, Globe,
+  AlertTriangle, Globe, Mail, X, Clock, LayoutGrid, List, Kanban, Bell,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
-import { isAgencyOwner } from "@/lib/types";
-import { updateAgency, deleteAgency, getApiErrorMessage } from "@/lib/services";
+import {
+  isAgencyOwner,
+  type AgencyMember,
+  type AgencySettings,
+  DEFAULT_AGENCY_SETTINGS,
+} from "@/lib/types";
+import { updateAgency, deleteAgency, removeAgencyMember, getApiErrorMessage } from "@/lib/services";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -53,7 +58,9 @@ export default function ParametresPage() {
   const [descriptionDraft, setDescriptionDraft] = useState(agency?.description ?? "");
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   if (!agency) {
@@ -88,6 +95,13 @@ export default function ParametresPage() {
     );
   }
 
+  const settings: AgencySettings = agency.settings ?? DEFAULT_AGENCY_SETTINGS;
+
+  const flashSaved = () => {
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
   const handleSave = async () => {
     setError(null);
     setSaving(true);
@@ -97,12 +111,25 @@ export default function ParametresPage() {
         description: descriptionDraft.trim() || null,
       });
       await reload();
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      flashSaved();
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveSettings = async (patch: Partial<AgencySettings>) => {
+    setError(null);
+    setSettingsSaving(true);
+    try {
+      await updateAgency(agencyId, { settings: { ...settings, ...patch } });
+      await reload();
+      flashSaved();
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setSettingsSaving(false);
     }
   };
 
@@ -120,6 +147,25 @@ export default function ParametresPage() {
           setDeleting(false);
         }
       }
+    }
+  };
+
+  const pendingMembers = (agency.members ?? []).filter(
+    (m) => m.status === "en_attente",
+  );
+
+  const handleCancelInvitation = async (member: AgencyMember) => {
+    const email = member.user?.email ?? "";
+    if (!window.confirm(`Annuler l'invitation envoyée à ${email} ?`)) return;
+    setCancellingId(member.id);
+    setError(null);
+    try {
+      await removeAgencyMember(agencyId, member.id);
+      await reload();
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -204,7 +250,214 @@ export default function ParametresPage() {
         </div>
       </Section>
 
-      {/* SECTION : Zone de danger */}
+      {/* SECTION 2 : Invitations */}
+      <Section icon={<Mail size={18} style={{ color: "#056cf2" }} />} title="Invitations">
+        <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
+          Définissez qui peut inviter de nouveaux membres dans cette agence.
+        </p>
+        <div className="space-y-2">
+          {([
+            { value: "owner" as const, label: "Propriétaire uniquement", desc: "Seul le créateur de l'agence peut envoyer des invitations" },
+            { value: "admin" as const, label: "Propriétaire et Admins", desc: "Les admins promus peuvent aussi inviter" },
+            { value: "all" as const, label: "Tous les membres", desc: "N'importe quel membre peut inviter" },
+          ]).map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => saveSettings({ whoCanInvite: opt.value })}
+              disabled={settingsSaving}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-opacity hover:opacity-80 disabled:opacity-60"
+              style={{
+                background: settings.whoCanInvite === opt.value ? "rgba(5,108,242,0.08)" : "var(--surface)",
+                border: settings.whoCanInvite === opt.value ? "2px solid #056cf2" : "1px solid var(--border-subtle)",
+              }}
+            >
+              <div className="flex-1">
+                <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{opt.label}</div>
+                <div className="text-xs" style={{ color: "var(--text-muted)" }}>{opt.desc}</div>
+              </div>
+              {settings.whoCanInvite === opt.value && <CheckCircle2 size={18} style={{ color: "#056cf2" }} />}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-6">
+          <label className="text-xs font-semibold mb-2 block" style={{ color: "var(--text-secondary)" }}>
+            Rôle accordé aux nouveaux membres
+          </label>
+          <div className="flex gap-2">
+            {([
+              { value: "membre" as const, label: "Membre", desc: "Aucun droit d'administration" },
+              { value: "admin" as const, label: "Admin", desc: "Peut gérer utilisateurs, projets et tâches" },
+            ]).map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => saveSettings({ defaultMemberRole: opt.value })}
+                disabled={settingsSaving}
+                className="flex-1 flex flex-col items-start gap-1 px-4 py-3 rounded-xl text-left transition-opacity hover:opacity-80 disabled:opacity-60"
+                style={
+                  settings.defaultMemberRole === opt.value
+                    ? { background: "rgba(5,108,242,0.08)", border: "2px solid #056cf2" }
+                    : { background: "var(--surface)", border: "1px solid var(--border-subtle)" }
+                }
+              >
+                <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{opt.label}</span>
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>{opt.desc}</span>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
+            S&apos;applique à chaque membre qui accepte une invitation.
+          </p>
+        </div>
+      </Section>
+
+      {/* SECTION 3 : Invitations en attente */}
+      <Section icon={<Clock size={18} style={{ color: "#056cf2" }} />} title="Invitations en attente">
+        <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
+          Invitations envoyées qui n&apos;ont pas encore été acceptées ni refusées. Vous pouvez les annuler à tout moment.
+        </p>
+
+        {pendingMembers.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+            Aucune invitation en attente pour le moment.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {pendingMembers.map((member) => (
+              <div
+                key={member.id}
+                className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 rounded-xl"
+                style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
+              >
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                    style={{ background: "var(--gradient-primary)" }}
+                  >
+                    <Mail size={16} className="text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>
+                      {member.user?.name || member.user?.email}
+                    </div>
+                    <div className="text-xs truncate flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
+                      <Clock size={10} /> {member.user?.email ?? "Invité"}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleCancelInvitation(member)}
+                  disabled={cancellingId === member.id}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shrink-0 disabled:opacity-60"
+                  style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "var(--color-error)" }}
+                >
+                  <X size={14} /> {cancellingId === member.id ? "Annulation..." : "Annuler"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      {/* SECTION 4 : Projets et tâches */}
+      <Section icon={<LayoutGrid size={18} style={{ color: "#056cf2" }} />} title="Projets et tâches">
+        <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
+          Contrôlez qui peut créer des projets et la vue par défaut.
+        </p>
+
+        <div className="mb-6">
+          <label className="text-xs font-semibold mb-2 block" style={{ color: "var(--text-secondary)" }}>
+            Qui peut créer des projets
+          </label>
+          <div className="space-y-2">
+            {([
+              { value: "owner" as const, label: "Propriétaire uniquement" },
+              { value: "admin" as const, label: "Propriétaire et Admins" },
+              { value: "all" as const, label: "Tous les membres" },
+            ]).map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => saveSettings({ whoCanCreateProjects: opt.value })}
+                disabled={settingsSaving}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-opacity hover:opacity-80 disabled:opacity-60"
+                style={{
+                  background: settings.whoCanCreateProjects === opt.value ? "rgba(5,108,242,0.08)" : "var(--surface)",
+                  border: settings.whoCanCreateProjects === opt.value ? "2px solid #056cf2" : "1px solid var(--border-subtle)",
+                }}
+              >
+                <div className="flex-1">
+                  <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{opt.label}</div>
+                </div>
+                {settings.whoCanCreateProjects === opt.value && <CheckCircle2 size={18} style={{ color: "#056cf2" }} />}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold mb-2 block" style={{ color: "var(--text-secondary)" }}>
+            Vue par défaut des tâches
+          </label>
+          <div className="flex gap-2">
+            {([
+              { value: "grid" as const, icon: <LayoutGrid size={16} />, label: "Grille" },
+              { value: "list" as const, icon: <List size={16} />, label: "Liste" },
+              { value: "kanban" as const, icon: <Kanban size={16} />, label: "Kanban" },
+            ]).map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => saveSettings({ defaultTaskView: opt.value })}
+                disabled={settingsSaving}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-60"
+                style={
+                  settings.defaultTaskView === opt.value
+                    ? { background: "var(--gradient-button)", color: "#fff" }
+                    : { background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }
+                }
+              >
+                {opt.icon} {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </Section>
+
+      {/* SECTION 5 : Notifications */}
+      <Section icon={<Bell size={18} style={{ color: "#056cf2" }} />} title="Notifications">
+        <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
+          Choisissez la façon dont cette agence vous notifie les activités importantes.
+        </p>
+        <button
+          onClick={() => saveSettings({ emailNotifications: !settings.emailNotifications })}
+          disabled={settingsSaving}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-opacity hover:opacity-80 disabled:opacity-60"
+          style={{
+            background: settings.emailNotifications ? "rgba(5,108,242,0.08)" : "var(--surface)",
+            border: settings.emailNotifications ? "2px solid #056cf2" : "1px solid var(--border-subtle)",
+          }}
+        >
+          <div className="flex-1">
+            <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+              Notifications par e-mail
+            </div>
+            <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Recevoir un e-mail pour les affectations de tâches, les invitations et les changements de statut.
+            </div>
+          </div>
+          <span
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full shrink-0"
+            style={
+              settings.emailNotifications
+                ? { background: "rgba(16,185,129,0.12)", color: "var(--color-success)" }
+                : { background: "rgba(239,68,68,0.12)", color: "var(--color-error)" }
+            }
+          >
+            <Bell size={13} /> {settings.emailNotifications ? "Activées" : "Désactivées"}
+          </span>
+        </button>
+      </Section>
+
+      {/* SECTION 6 : Zone de danger */}
       <motion.div variants={item} className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)", border: "1px solid rgba(239,68,68,0.2)" }}>
         <h2 className="text-lg font-bold flex items-center gap-2 mb-5" style={{ color: "var(--color-error)" }}>
           <AlertTriangle size={18} /> Zone de danger

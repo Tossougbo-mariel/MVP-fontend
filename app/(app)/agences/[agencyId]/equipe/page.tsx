@@ -7,6 +7,7 @@ import { motion, AnimatePresence, type Variants } from "framer-motion";
 import {
   Users, Mail, ShieldCheck, UserRound, UserPlus, Plus,
   LayoutGrid, List, Settings, CheckCircle2, MoreHorizontal, Trash2, ArrowLeft, Crown, Sparkles,
+  Ban, UserCheck, ClipboardList, Copy, Calendar,
 } from "lucide-react";
 import {
   useAppData,
@@ -33,6 +34,13 @@ const item: Variants = {
 const hexToRgba = (hex: string, alpha: number) => {
   const n = parseInt(hex.replace("#", ""), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${(n & 255)},${alpha})`;
+};
+
+const formatJoinedAt = (date: string | null): string | null => {
+  if (!date) return null;
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 };
 
 function InviteConfirmModal({
@@ -192,6 +200,7 @@ function MemberMenu({
   buttonClassName,
   panelClassName,
   onChangeRole,
+  onToggleStatus,
   onRemove,
 }: {
   member: AgencyMember;
@@ -200,6 +209,7 @@ function MemberMenu({
   buttonClassName?: string;
   panelClassName?: string;
   onChangeRole: () => void;
+  onToggleStatus: () => void;
   onRemove: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -262,6 +272,16 @@ function MemberMenu({
               <ShieldCheck size={15} style={{ color: "#056cf2" }} />
               {member.role === "admin" ? "Rétrograder en Membre" : "Promouvoir en Admin"}
             </button>
+            {member.status !== "en_attente" && (
+              <button
+                onClick={() => { setOpen(false); onToggleStatus(); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left rounded-lg transition-colors hover:bg-[var(--hover-soft)]"
+                style={{ color: member.status === "inactif" ? "var(--color-success)" : "var(--color-error)" }}
+              >
+                {member.status === "inactif" ? <UserCheck size={15} /> : <Ban size={15} />}
+                {member.status === "inactif" ? "Réactiver le compte" : "Désactiver le compte"}
+              </button>
+            )}
             <div className="my-1" style={{ borderTop: "1px solid var(--border-subtle)" }} />
             <button
               onClick={() => { setOpen(false); onRemove(); }}
@@ -279,7 +299,7 @@ function MemberMenu({
 
 export default function EquipePage() {
   const { agencyId } = useParams<{ agencyId: string }>();
-  const { data, reload } = useAppData();
+  const { data, reload, tasksByAgency } = useAppData();
   const agency = data.agencies.find((a) => a.id === Number(agencyId));
   const user = useAuthStore((s) => s.user);
 
@@ -292,6 +312,8 @@ export default function EquipePage() {
   const [inviteRole, setInviteRole] = useState<"admin" | "membre">("membre");
   const [confirmEmail, setConfirmEmail] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [inviteCopied, setInviteCopied] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -327,6 +349,7 @@ export default function EquipePage() {
 
   type PendingAction =
     | { type: "changeRole"; member: AgencyMember }
+    | { type: "toggleStatus"; member: AgencyMember }
     | { type: "remove"; member: AgencyMember };
 
   const requestChangeRole = (m: AgencyMember) => {
@@ -334,9 +357,20 @@ export default function EquipePage() {
     setPendingAction({ type: "changeRole", member: m });
   };
 
+  const requestToggleStatus = (m: AgencyMember) => {
+    if (m.user.id === user?.id) { alert("Vous ne pouvez pas modifier votre propre statut."); return; }
+    setPendingAction({ type: "toggleStatus", member: m });
+  };
+
   const requestRemove = (m: AgencyMember) => {
     if (m.user.id === user?.id) { alert("Vous ne pouvez pas supprimer votre propre compte."); return; }
     setPendingAction({ type: "remove", member: m });
+  };
+
+  const agencyTasks = tasksByAgency(agencyId);
+  const taskCountFor = (m: AgencyMember) => {
+    const email = (m.user.email ?? "").toLowerCase();
+    return agencyTasks.filter((t) => (t.assigneeEmail ?? "").toLowerCase() === email).length;
   };
 
   const confirmPendingAction = async () => {
@@ -350,6 +384,15 @@ export default function EquipePage() {
         await updateAgencyMember(agencyId, member.id, { role: newRole });
         await reload();
         setActionSuccess(`« ${fullName} » est désormais ${newRole === "admin" ? "Admin" : "Membre"}.`);
+      } else if (type === "toggleStatus") {
+        const newStatus = member.status === "inactif" ? "actif" : "inactif";
+        await updateAgencyMember(agencyId, member.id, { status: newStatus });
+        await reload();
+        setActionSuccess(
+          newStatus === "actif"
+            ? `Le compte de « ${fullName} » a été réactivé.`
+            : `Le compte de « ${fullName} » a été désactivé.`,
+        );
       } else {
         await removeAgencyMember(agencyId, member.id);
         await reload();
@@ -374,6 +417,14 @@ export default function EquipePage() {
       alert("Vous ne pouvez pas vous inviter vous-même.");
       return;
     }
+    const already = (agency.members ?? []).some(
+      (m) => (m.user.email ?? "").toLowerCase() === trimmed,
+    );
+    if (already) {
+      setInviteError(`Une invitation ou un membre existe déjà pour ${trimmed}.`);
+      setTimeout(() => setInviteError(null), 4000);
+      return;
+    }
     setConfirmEmail(trimmed);
   };
 
@@ -381,16 +432,32 @@ export default function EquipePage() {
     if (!confirmEmail) return;
     setInviteError(null);
     try {
-      await inviteAgencyMember(agencyId, { email: confirmEmail, role: inviteRole });
+      const created = await inviteAgencyMember(agencyId, { email: confirmEmail, role: inviteRole });
       await reload();
       setEmail("");
       setInviteSuccess(confirmEmail);
-      setTimeout(() => setInviteSuccess(null), 3000);
+      setInviteLink(`${window.location.origin}/accepter-invitation?id=${created.id}`);
+      setTimeout(() => {
+        setInviteSuccess(null);
+        setInviteLink(null);
+        setInviteCopied(false);
+      }, 8000);
     } catch (err) {
       setInviteError(getApiErrorMessage(err));
       setTimeout(() => setInviteError(null), 4000);
     }
     setConfirmEmail(null);
+  };
+
+  const copyInviteLink = async () => {
+    if (!inviteLink) return;
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 2000);
+    } catch {
+      window.prompt("Copiez le lien d'invitation :", inviteLink);
+    }
   };
 
   const cancelSendInvitation = () => setConfirmEmail(null);
@@ -476,10 +543,30 @@ export default function EquipePage() {
             }}
           >
             <CheckCircle2 className="w-5 h-5 shrink-0" />
-            <p className="text-sm">
-              <span className="font-semibold">Invitation envoyée à {inviteSuccess}.</span>{" "}
-              Un e-mail lui a été envoyé pour rejoindre {agency.name}.
-            </p>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm">
+                <span className="font-semibold">Invitation envoyée à {inviteSuccess}.</span>{" "}
+                Un e-mail lui a été envoyé pour rejoindre {agency.name}.
+              </p>
+              {inviteLink && (
+                <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2">
+                  <code
+                    className="flex-1 truncate rounded-lg px-3 py-2 text-xs"
+                    style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+                  >
+                    {inviteLink}
+                  </code>
+                  <button
+                    onClick={copyInviteLink}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold shrink-0"
+                    style={{ background: "var(--gradient-button)", color: "#fff" }}
+                  >
+                    {inviteCopied ? <CheckCircle2 size={13} /> : <Copy size={13} />}
+                    {inviteCopied ? "Lien copié" : "Copier le lien"}
+                  </button>
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -570,6 +657,7 @@ export default function EquipePage() {
                   panelClassName="absolute left-full ml-2 top-3 z-30 w-60 rounded-2xl p-2 pointer-events-auto"
                   member={m}
                   onChangeRole={() => requestChangeRole(m)}
+                  onToggleStatus={() => requestToggleStatus(m)}
                   onRemove={() => requestRemove(m)}
                 />
               )}
@@ -673,6 +761,19 @@ export default function EquipePage() {
                   {m.status === "inactif" ? "Inactif" : m.status === "en_attente" ? "En attente" : "Actif"}
                 </span>
               </div>
+              <div
+                className="flex items-center gap-x-3 gap-y-1 flex-wrap justify-center text-[11px]"
+                style={{ color: "var(--text-muted)" }}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <ClipboardList size={11} /> {taskCountFor(m)} tâche{taskCountFor(m) > 1 ? "s" : ""}
+                </span>
+                {formatJoinedAt(m.joinedAt) && (
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar size={11} /> Membre depuis le {formatJoinedAt(m.joinedAt)}
+                  </span>
+                )}
+              </div>
               {m.status === "inactif" && (
                 <div
                   className="w-full mt-1 text-center text-[10px] font-semibold px-2 py-1 rounded-lg"
@@ -765,6 +866,16 @@ export default function EquipePage() {
             <div className="text-xs truncate flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
               <Mail size={10} /> {m.user.email}
             </div>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
+              <span className="inline-flex items-center gap-1">
+                <ClipboardList size={10} /> {taskCountFor(m)} tâche{taskCountFor(m) > 1 ? "s" : ""}
+              </span>
+              {formatJoinedAt(m.joinedAt) && (
+                <span className="inline-flex items-center gap-1">
+                  <Calendar size={10} /> Membre depuis le {formatJoinedAt(m.joinedAt)}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -811,6 +922,7 @@ export default function EquipePage() {
           <MemberMenu
             member={m}
             onChangeRole={() => requestChangeRole(m)}
+            onToggleStatus={() => requestToggleStatus(m)}
             onRemove={() => requestRemove(m)}
           />
         ) : (
@@ -922,6 +1034,32 @@ export default function EquipePage() {
               }
               confirmLabel={isPromote ? "Promouvoir" : "Rétrograder"}
               tone="primary"
+              onConfirm={confirmPendingAction}
+              onCancel={() => setPendingAction(null)}
+            />
+          );
+        }
+
+        if (type === "toggleStatus") {
+          const isDeactivate = member.status !== "inactif";
+          return (
+            <ConfirmActionModal
+              icon={isDeactivate ? <Ban size={20} /> : <UserCheck size={20} />}
+              tone={isDeactivate ? "danger" : "success"}
+              title={isDeactivate ? "Désactiver ce compte" : "Réactiver ce compte"}
+              description={
+                isDeactivate ? (
+                  <>
+                    Désactiver le compte de <strong>{fullName}</strong> ? Ce membre ne pourra plus recevoir de
+                    nouvelles tâches.
+                  </>
+                ) : (
+                  <>
+                    Réactiver le compte de <strong>{fullName}</strong> ? Il pourra de nouveau recevoir des tâches.
+                  </>
+                )
+              }
+              confirmLabel={isDeactivate ? "Désactiver" : "Réactiver"}
               onConfirm={confirmPendingAction}
               onCancel={() => setPendingAction(null)}
             />

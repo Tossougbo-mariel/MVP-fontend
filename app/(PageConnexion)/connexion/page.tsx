@@ -1,8 +1,8 @@
 "use client";
 
 import { useAuthStore } from "@/app/store/authStore";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, useMotionValue, useSpring, type Variants } from "framer-motion";
 import Image from "next/image";
@@ -14,12 +14,22 @@ import MagneticButton from "../components/MagneticButton";
 
 
 export default function ConnexionPage() {
+  return (
+    <Suspense fallback={null}>
+      <ConnexionContent />
+    </Suspense>
+  );
+}
+
+function ConnexionContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const invitationId = searchParams.get("invitation") ?? "";
 
   // --- Tilt 3D de la carte (rotation douce, type "spring") ---
   const rotateX = useSpring(useMotionValue(0), { stiffness: 200, damping: 22 });
@@ -61,7 +71,7 @@ export default function ConnexionPage() {
       return;
     }
 
-    router.push("/mes-agences");
+    router.push(invitationId ? `/accepter-invitation?id=${invitationId}` : "/mes-agences");
   };
 
   // --- Entrée en cascade : chaque enfant apparaît l'un après l'autre ---

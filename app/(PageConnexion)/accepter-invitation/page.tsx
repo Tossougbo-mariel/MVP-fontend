@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
@@ -21,6 +21,14 @@ const item: Variants = {
 };
 
 export default function AcceptInvitationPage() {
+  return (
+    <Suspense fallback={null}>
+      <AcceptInvitationContent />
+    </Suspense>
+  );
+}
+
+function AcceptInvitationContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id") ?? "";
   const router = useRouter();

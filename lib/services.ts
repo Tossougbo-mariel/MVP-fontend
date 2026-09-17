@@ -9,6 +9,7 @@ import type {
   Agency,
   AgencyMember,
   AgencyMemberRole,
+  AgencySettings,
   AppNotification,
   Project,
   ProjectMember,
@@ -45,6 +46,7 @@ const mapAgency = (r: any): Agency => ({
   myRole: r.my_role === "admin" || r.my_role === "membre" ? r.my_role : null,
   createdAt: str(r.created_at) ?? "",
   members: [],
+  settings: r.settings ?? null,
 });
 
 const mapMember = (r: any): AgencyMember => ({
@@ -52,6 +54,7 @@ const mapMember = (r: any): AgencyMember => ({
   role: r.role === "admin" ? "admin" : "membre",
   status: r.status === "actif" ? "actif" : r.status === "en_attente" ? "en_attente" : "inactif",
   user: mapUser(r.user ?? {}),
+  joinedAt: str(r.created_at),
 });
 
 const mapProject = (r: any): Project => ({
@@ -158,7 +161,11 @@ export const createAgency = async (payload: {
 
 export const updateAgency = async (
   agencyId: number | string,
-  payload: { name?: string; description?: string | null },
+  payload: {
+    name?: string;
+    description?: string | null;
+    settings?: Partial<AgencySettings>;
+  },
 ): Promise<Agency> => mapAgency((await api.put(`/agencies/${agencyId}`, payload)).data);
 
 export const deleteAgency = async (agencyId: number | string): Promise<void> => {

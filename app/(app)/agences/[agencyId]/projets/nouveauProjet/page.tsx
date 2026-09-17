@@ -49,7 +49,8 @@ export default function NouveauProjetPage() {
   const [dueDate, setDueDate] = useState("");
   const [memberEmails, setMemberEmails] = useState<string[]>([]);
   const [wallpaperId, setWallpaperId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [apiError, setApiError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const activeMembers = (agency?.members ?? []).filter((m) => m.status === "actif");
@@ -62,27 +63,31 @@ export default function NouveauProjetPage() {
     );
   };
 
+  const clearFieldError = (field: string) => {
+    setFieldErrors((prev) => {
+      if (!(field in prev)) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setFieldErrors({});
+    setApiError(null);
 
-    if (!name.trim()) {
-      setError("Le nom du projet est obligatoire.");
-      return;
-    }
-
+    const fe: Record<string, string> = {};
+    if (!name.trim()) fe.name = "Le nom du projet est obligatoire.";
     if (!startDate) {
-      setError("La date de début est obligatoire.");
-      return;
+      fe.startDate = "La date de début est obligatoire.";
+    } else if (!dueDate) {
+      fe.dueDate = "La date d'échéance est obligatoire.";
+    } else if (dueDate < startDate) {
+      fe.dueDate = "La date d'échéance doit être postérieure ou égale à la date de début.";
     }
-
-    if (!dueDate) {
-      setError("La date d'échéance est obligatoire.");
-      return;
-    }
-
-    if (dueDate < startDate) {
-      setError("La date d'échéance doit être postérieure ou égale à la date de début.");
+    if (Object.keys(fe).length > 0) {
+      setFieldErrors(fe);
       return;
     }
 
@@ -108,7 +113,7 @@ export default function NouveauProjetPage() {
       await reload();
       router.push(`/agences/${agencyId}/projets/${project.id}`);
     } catch (err) {
-      setError(getApiErrorMessage(err));
+      setApiError(getApiErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -203,11 +208,19 @@ export default function NouveauProjetPage() {
           <input
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              clearFieldError("name");
+            }}
             placeholder="Ex : Site vitrine 2026"
             className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
             style={inputStyle}
           />
+            {fieldErrors.name && (
+              <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
+                {fieldErrors.name}
+              </p>
+            )}
         </div>
 
         {/* Description */}
@@ -234,10 +247,19 @@ export default function NouveauProjetPage() {
             <input
               type="date"
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={(e) => {
+                setStartDate(e.target.value);
+                clearFieldError("startDate");
+                clearFieldError("dueDate");
+              }}
               className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
               style={inputStyle}
             />
+            {fieldErrors.startDate && (
+              <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
+                {fieldErrors.startDate}
+              </p>
+            )}
           </div>
           <div>
             <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
@@ -246,10 +268,18 @@ export default function NouveauProjetPage() {
             <input
               type="date"
               value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
+              onChange={(e) => {
+                setDueDate(e.target.value);
+                clearFieldError("dueDate");
+              }}
               className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
               style={inputStyle}
             />
+            {fieldErrors.dueDate && (
+              <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
+                {fieldErrors.dueDate}
+              </p>
+            )}
           </div>
         </div>
 
@@ -347,10 +377,10 @@ export default function NouveauProjetPage() {
           </div>
         </div>
 
-        {/* Error */}
-        {error && (
+        {/* Erreur API (bandeau global) */}
+        {apiError && (
           <p className="text-sm font-semibold" style={{ color: "var(--color-error)" }}>
-            {error}
+            {apiError}
           </p>
         )}
 

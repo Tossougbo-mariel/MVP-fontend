@@ -21,6 +21,13 @@ const item: Variants = {
 
 const MotionLink = motion(Link);
 
+// createdAt est un timestamp ISO complet (ex: 2026-09-17T08:00:00.000000Z)
+const formatCreatedAt = (date: string) => {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return date;
+  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+};
+
 export default function MesAgencesPage() {
   const user = useAuthStore((s) => s.user);
   const { data } = useAppData();
@@ -148,7 +155,7 @@ export default function MesAgencesPage() {
                   style={{ borderTop: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}
                 >
                   <span>{(a.members ?? []).length} membre{(a.members ?? []).length > 1 ? "s" : ""}</span>
-                  <span>Créée le {a.createdAt}</span>
+                  <span>Créée le {formatCreatedAt(a.createdAt)}</span>
                 </div>
               </div>
             </MotionLink>

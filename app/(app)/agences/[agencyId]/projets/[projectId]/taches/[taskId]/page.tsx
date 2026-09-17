@@ -139,7 +139,8 @@ export default function TaskDetailPage() {
   const [editAssignee, setEditAssignee] = useState("");
   const [editStartDate, setEditStartDate] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
-  const [editError, setEditError] = useState<string | null>(null);
+  const [editFieldErrors, setEditFieldErrors] = useState<Record<string, string>>({});
+  const [editApiError, setEditApiError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
@@ -154,37 +155,42 @@ export default function TaskDetailPage() {
     setEditAssignee(task.assignedTo !== null ? String(task.assignedTo) : "");
     setEditStartDate(task.startDate ?? "");
     setEditDueDate(task.dueDate ?? "");
-    setEditError(null);
+    setEditFieldErrors({});
+    setEditApiError(null);
     setEditing(true);
+  };
+
+  const clearEditFieldError = (field: string) => {
+    setEditFieldErrors((prev) => {
+      if (!(field in prev)) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setEditError(null);
+    setEditFieldErrors({});
+    setEditApiError(null);
     if (!task || !project) return;
 
-    if (!editTitle.trim()) {
-      setEditError("Le titre de la tâche est obligatoire.");
-      return;
-    }
+    const fe: Record<string, string> = {};
+    if (!editTitle.trim()) fe.title = "Le titre de la tâche est obligatoire.";
     if (!editStartDate) {
-      setEditError("La date de début est obligatoire.");
-      return;
+      fe.startDate = "La date de début est obligatoire.";
+    } else if (project.startDate && editStartDate < project.startDate) {
+      fe.startDate = `Doit être postérieure ou égale au début du projet (${project.startDate}).`;
     }
     if (!editDueDate) {
-      setEditError("La date d'échéance est obligatoire.");
-      return;
+      fe.dueDate = "La date d'échéance est obligatoire.";
+    } else if (editDueDate < editStartDate) {
+      fe.dueDate = "La date d'échéance doit être postérieure ou égale à la date de début.";
+    } else if (project.dueDate && editDueDate > project.dueDate) {
+      fe.dueDate = `Doit être antérieure ou égale à l'échéance du projet (${project.dueDate}).`;
     }
-    if (editDueDate < editStartDate) {
-      setEditError("La date d'échéance doit être postérieure ou égale à la date de début.");
-      return;
-    }
-    if (editStartDate && project.startDate && editStartDate < project.startDate) {
-      setEditError(`La date de début doit être postérieure ou égale au début du projet (${project.startDate}).`);
-      return;
-    }
-    if (editDueDate && project.dueDate && editDueDate > project.dueDate) {
-      setEditError(`La date d'échéance doit être antérieure ou égale à l'échéance du projet (${project.dueDate}).`);
+    if (Object.keys(fe).length > 0) {
+      setEditFieldErrors(fe);
       return;
     }
 
@@ -203,7 +209,7 @@ export default function TaskDetailPage() {
       void reload();
       setEditing(false);
     } catch (err) {
-      setEditError(getApiErrorMessage(err));
+      setEditApiError(getApiErrorMessage(err));
     } finally {
       setActionLoading(false);
     }
@@ -812,11 +818,19 @@ export default function TaskDetailPage() {
               </label>
               <input
                 value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
+                onChange={(e) => {
+                  setEditTitle(e.target.value);
+                  clearEditFieldError("title");
+                }}
                 placeholder="Intitulé de la tâche"
                 className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-shadow"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
               />
+              {editFieldErrors.title && (
+                <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
+                  {editFieldErrors.title}
+                </p>
+              )}
             </div>
 
             <div>
@@ -843,10 +857,19 @@ export default function TaskDetailPage() {
                   min={project.startDate || undefined}
                   max={project.dueDate || undefined}
                   value={editStartDate}
-                  onChange={(e) => setEditStartDate(e.target.value)}
+                  onChange={(e) => {
+                    setEditStartDate(e.target.value);
+                    clearEditFieldError("startDate");
+                    clearEditFieldError("dueDate");
+                  }}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
                   style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 />
+                {editFieldErrors.startDate && (
+                  <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
+                    {editFieldErrors.startDate}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
@@ -857,10 +880,18 @@ export default function TaskDetailPage() {
                   min={editStartDate || project.startDate || undefined}
                   max={project.dueDate || undefined}
                   value={editDueDate}
-                  onChange={(e) => setEditDueDate(e.target.value)}
+                  onChange={(e) => {
+                    setEditDueDate(e.target.value);
+                    clearEditFieldError("dueDate");
+                  }}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
                   style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 />
+                {editFieldErrors.dueDate && (
+                  <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
+                    {editFieldErrors.dueDate}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -902,9 +933,9 @@ export default function TaskDetailPage() {
               </div>
             </div>
 
-            {editError && (
+            {editApiError && (
               <p className="text-sm font-semibold" style={{ color: "var(--color-error)" }}>
-                {editError}
+                {editApiError}
               </p>
             )}
 

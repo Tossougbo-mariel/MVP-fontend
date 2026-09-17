@@ -140,12 +140,12 @@ export default function ProfilPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
-  const { data, myTasksInAgency, agencyById } = useAppData();
+  const { data, myTasksInAgency, myTasks, agencyById } = useAppData();
   const agencies = data.agencies;
   const myAgencies = user ? userAgencies(agencies, user.email) : [];
 
   // ✅ Agence active : transmise via ?agency= depuis le Header quand on navigue
-  // depuis une agence. Sans contexte → pas de badge de rôle ni de bloc de tâches.
+  // depuis une agence. Sans contexte → rôle agrégé et tâches de toutes les agences.
   const contextAgencyId = typeof window !== "undefined"
     ? new URLSearchParams(window.location.search).get("agency")
     : null;
@@ -153,12 +153,24 @@ export default function ProfilPage() {
   const contextRole: "owner" | "admin" | "membre" | null =
     contextAgency && user ? userRoleInAgency(contextAgency, user.email) : null;
 
-  const taches = contextRole === "admin" || contextRole === "membre"
-    ? myTasksInAgency(contextAgencyId!).map((t) => ({
-        ...t,
-        agencyName: agencyById(t.agencyId)?.name ?? contextAgency?.name ?? "—",
-      }))
-    : [];
+  // Rôle effectif : celui du contexte s'il existe, sinon on agrège sur toutes
+  // les agences de l'utilisateur (owner > admin > membre).
+  const fallbackRole: "owner" | "admin" | "membre" | null = (() => {
+    if (!user || myAgencies.length === 0) return null;
+    const roles = myAgencies.map((a) => userRoleInAgency(a, user.email));
+    if (roles.includes("owner")) return "owner";
+    if (roles.includes("admin")) return "admin";
+    return "membre";
+  })();
+  const displayRole = contextRole ?? fallbackRole;
+
+  const taches = (contextAgencyId && contextRole
+    ? myTasksInAgency(contextAgencyId)
+    : myTasks()
+  ).map((t) => ({
+    ...t,
+    agencyName: agencyById(t.agencyId)?.name ?? "—",
+  }));
 
   const [photo, setPhoto] = useState<string | null>(null);
   // ✅ CORRIGÉ : on reprend phone/city/bio/jobTitle déjà persistés dans `user`
@@ -169,7 +181,7 @@ export default function ProfilPage() {
     email: user?.email ?? "",
     phone: user?.phone ?? "",
     city: user?.city ?? "",
-    jobTitle: user?.jobTitle ?? (contextRole ? (contextRole === "owner" ? "Propriétaire" : contextRole === "admin" ? "Administrateur" : "Membre") : ""),
+    jobTitle: user?.jobTitle ?? (displayRole ? (displayRole === "owner" ? "Propriétaire" : displayRole === "admin" ? "Administrateur" : "Membre") : ""),
     bio: user?.bio ?? "",
   });
   const [draft, setDraft] = useState<InfosPersonnelles>(infos);
@@ -322,13 +334,13 @@ export default function ProfilPage() {
                 <p className="mt-1 flex items-center justify-center md:justify-start gap-2" style={{ color: "var(--text-secondary)" }}>
                   <Briefcase size={15} /> {infos.jobTitle}
                 </p>
-                {contextRole && (
+                {displayRole && (
                   <span
                     className="inline-flex items-center gap-1.5 mt-3 text-xs font-semibold text-white px-3 py-1 rounded-full"
                     style={{ background: "var(--gradient-button)", boxShadow: "0 4px 10px -4px rgba(37,99,235,0.4)" }}
                   >
                     <ShieldCheck size={13} />{" "}
-                    {contextRole === "owner" ? "Propriétaire" : contextRole === "admin" ? "Administrateur" : "Membre"}
+                    {displayRole === "owner" ? "Propriétaire" : displayRole === "admin" ? "Administrateur" : "Membre"}
                   </span>
                 )}
               </div>
@@ -449,7 +461,7 @@ export default function ProfilPage() {
           </div>
         </motion.div>
 
-        {(contextRole === "admin" || contextRole === "membre") && (
+        {displayRole && (
         <motion.div variants={item} className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
           <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
             <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
