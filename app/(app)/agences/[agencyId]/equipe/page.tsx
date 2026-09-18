@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import {
   Users, Mail, ShieldCheck, UserRound, UserPlus, Plus,
@@ -227,18 +228,33 @@ function MemberMenu({
   onRemove: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [flipUp, setFlipUp] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const close = () => {
+    setOpen(false);
+    setMenuPos(null);
+  };
 
   const toggle = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!open && btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
-      setFlipUp(openUp || spaceBelow < 300);
+      const up = openUp || spaceBelow < 300;
+      setFlipUp(up);
+      const height = panelRef.current?.offsetHeight ?? 240;
+      if (up) {
+        setMenuPos({ top: Math.max(8, rect.top - height + 8), right: window.innerWidth - rect.right });
+      } else {
+        setMenuPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+      }
     }
     setOpen(!open);
   };
+
   return (
     <div className={`${className ?? "relative"} shrink-0`}>
       <button
@@ -257,15 +273,22 @@ function MemberMenu({
         <MoreHorizontal size={16} />
       </button>
 
-      {open && (
+      {open && menuPos && createPortal(
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-40" onClick={close} />
           <motion.div
+            ref={panelRef}
             initial={{ opacity: 0, y: flipUp ? -8 : 8, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className={panelClassName ?? `absolute right-0 ${flipUp ? "bottom-11" : "top-11"} z-30 w-60 rounded-2xl p-2`}
-            style={{ background: "var(--chrome-card)", border: "1px solid var(--border-subtle)", boxShadow: "0 18px 44px -18px rgba(10,27,60,0.4)" }}
+            style={{
+              top: menuPos.top,
+              right: menuPos.right,
+              background: "var(--chrome-card)",
+              border: "1px solid var(--border-subtle)",
+              boxShadow: "0 18px 44px -18px rgba(10,27,60,0.4)",
+            }}
+            className={`fixed z-50 w-60 rounded-2xl p-2 ${panelClassName ?? ""}`}
           >
             <div
               className="px-3 py-2 mb-1 rounded-lg"
@@ -279,7 +302,7 @@ function MemberMenu({
               </div>
             </div>
             <button
-              onClick={() => { setOpen(false); onChangeRole(); }}
+              onClick={() => { close(); onChangeRole(); }}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left rounded-lg transition-colors hover:bg-[var(--hover-soft)]"
               style={{ color: "var(--text-primary)" }}
             >
@@ -288,7 +311,7 @@ function MemberMenu({
             </button>
             {member.status !== "en_attente" && (
               <button
-                onClick={() => { setOpen(false); onToggleStatus(); }}
+                onClick={() => { close(); onToggleStatus(); }}
                 className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left rounded-lg transition-colors hover:bg-[var(--hover-soft)]"
                 style={{ color: member.status === "inactif" ? "var(--color-success)" : "var(--color-error)" }}
               >
@@ -298,14 +321,15 @@ function MemberMenu({
             )}
             <div className="my-1" style={{ borderTop: "1px solid var(--border-subtle)" }} />
             <button
-              onClick={() => { setOpen(false); onRemove(); }}
+              onClick={() => { close(); onRemove(); }}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left rounded-lg transition-colors hover:bg-[var(--hover-soft)]"
               style={{ color: "var(--color-error)" }}
             >
               <Trash2 size={15} /> Supprimer
             </button>
           </motion.div>
-        </>
+        </>,
+        document.body,
       )}
     </div>
   );
