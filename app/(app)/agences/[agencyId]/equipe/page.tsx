@@ -328,6 +328,10 @@ export default function EquipePage() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [pendingForcedRemoval, setPendingForcedRemoval] = useState<{
+    member: AgencyMember;
+    message: string;
+  } | null>(null);
   const [invitations, setInvitations] = useState<AgencyInvitation[]>([]);
   const [invitationsLoading, setInvitationsLoading] = useState(true);
   const [busyInvitationId, setBusyInvitationId] = useState<number | null>(null);
