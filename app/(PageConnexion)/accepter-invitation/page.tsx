@@ -65,8 +65,18 @@ function AcceptInvitationContent() {
     };
   }, [token]);
 
-  const emailMismatch =
-    !!user && !!preview && user.email.toLowerCase() !== preview.email.toLowerCase();
+  // Aiguillage direct depuis le lien de confirmation :
+  //  - compte complet existant mais non connecté    → page de connexion
+  //  - pas encore de compte (=== jamais inscrit)     → page d'inscription
+  //  - connecté avec une AUTRE adresse (mismatch)    → même redirection,
+  //    le bon compte n'est pas celui de la session courante
+  //  - déjà connecté avec la bonne adresse           → confirmation directe ici
+  useEffect(() => {
+    if (!preview) return;
+    if (user && user.email.toLowerCase() === preview.email.toLowerCase()) return;
+    const target = preview.hasAccount ? "/connexion" : "/inscription";
+    router.replace(`${target}?invitation=${encodeURIComponent(token)}`);
+  }, [preview, user, token, router]);
 
   const handleAccept = async () => {
     if (!user) return;
@@ -75,7 +85,10 @@ function AcceptInvitationContent() {
     try {
       await acceptInvitation(token);
       setAccepted(true);
-      setTimeout(() => router.push("/mes-agences"), 1400);
+      const dest = preview?.agency?.id
+        ? `/agences/${preview.agency.id}/equipe`
+        : "/mes-agences";
+      setTimeout(() => router.push(dest), 1400);
     } catch (err) {
       setError(getApiErrorMessage(err));
       setProcessing(false);
@@ -253,23 +266,6 @@ function AcceptInvitationContent() {
                 style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
               >
                 J&apos;ai déjà un compte · Me connecter
-              </Link>
-            </motion.div>
-          ) : emailMismatch ? (
-            <motion.div variants={item} className="space-y-3">
-              <div
-                className="rounded-xl px-4 py-3 text-sm"
-                style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--color-error)" }}
-              >
-                Cette invitation est liée à l&apos;e-mail <b>{preview?.email}</b>, alors que vous êtes connecté·e en tant
-                que <b>{user.email}</b>. Déconnectez-vous puis connectez-vous avec le bon compte pour l&apos;accepter.
-              </div>
-              <Link
-                href={`/connexion?invitation=${token}`}
-                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold transition-all"
-                style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
-              >
-                Changer de compte <ArrowRight size={16} />
               </Link>
             </motion.div>
           ) : (
