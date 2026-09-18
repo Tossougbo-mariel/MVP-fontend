@@ -35,7 +35,7 @@ export default function NouveauProjetPage() {
   const { agencyId } = useParams<{ agencyId: string }>();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const { reload, agencyById } = useAppData();
+  const { reload, agencyById, data } = useAppData();
 
   const agency = agencyById(agencyId);
 
@@ -118,6 +118,14 @@ export default function NouveauProjetPage() {
       setSubmitting(false);
     }
   };
+
+  if (data.loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+      </div>
+    );
+  }
 
   // ✅ Si l'agence n'existe pas
   if (!agency) {

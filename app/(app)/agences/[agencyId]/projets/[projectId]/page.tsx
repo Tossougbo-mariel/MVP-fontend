@@ -69,7 +69,7 @@ export default function ProjectDetailPage() {
   const { agencyId, projectId } = useParams<{ agencyId: string; projectId: string }>();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const { reload, agencyById, getProject, tasksByProject } = useAppData();
+  const { reload, agencyById, getProject, tasksByProject, data } = useAppData();
 
   const agency = agencyById(agencyId);
   const project = getProject(projectId);
@@ -204,6 +204,14 @@ export default function ProjectDetailPage() {
       alert(getApiErrorMessage(err));
     }
   };
+
+  if (data.loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+      </div>
+    );
+  }
 
   // ✅ Si l'agence n'existe pas
   if (!agency) {

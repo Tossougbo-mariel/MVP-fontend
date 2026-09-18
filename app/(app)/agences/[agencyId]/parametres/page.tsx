@@ -2,21 +2,25 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, type Variants } from "framer-motion";
 import {
   ShieldCheck, ArrowLeft, Settings, Users, Trash2, CheckCircle2, Save,
-  AlertTriangle, Globe, Mail, X, Clock, LayoutGrid, List, Kanban, Bell,
+  AlertTriangle, Globe, Mail, X, Clock, LayoutGrid, List, Kanban, Bell, RefreshCw,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
 import {
   isAgencyOwner,
-  type AgencyMember,
+  type AgencyInvitation,
   type AgencySettings,
   DEFAULT_AGENCY_SETTINGS,
 } from "@/lib/types";
-import { updateAgency, deleteAgency, removeAgencyMember, getApiErrorMessage } from "@/lib/services";
+import {
+  updateAgency, deleteAgency,
+  fetchAgencyInvitations, resendInvitation, cancelInvitation,
+  getApiErrorMessage,
+} from "@/lib/services";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -25,6 +29,12 @@ const container: Variants = {
 const item: Variants = {
   hidden: { y: 16, opacity: 0 },
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
+};
+
+const isInvitationExpired = (inv: { expiresAt: string | null }): boolean => {
+  if (!inv.expiresAt) return false;
+  const d = new Date(inv.expiresAt);
+  return !Number.isNaN(d.getTime()) && d.getTime() < Date.now();
 };
 
 function Section({
@@ -60,8 +70,32 @@ export default function ParametresPage() {
   const [saving, setSaving] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [busyInvitationId, setBusyInvitationId] = useState<number | null>(null);
+  const [invitations, setInvitations] = useState<AgencyInvitation[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const list = await fetchAgencyInvitations(agencyId);
+        if (alive) setInvitations(list);
+      } catch {
+        // silencieux
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [agencyId]);
+
+  if (data.loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+      </div>
+    );
+  }
 
   if (!agency) {
     return (
@@ -150,22 +184,33 @@ export default function ParametresPage() {
     }
   };
 
-  const pendingMembers = (agency.members ?? []).filter(
-    (m) => m.status === "en_attente",
-  );
+  const pendingInvitations = invitations.filter((i) => i.status === "en_attente");
 
-  const handleCancelInvitation = async (member: AgencyMember) => {
-    const email = member.user?.email ?? "";
-    if (!window.confirm(`Annuler l'invitation envoyée à ${email} ?`)) return;
-    setCancellingId(member.id);
+  const handleResendInvitation = async (inv: AgencyInvitation) => {
+    setBusyInvitationId(inv.id);
     setError(null);
     try {
-      await removeAgencyMember(agencyId, member.id);
+      const updated = await resendInvitation(agencyId, inv.id);
+      setInvitations((prev) => prev.map((i) => (i.id === inv.id ? updated : i)));
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setBusyInvitationId(null);
+    }
+  };
+
+  const handleCancelInvitation = async (inv: AgencyInvitation) => {
+    if (!window.confirm(`Annuler l'invitation envoyée à ${inv.email} ?`)) return;
+    setBusyInvitationId(inv.id);
+    setError(null);
+    try {
+      await cancelInvitation(agencyId, inv.id);
+      setInvitations((prev) => prev.filter((i) => i.id !== inv.id));
       await reload();
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
-      setCancellingId(null);
+      setBusyInvitationId(null);
     }
   };
 
@@ -317,44 +362,71 @@ export default function ParametresPage() {
           Invitations envoyées qui n&apos;ont pas encore été acceptées ni refusées. Vous pouvez les annuler à tout moment.
         </p>
 
-        {pendingMembers.length === 0 ? (
+        {pendingInvitations.length === 0 ? (
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>
             Aucune invitation en attente pour le moment.
           </p>
         ) : (
           <div className="space-y-2">
-            {pendingMembers.map((member) => (
-              <div
-                key={member.id}
-                className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 rounded-xl"
-                style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
-              >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                    style={{ background: "var(--gradient-primary)" }}
-                  >
-                    <Mail size={16} className="text-white" />
+            {pendingInvitations.map((inv) => {
+              const expired = isInvitationExpired(inv);
+              return (
+                <div
+                  key={inv.id}
+                  className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 rounded-xl"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                      style={{ background: "var(--gradient-primary)" }}
+                    >
+                      <Mail size={16} className="text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>
+                        {inv.email}
+                      </div>
+                      <div className="text-xs truncate flex items-center gap-2 flex-wrap" style={{ color: "var(--text-muted)" }}>
+                        <span className="inline-flex items-center gap-1">
+                          <ShieldCheck size={10} /> {inv.role === "admin" ? "Admin" : "Membre"}
+                        </span>
+                        {expired ? (
+                          <span className="inline-flex items-center gap-1" style={{ color: "var(--color-error)" }}>
+                            <X size={10} /> Expirée
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1">
+                            <Clock size={10} /> Expire le{" "}
+                            {inv.expiresAt
+                              ? new Date(inv.expiresAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
+                              : "—"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <div className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>
-                      {member.user?.name || member.user?.email}
-                    </div>
-                    <div className="text-xs truncate flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
-                      <Clock size={10} /> {member.user?.email ?? "Invité"}
-                    </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => handleResendInvitation(inv)}
+                      disabled={busyInvitationId === inv.id}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold disabled:opacity-60"
+                      style={{ background: "rgba(5,108,242,0.08)", border: "1px solid rgba(5,108,242,0.25)", color: "#056cf2" }}
+                    >
+                      <RefreshCw size={13} /> Relancer
+                    </button>
+                    <button
+                      onClick={() => handleCancelInvitation(inv)}
+                      disabled={busyInvitationId === inv.id}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold disabled:opacity-60"
+                      style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "var(--color-error)" }}
+                    >
+                      <X size={14} /> {busyInvitationId === inv.id ? "Annulation..." : "Annuler"}
+                    </button>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleCancelInvitation(member)}
-                  disabled={cancellingId === member.id}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shrink-0 disabled:opacity-60"
-                  style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "var(--color-error)" }}
-                >
-                  <X size={14} /> {cancellingId === member.id ? "Annulation..." : "Annuler"}
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Section>
