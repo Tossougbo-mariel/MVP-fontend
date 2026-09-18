@@ -237,8 +237,10 @@ export const cancelInvitation = async (
   await api.delete(`/agencies/${agencyId}/invitations/${invitationId}`);
 };
 
-export const fetchInvitationPreview = async (token: string): Promise<InvitationPreview> =>
-  (await api.get(`/invitations/${token}`)).data;
+export const fetchInvitationPreview = async (token: string): Promise<InvitationPreview> => {
+  const data = (await api.get(`/invitations/${token}`)).data;
+  return { ...data, hasAccount: Boolean(data.has_account) };
+};
 
 export const acceptInvitation = async (token: string): Promise<void> => {
   await api.post(`/invitations/${token}/accept`);

@@ -334,6 +334,7 @@ export default function EquipePage() {
   } | null>(null);
   const [invitations, setInvitations] = useState<AgencyInvitation[]>([]);
   const [invitationsLoading, setInvitationsLoading] = useState(true);
+  const [cancelInvitationTarget, setCancelInvitationTarget] = useState<AgencyInvitation | null>(null);
   const [busyInvitationId, setBusyInvitationId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -352,6 +353,12 @@ export default function EquipePage() {
       alive = false;
     };
   }, [agencyId]);
+
+  useEffect(() => {
+    if (data.lastLoadedAt === null) return;
+    if (Date.now() - data.lastLoadedAt > 30000) void reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.lastLoadedAt]);
 
   if (data.loading) {
     return (
@@ -549,14 +556,18 @@ export default function EquipePage() {
     }
   };
 
-  const handleCancelInvitation = async (inv: AgencyInvitation) => {
-    if (!window.confirm(`Annuler l'invitation envoyée à ${inv.email} ?`)) return;
+  const requestCancelInvitation = (inv: AgencyInvitation) => {
+    setCancelInvitationTarget(inv);
+  };
+
+  const confirmCancelInvitation = async (inv: AgencyInvitation) => {
     setBusyInvitationId(inv.id);
     setInviteError(null);
     try {
       await cancelInvitation(agencyId, inv.id);
       setInvitations((prev) => prev.filter((i) => i.id !== inv.id));
       await reload();
+      setCancelInvitationTarget(null);
       setActionSuccess(`Invitation de ${inv.email} annulée.`);
       setTimeout(() => setActionSuccess(null), 3000);
     } catch (err) {
@@ -906,7 +917,7 @@ export default function EquipePage() {
                         <RefreshCw size={13} /> Relancer
                       </button>
                       <button
-                        onClick={() => handleCancelInvitation(inv)}
+                        onClick={() => requestCancelInvitation(inv)}
                         disabled={busyInvitationId === inv.id}
                         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold disabled:opacity-60"
                         style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "var(--color-error)" }}
@@ -1121,6 +1132,24 @@ export default function EquipePage() {
         onConfirm={confirmSendInvitation}
         onCancel={cancelSendInvitation}
       />
+
+      {cancelInvitationTarget && (
+        <ConfirmActionModal
+          icon={<X size={20} />}
+          tone="danger"
+          title="Annuler l'invitation"
+          description={
+            <>
+              Annuler l&apos;invitation envoyée à <strong>{cancelInvitationTarget.email}</strong> ?{" "}
+              {cancelInvitationTarget.email} ne pourra plus confirmer son adresse et l&apos;invitation sera
+              définitivement supprimée.
+            </>
+          }
+          confirmLabel="Annuler l'invitation"
+          onConfirm={() => confirmCancelInvitation(cancelInvitationTarget)}
+          onCancel={() => setCancelInvitationTarget(null)}
+        />
+      )}
     </motion.div>
   );
 }

@@ -45,6 +45,7 @@ export type InvitationPreview = {
   role: AgencyMemberRole;
   expiresAt: string | null;
   agency: { id: number; name: string };
+  hasAccount: boolean;
 };
 
 export type AgencyRole = "owner" | "admin" | "membre";
