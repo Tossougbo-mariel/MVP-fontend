@@ -10,7 +10,7 @@ import {
   CalendarClock,
   CalendarPlus,
   CheckCircle2,
-  Clock,
+  Eye,
   Flag,
   FolderKanban,
   History,
@@ -40,7 +40,6 @@ import {
   deleteComment as apiDeleteComment,
   fetchActivity,
   updateTask as apiUpdateTask,
-  updateTaskStatus as apiUpdateTaskStatus,
   deleteTask as apiDeleteTask,
   getApiErrorMessage,
 } from "@/lib/services";
@@ -79,7 +78,8 @@ const readableOnWhite = (hex: string) => {
 
 const formatDate = (date: string | null) => {
   if (!date) return "—";
-  const d = new Date(date + "T00:00:00");
+  const hasTime = date.includes("T") || date.includes(":");
+  const d = hasTime ? new Date(date) : new Date(date + "T00:00:00");
   if (Number.isNaN(d.getTime())) return date;
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 };
@@ -87,6 +87,7 @@ const formatDate = (date: string | null) => {
 const historyConfig: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
   creation: { label: ACTIVITY_LABELS["creation"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CalendarPlus },
   changement_statut: { label: ACTIVITY_LABELS["changement_statut"], color: "#056cf2", bg: "var(--accent-soft)", icon: Flag },
+  tache_terminee: { label: ACTIVITY_LABELS["tache_terminee"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CheckCircle2 },
   changement_responsable: { label: ACTIVITY_LABELS["changement_responsable"], color: "#7c3aed", bg: "rgba(139,92,246,0.12)", icon: UserRound },
   changement_priorite: { label: ACTIVITY_LABELS["changement_priorite"], color: "#d97706", bg: "rgba(245,158,11,0.15)", icon: Flag },
   changement_echeance: { label: ACTIVITY_LABELS["changement_echeance"], color: "#db2777", bg: "rgba(219,39,119,0.12)", icon: CalendarClock },
@@ -122,7 +123,16 @@ export default function TaskDetailPage() {
   const commentsResult = useAsync(() => fetchComments(taskId), [taskId]);
   const comments = commentsResult.data ?? [];
   const historyResult = useAsync(() => fetchActivity({ taskId }), [taskId]);
-  const history = getHistoryByTask(historyResult.data ?? [], taskId);
+  const history = getHistoryByTask(historyResult.data ?? [], taskId).filter((h) => {
+    const d = new Date(h.createdAt);
+    if (Number.isNaN(d.getTime())) return false;
+    const now = new Date();
+    return (
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate()
+    );
+  });
 
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -131,6 +141,22 @@ export default function TaskDetailPage() {
   const [commentOpen, setCommentOpen] = useState(false);
   const [commentContent, setCommentContent] = useState("");
   const [commentError, setCommentError] = useState<string | null>(null);
+  const [draftLong, setDraftLong] = useState(false);
+  const [showCommentPreview, setShowCommentPreview] = useState(false);
+  const [expandedCommentIds, setExpandedCommentIds] = useState<Set<number>>(() => new Set());
+  const [longCommentIds, setLongCommentIds] = useState<Set<number>>(() => new Set());
+
+  const measureComment = (id: number, expanded: boolean) => (el: HTMLParagraphElement | null) => {
+    if (!el || expanded) return;
+    const overflows = el.scrollHeight > el.clientHeight + 1;
+    setLongCommentIds((prev) => {
+      if (overflows === prev.has(id)) return prev;
+      const next = new Set(prev);
+      if (overflows) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
 
   // ====== État du formulaire d'édition ======
   const [editTitle, setEditTitle] = useState("");
@@ -227,18 +253,6 @@ export default function TaskDetailPage() {
       alert(getApiErrorMessage(err));
     } finally {
       setActionLoading(false);
-    }
-  };
-
-  const handleStatusChange = async (status: TaskStatus) => {
-    if (!task) return;
-    try {
-      await apiUpdateTaskStatus(task.id, status);
-      taskResult.reload();
-      historyResult.reload();
-      void reload();
-    } catch (err) {
-      alert(getApiErrorMessage(err));
     }
   };
 
@@ -376,8 +390,6 @@ export default function TaskDetailPage() {
 
   const assignee = memberById(task.assignedTo);
   const creator = memberById(task.createdBy);
-  const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
-  const canChangeStatus = isAdmin || isAssigned;
 
   const statusBadge = statusConfig[task.status];
   const prio = priorityConfig[task.priority];
@@ -483,37 +495,34 @@ export default function TaskDetailPage() {
             </p>
           </div>
 
-          {/* Changement de statut */}
-          {canChangeStatus && (
-            <div className="flex flex-col gap-2 pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.25)" }}>
-              <span className="text-xs font-bold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.92)" }}>
-                Avancement de la tâche
-              </span>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {(Object.keys(statusConfig) as TaskStatus[]).map((s) => {
-                  const cfg = statusConfig[s];
-                  const active = task.status === s;
-                  return (
-                    <button
-                      key={s}
-                      onClick={() => handleStatusChange(s)}
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all hover:scale-[1.02]"
-                      style={
-                        active
-                          ? { color: readableOnWhite(cfg.color), background: "#fff", border: `1px solid ${cfg.color}`, boxShadow: "var(--shadow-card)" }
-                          : { color: "var(--text-secondary)", background: "var(--input-bg)", border: "1px solid var(--input-border)" }
-                      }
-                    >
-                      {s === "terminee" && <CheckCircle2 size={14} />}
-                      {s === "a_faire" && <Clock size={14} />}
-                      {s === "en_cours" || s === "en_revision" ? <CalendarClock size={14} /> : null}
-                      {cfg.label}
-                    </button>
-                  );
-                })}
-              </div>
+          {/* Avancement de la tâche — affichage seul, le statut se modifie au Kanban */}
+          <div className="flex flex-col gap-2 pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.25)" }}>
+            <span className="text-xs font-bold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.92)" }}>
+              Avancement de la tâche
+            </span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {(Object.keys(statusConfig) as TaskStatus[]).map((s) => {
+                const cfg = statusConfig[s];
+                const active = task.status === s;
+                return (
+                  <div
+                    key={s}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold"
+                    style={
+                      active
+                        ? { color: readableOnWhite(cfg.color), background: "#fff", border: `1px solid ${cfg.color}`, boxShadow: "var(--shadow-card)" }
+                        : { color: "var(--text-secondary)", background: "var(--input-bg)", border: "1px solid var(--input-border)", opacity: 0.55 }
+                    }
+                  >
+                    {cfg.label}
+                  </div>
+                );
+              })}
             </div>
-          )}
+            <span className="text-[10px] uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.6)" }}>
+              Le statut se modifie uniquement sur le Kanban
+            </span>
+          </div>
         </div>
       </motion.div>
 
@@ -607,6 +616,8 @@ export default function TaskDetailPage() {
               {comments.map((c) => {
                 const author = memberByEmail(c.authorEmail) ?? projectMembers.find((pm) => pm.user.email.toLowerCase() === c.authorEmail.toLowerCase());
                 const isOwn = c.authorEmail.toLowerCase() === user.email.toLowerCase();
+                const isExpanded = expandedCommentIds.has(c.id);
+                const isLong = longCommentIds.has(c.id);
                 const dateStr = new Date(c.createdAt).toLocaleString("fr-FR", {
                   day: "numeric",
                   month: "short",
@@ -651,9 +662,45 @@ export default function TaskDetailPage() {
                           )}
                         </div>
                       </div>
-                      <p className="text-sm whitespace-pre-wrap mt-1" style={{ color: "var(--text-secondary)" }}>
+                      <p
+                        ref={measureComment(c.id, isExpanded)}
+                        className={`text-sm whitespace-pre-wrap break-words mt-1 ${isExpanded ? "" : "line-clamp-2"}`}
+                        style={{ color: "var(--text-secondary)" }}
+                      >
                         {c.content}
                       </p>
+                      {!isExpanded && isLong && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedCommentIds((prev) => {
+                              const next = new Set(prev);
+                              next.add(c.id);
+                              return next;
+                            })
+                          }
+                          className="text-xs font-semibold mt-1 transition-opacity hover:opacity-70"
+                          style={{ color: "var(--accent-text)" }}
+                        >
+                          <Eye size={12} style={{ display: "inline", verticalAlign: "-1px" }} /> Voir le commentaire
+                        </button>
+                      )}
+                      {isExpanded && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedCommentIds((prev) => {
+                              const next = new Set(prev);
+                              next.delete(c.id);
+                              return next;
+                            })
+                          }
+                          className="text-xs font-semibold mt-1 transition-opacity hover:opacity-70"
+                          style={{ color: "var(--accent-text)" }}
+                        >
+                          Réduire
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -664,14 +711,18 @@ export default function TaskDetailPage() {
           {/* Ajout d'un commentaire — en bas, bouton bleu à droite */}
           <div className="mt-5 flex flex-col items-end gap-3">
             {commentOpen ? (
-              <form onSubmit={handleCommentSubmit} className="w-full">
+              <form id="comment-form" onSubmit={handleCommentSubmit} className="w-full">
                 <textarea
                   autoFocus
                   value={commentContent}
                   onChange={(e) => setCommentContent(e.target.value)}
-                  rows={2}
+                  onInput={(e) => {
+                    const el = e.currentTarget;
+                    setDraftLong(el.scrollHeight > el.clientHeight + 1);
+                  }}
+                  rows={5}
                   placeholder="Écrire un commentaire…"
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none transition-shadow"
+                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-y break-words max-h-52 overflow-y-auto transition-shadow"
                   style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 />
                 {commentError && (
@@ -680,6 +731,16 @@ export default function TaskDetailPage() {
                   </p>
                 )}
                 <div className="flex flex-col sm:flex-row gap-2 mt-2 justify-end">
+                  {draftLong && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCommentPreview(true)}
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold transition-opacity hover:opacity-70"
+                      style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--accent-text)" }}
+                    >
+                      <Eye size={14} /> Voir le commentaire
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -734,7 +795,7 @@ export default function TaskDetailPage() {
             </p>
           ) : history.length === 0 ? (
             <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
-              Aucune action enregistrée pour cette tâche.
+              Aucune action aujourd&apos;hui.
             </p>
           ) : (
             <div className="flex flex-col">
@@ -1007,6 +1068,60 @@ export default function TaskDetailPage() {
                 style={{ background: "var(--color-error)" }}
               >
                 <Trash2 size={15} /> {actionLoading ? "Suppression…" : "Supprimer"}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Modal d'aperçu du commentaire saisi */}
+      {showCommentPreview && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        >
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setShowCommentPreview(false)}
+          />
+          <motion.div
+            initial={{ scale: 0.96, y: 10 }}
+            animate={{ scale: 1, y: 0 }}
+            className="relative w-full max-w-lg glass rounded-2xl p-5 space-y-4"
+            style={{ boxShadow: "var(--shadow-card)" }}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                <Eye size={18} /> Aperçu du commentaire
+              </h2>
+              <button type="button" onClick={() => setShowCommentPreview(false)} aria-label="Fermer">
+                <X className="w-5 h-5" style={{ color: "var(--text-secondary)" }} />
+              </button>
+            </div>
+            <div
+              className="whitespace-pre-wrap break-words max-h-80 overflow-y-auto rounded-xl p-4 text-sm"
+              style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
+            >
+              {commentContent}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCommentPreview(false)}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold"
+                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
+              >
+                Fermer
+              </button>
+              <button
+                type="submit"
+                form="comment-form"
+                onClick={() => setShowCommentPreview(false)}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white transition-all hover:scale-105"
+                style={{ background: "var(--gradient-button)", boxShadow: "0 6px 14px -6px rgba(37,99,235,0.4)" }}
+              >
+                <Send size={14} /> Envoyer
               </button>
             </div>
           </motion.div>

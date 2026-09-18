@@ -9,7 +9,7 @@ import {
   UserRound,
   ArrowLeft,
   LayoutGrid,
-  MoreHorizontal,
+  Eye,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -280,10 +280,10 @@ export default function ProjetsPage() {
                     {isAdmin && (
                       <Link
                         href={`/agences/${agencyId}/projets/${p.id}`}
-                        title="Gérer le projet (admin)"
-                        className="relative p-2 rounded-lg transition-all hover:bg-[var(--hover-soft)] shrink-0"
+                        className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105 shrink-0"
+                        style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}
                       >
-                        <MoreHorizontal size={18} style={{ color: "var(--text-secondary)" }} />
+                        <Eye size={13} /> Voir plus
                       </Link>
                     )}
                   </div>

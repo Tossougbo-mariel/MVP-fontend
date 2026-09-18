@@ -268,10 +268,16 @@ export default function ProjectKanbanPage() {
 
     const fe: Record<string, string> = {};
     if (!taskTitle.trim()) fe.title = "Le titre de la tâche est obligatoire.";
-    if (taskStartDate && project.startDate && taskStartDate < project.startDate) {
+    if (!taskStartDate) {
+      fe.startDate = "La date de début est obligatoire.";
+    } else if (project.startDate && taskStartDate < project.startDate) {
       fe.startDate = `Doit être postérieure ou égale au début du projet (${project.startDate}).`;
     }
-    if (taskDueDate && project.dueDate && taskDueDate > project.dueDate) {
+    if (!taskDueDate) {
+      fe.dueDate = "La date d'échéance est obligatoire.";
+    } else if (taskStartDate && taskDueDate < taskStartDate) {
+      fe.dueDate = "La date d'échéance doit être postérieure ou égale à la date de début.";
+    } else if (project.dueDate && taskDueDate > project.dueDate) {
       fe.dueDate = `Doit être antérieure ou égale à l'échéance du projet (${project.dueDate}).`;
     }
     if (Object.keys(fe).length > 0) {
@@ -561,10 +567,11 @@ export default function ProjectKanbanPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                  Date de début
+                  Date de début *
                 </label>
                 <input
                   type="date"
+                  required
                   min={project.startDate || undefined}
                   max={project.dueDate || undefined}
                   value={taskStartDate}
@@ -584,10 +591,11 @@ export default function ProjectKanbanPage() {
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                  Date d&apos;échéance
+                  Date d&apos;échéance *
                 </label>
                 <input
                   type="date"
+                  required
                   min={taskStartDate || project.startDate || undefined}
                   max={project.dueDate || undefined}
                   value={taskDueDate}

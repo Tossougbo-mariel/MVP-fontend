@@ -189,8 +189,11 @@ export const updateAgencyMember = async (
 export const removeAgencyMember = async (
   agencyId: number | string,
   memberId: number | string,
+  confirm = false,
 ): Promise<void> => {
-  await api.delete(`/agencies/${agencyId}/members/${memberId}`);
+  await api.delete(`/agencies/${agencyId}/members/${memberId}`, {
+    params: confirm ? { confirm: true } : undefined,
+  });
 };
 
 export const acceptAgencyInvitation = async (agencyMemberId: number | string): Promise<AgencyMember> =>
@@ -257,8 +260,11 @@ export const addProjectMember = async (
 export const removeProjectMember = async (
   projectId: number | string,
   projectMemberId: number | string,
+  confirm = false,
 ): Promise<void> => {
-  await api.delete(`/projects/${projectId}/members/${projectMemberId}`);
+  await api.delete(`/projects/${projectId}/members/${projectMemberId}`, {
+    params: confirm ? { confirm: true } : undefined,
+  });
 };
 
 // ---------- Tâches ----------

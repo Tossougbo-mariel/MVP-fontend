@@ -317,6 +317,10 @@ export default function EquipePage() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [pendingForcedRemoval, setPendingForcedRemoval] = useState<{
+    member: AgencyMember;
+    message: string;
+  } | null>(null);
 
   if (!agency) {
     return (
@@ -394,9 +398,27 @@ export default function EquipePage() {
             : `Le compte de « ${fullName} » a été désactivé.`,
         );
       } else {
-        await removeAgencyMember(agencyId, member.id);
-        await reload();
-        setActionSuccess(`« ${fullName} » a été supprimé(e) de l'agence.`);
+        try {
+          await removeAgencyMember(agencyId, member.id);
+          await reload();
+          setActionSuccess(`« ${fullName} » a été supprimé(e) de l'agence.`);
+        } catch (err) {
+          const axiosErr = err as {
+            response?: { status?: number; data?: { message?: string; requires_confirmation?: boolean } };
+          };
+          if (
+            axiosErr?.response?.status === 409 &&
+            axiosErr?.response?.data?.requires_confirmation
+          ) {
+            setPendingAction(null);
+            setPendingForcedRemoval({
+              member,
+              message: axiosErr.response.data.message ?? "Ce membre a des tâches en cours dans les projets de l'agence.",
+            });
+            return;
+          }
+          throw err;
+        }
       }
     } catch (err) {
       setActionSuccess(null);
@@ -1080,6 +1102,43 @@ export default function EquipePage() {
             confirmLabel="Supprimer"
             onConfirm={confirmPendingAction}
             onCancel={() => setPendingAction(null)}
+          />
+        );
+      })()}
+
+      {pendingForcedRemoval && (() => {
+        const { member, message } = pendingForcedRemoval;
+        const fullName = `${member.user.firstName} ${member.user.lastName}`.trim() || member.user.email;
+        const confirmForcedRemoval = async () => {
+          try {
+            await removeAgencyMember(agencyId, member.id, true);
+            await reload();
+            setActionSuccess(`« ${fullName} » a été supprimé(e) de l'agence.`);
+          } catch (err) {
+            setActionSuccess(null);
+            alert(getApiErrorMessage(err));
+          }
+          setPendingForcedRemoval(null);
+          setTimeout(() => setActionSuccess(null), 3000);
+        };
+        return (
+          <ConfirmActionModal
+            icon={<Trash2 size={20} />}
+            tone="danger"
+            title="Retirer ce membre&nbsp;?"
+            description={
+              <>
+                {message}
+                <div className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                  Si vous continuez, ce membre sera supprimé de l&apos;agence et de{" "}
+                  <strong style={{ color: "var(--color-error)" }}>tous les projets</strong> auxquels il
+                  appartient.
+                </div>
+              </>
+            }
+            confirmLabel="Retirer quand même"
+            onConfirm={confirmForcedRemoval}
+            onCancel={() => setPendingForcedRemoval(null)}
           />
         );
       })()}

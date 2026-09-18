@@ -5,10 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
 import {
+  AlertTriangle,
   ArrowLeft,
   Calendar,
   CalendarPlus,
   Check,
+  CheckCircle2,
   FolderKanban,
   Image as ImageIcon,
   ImageOff,
@@ -31,6 +33,9 @@ const item: Variants = {
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
 };
 
+const today = new Date();
+const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
 export default function NouveauProjetPage() {
   const { agencyId } = useParams<{ agencyId: string }>();
   const router = useRouter();
@@ -52,6 +57,7 @@ export default function NouveauProjetPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [addResult, setAddResult] = useState<{ added: number; failed: string[] } | null>(null);
 
   const activeMembers = (agency?.members ?? []).filter((m) => m.status === "actif");
 
@@ -81,6 +87,8 @@ export default function NouveauProjetPage() {
     if (!name.trim()) fe.name = "Le nom du projet est obligatoire.";
     if (!startDate) {
       fe.startDate = "La date de début est obligatoire.";
+    } else if (startDate < todayISO) {
+      fe.startDate = "La date de début ne peut pas être antérieure à aujourd'hui.";
     } else if (!dueDate) {
       fe.dueDate = "La date d'échéance est obligatoire.";
     } else if (dueDate < startDate) {
@@ -102,18 +110,39 @@ export default function NouveauProjetPage() {
       });
 
       // Ajouter les membres sélectionnés (y compris le user connecté si sélectionné)
+      const failed: string[] = [];
       for (const email of memberEmails) {
         try {
           await addProjectMember(project.id, email);
         } catch {
-          // ignorer les erreurs individuelles (ex: email non membre actif)
+          failed.push(email);
         }
       }
 
       await reload();
-      router.push(`/agences/${agencyId}/projets/${project.id}`);
+      setAddResult({ added: memberEmails.length - failed.length, failed });
+      setTimeout(() => {
+        router.push(`/agences/${agencyId}/projets/${project.id}`);
+      }, 1500);
     } catch (err) {
-      setApiError(getApiErrorMessage(err));
+      const axiosErr = err as {
+        response?: { data?: { errors?: Record<string, string[]> } };
+      };
+      const backendErrors = axiosErr?.response?.data?.errors;
+      if (backendErrors && Object.keys(backendErrors).length > 0) {
+        const fe: Record<string, string> = {};
+        for (const [field, messages] of Object.entries(backendErrors)) {
+          const key =
+            field === "start_date" ? "startDate"
+            : field === "due_date" ? "dueDate"
+            : field === "name" ? "name"
+            : field;
+          fe[key] = messages[0] ?? "Champ invalide.";
+        }
+        setFieldErrors(fe);
+      } else {
+        setApiError(getApiErrorMessage(err));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -199,6 +228,47 @@ export default function NouveauProjetPage() {
         </p>
       </motion.div>
 
+      {addResult && (
+        <motion.div
+          variants={item}
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass rounded-2xl p-4 flex items-start gap-3"
+          style={{
+            boxShadow: "var(--shadow-card)",
+            border:
+              addResult.failed.length > 0
+                ? "1px solid rgba(239,68,68,0.35)"
+                : "1px solid rgba(16,185,129,0.35)",
+          }}
+        >
+          {addResult.failed.length > 0 ? (
+            <AlertTriangle className="w-6 h-6 shrink-0 mt-0.5" style={{ color: "var(--color-error)" }} />
+          ) : (
+            <CheckCircle2 className="w-6 h-6 shrink-0 mt-0.5" style={{ color: "var(--color-success)" }} />
+          )}
+          <div>
+            <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
+              Projet créé avec succès.
+            </p>
+            <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+              {addResult.added} membre{addResult.added > 1 ? "s" : ""} ajouté
+              {addResult.added > 1 ? "s" : ""}.
+              {addResult.failed.length > 0 && (
+                <span style={{ color: "var(--color-error)" }}>
+                  {" "}
+                  {addResult.failed.length} non ajouté{addResult.failed.length > 1 ? "s" : ""} :
+                  {addResult.failed.map((e) => ` ${e}`)}
+                </span>
+              )}
+            </p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+              Redirection vers le projet…
+            </p>
+          </div>
+        </motion.div>
+      )}
+
       <motion.form variants={item} onSubmit={handleSubmit} className="glass rounded-2xl p-6 space-y-5" style={{ boxShadow: "var(--shadow-card)" }}>
         {/* Nom */}
         <div>
@@ -247,6 +317,7 @@ export default function NouveauProjetPage() {
             <input
               type="date"
               value={startDate}
+              min={todayISO}
               onChange={(e) => {
                 setStartDate(e.target.value);
                 clearFieldError("startDate");

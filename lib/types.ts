@@ -354,6 +354,7 @@ export const getHistoryByTask = (
 export const ACTIVITY_LABELS: Record<string, string> = {
   creation: "Tâche créée",
   changement_statut: "Statut modifié",
+  tache_terminee: "Tâche terminée",
   changement_responsable: "Responsable modifié",
   changement_priorite: "Priorité modifiée",
   changement_echeance: "Échéance modifiée",
