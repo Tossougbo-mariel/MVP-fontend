@@ -231,7 +231,8 @@ export default function ProjectKanbanPage() {
 
     try {
       await apiUpdateTaskStatus(taskId, targetStatus);
-      // Synchronisation lente en arrière-plan (non bloquante) pour les compteurs/badges du projet.
+      // Synchronisation silencieuse en arrière-plan : la page ne se recharge pas,
+      // mais les compteurs/badges se mettent à jour sans écran « Chargement… ».
       void reload();
     } catch {
       // Rollback visuel en cas d'échec.

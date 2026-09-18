@@ -72,7 +72,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppDataState>(EMPTY);
 
   const load = useCallback(async () => {
-    setData((prev) => ({ ...prev, loading: true, error: null }));
+    setData((prev) =>
+      // Rechargement silencieux : ne pas basculer sur l'écran « Chargement… »
+      // quand des données sont déjà affichées (ex. déplacement de carte Kanban).
+      prev.lastLoadedAt !== null
+        ? { ...prev, error: null }
+        : { ...prev, loading: true, error: null },
+    );
     try {
       const agencies = await fetchAgencies();
       const withMembers: Agency[] = [];
