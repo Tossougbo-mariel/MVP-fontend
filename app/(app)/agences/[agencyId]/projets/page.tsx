@@ -63,6 +63,14 @@ export default function ProjetsPage() {
 
   const visibleProjects = agency ? projectsByAgency(agencyId) : [];
 
+  if (data.loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+      </div>
+    );
+  }
+
   if (!agency) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">

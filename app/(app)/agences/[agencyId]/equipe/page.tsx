@@ -2,22 +2,23 @@
 
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import {
   Users, Mail, ShieldCheck, UserRound, UserPlus, Plus,
-  LayoutGrid, List, Settings, CheckCircle2, MoreHorizontal, Trash2, ArrowLeft, Crown, Sparkles,
-  Ban, UserCheck, ClipboardList, Copy, Calendar,
+  Settings, CheckCircle2, MoreHorizontal, Trash2, ArrowLeft, Crown, Sparkles,
+  Ban, UserCheck, ClipboardList, Copy, Calendar, Clock, RefreshCw, X, AlertTriangle,
 } from "lucide-react";
 import {
   useAppData,
 } from "@/lib/appData";
 import {
   userRoleInAgency, hasRight, OWNER_COLOR, colorizeMembers,
-  type AgencyMember, type DisplayMember,
+  type AgencyMember, type DisplayMember, type AgencyInvitation,
 } from "@/lib/types";
 import {
-  inviteAgencyMember, updateAgencyMember, removeAgencyMember, getApiErrorMessage,
+  createInvitation, fetchAgencyInvitations, resendInvitation, cancelInvitation,
+  updateAgencyMember, removeAgencyMember, getApiErrorMessage,
 } from "@/lib/services";
 import { useAuthStore } from "@/app/store/authStore";
 import AvatarViewer from "@/app/(app)/components/AvatarViewer";
@@ -41,6 +42,19 @@ const formatJoinedAt = (date: string | null): string | null => {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return null;
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+};
+
+const formatExpiry = (iso: string | null): string => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+};
+
+const isInvitationExpired = (inv: { expiresAt: string | null }): boolean => {
+  if (!inv.expiresAt) return false;
+  const d = new Date(inv.expiresAt);
+  return !Number.isNaN(d.getTime()) && d.getTime() < Date.now();
 };
 
 function InviteConfirmModal({
@@ -303,9 +317,6 @@ export default function EquipePage() {
   const agency = data.agencies.find((a) => a.id === Number(agencyId));
   const user = useAuthStore((s) => s.user);
 
-  const [viewMode, setViewMode] = useState<"grid" | "list">(() =>
-    (agency?.members?.length ?? 0) <= 8 ? "grid" : "list",
-  );
   const [viewerMail, setViewerMail] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [inviteFocused, setInviteFocused] = useState(false);
@@ -317,10 +328,34 @@ export default function EquipePage() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
-  const [pendingForcedRemoval, setPendingForcedRemoval] = useState<{
-    member: AgencyMember;
-    message: string;
-  } | null>(null);
+  const [invitations, setInvitations] = useState<AgencyInvitation[]>([]);
+  const [invitationsLoading, setInvitationsLoading] = useState(true);
+  const [busyInvitationId, setBusyInvitationId] = useState<number | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const list = await fetchAgencyInvitations(agencyId);
+        if (alive) setInvitations(list);
+      } catch {
+        // silencieux : la section n'apparaît tout simplement pas
+      } finally {
+        if (alive) setInvitationsLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [agencyId]);
+
+  if (data.loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+      </div>
+    );
+  }
 
   if (!agency) {
     return (
@@ -450,15 +485,25 @@ export default function EquipePage() {
     setConfirmEmail(trimmed);
   };
 
+  const refreshInvitations = async () => {
+    try {
+      const list = await fetchAgencyInvitations(agencyId);
+      setInvitations(list);
+    } catch {
+      // silencieux
+    }
+  };
+
   const confirmSendInvitation = async () => {
     if (!confirmEmail) return;
     setInviteError(null);
     try {
-      const created = await inviteAgencyMember(agencyId, { email: confirmEmail, role: inviteRole });
+      const created = await createInvitation(agencyId, { email: confirmEmail, role: inviteRole });
       await reload();
+      await refreshInvitations();
       setEmail("");
       setInviteSuccess(confirmEmail);
-      setInviteLink(`${window.location.origin}/accepter-invitation?id=${created.id}`);
+      setInviteLink(`${window.location.origin}/accepter-invitation?token=${created.token}`);
       setTimeout(() => {
         setInviteSuccess(null);
         setInviteLink(null);
@@ -483,6 +528,40 @@ export default function EquipePage() {
   };
 
   const cancelSendInvitation = () => setConfirmEmail(null);
+
+  const handleResendInvitation = async (inv: AgencyInvitation) => {
+    setBusyInvitationId(inv.id);
+    setInviteError(null);
+    try {
+      const updated = await resendInvitation(agencyId, inv.id);
+      setInvitations((prev) => prev.map((i) => (i.id === inv.id ? updated : i)));
+      setActionSuccess(`Rappel envoyé à ${inv.email}.`);
+      setTimeout(() => setActionSuccess(null), 3000);
+    } catch (err) {
+      setInviteError(getApiErrorMessage(err));
+      setTimeout(() => setInviteError(null), 4000);
+    } finally {
+      setBusyInvitationId(null);
+    }
+  };
+
+  const handleCancelInvitation = async (inv: AgencyInvitation) => {
+    if (!window.confirm(`Annuler l'invitation envoyée à ${inv.email} ?`)) return;
+    setBusyInvitationId(inv.id);
+    setInviteError(null);
+    try {
+      await cancelInvitation(agencyId, inv.id);
+      setInvitations((prev) => prev.filter((i) => i.id !== inv.id));
+      await reload();
+      setActionSuccess(`Invitation de ${inv.email} annulée.`);
+      setTimeout(() => setActionSuccess(null), 3000);
+    } catch (err) {
+      setInviteError(getApiErrorMessage(err));
+      setTimeout(() => setInviteError(null), 4000);
+    } finally {
+      setBusyInvitationId(null);
+    }
+  };
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
@@ -514,40 +593,6 @@ export default function EquipePage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div
-            className="relative inline-flex items-center rounded-2xl p-1 gap-1"
-            style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", boxShadow: "0 6px 18px -10px rgba(10,27,60,0.25)" }}
-          >
-            {([
-              { mode: "grid" as const, label: "Cartes", icon: <LayoutGrid size={14} /> },
-              { mode: "list" as const, label: "Liste", icon: <List size={14} /> },
-            ]).map((tab) => {
-              const active = viewMode === tab.mode;
-              return (
-                <button
-                  key={tab.mode}
-                  onClick={() => setViewMode(tab.mode)}
-                  className={`relative inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-colors duration-200 ${
-                    active ? "text-white" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                  }`}
-                >
-                  {active && (
-                    <motion.span
-                      layoutId="memberViewPill"
-                      className="absolute inset-0 z-0 rounded-xl"
-                      style={{ background: "var(--gradient-button)", boxShadow: "0 6px 14px -6px rgba(37,99,235,0.5)" }}
-                      transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                    />
-                  )}
-                  <span className="relative z-[1] inline-flex items-center gap-1.5">
-                    {tab.icon} {tab.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
       </motion.div>
 
       <AnimatePresence>
@@ -607,7 +652,7 @@ export default function EquipePage() {
               color: "var(--color-error)",
             }}
           >
-            <CheckCircle2 className="w-5 h-5 shrink-0" />
+            <AlertTriangle className="w-5 h-5 shrink-0" />
             <p className="text-sm font-semibold">{inviteError}</p>
           </motion.div>
         )}
@@ -650,164 +695,6 @@ export default function EquipePage() {
         </motion.div>
       )}
 
-      {viewMode === "grid" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {people.map((m) => (
-            <motion.div
-              key={m.user.id}
-              variants={item}
-              whileHover={{ y: -6 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-              className="glass relative rounded-3xl p-6 pt-7 flex flex-col items-center gap-3"
-              style={{
-                boxShadow: isOwnerMember(m)
-                  ? `0 14px 32px -12px ${hexToRgba(OWNER_COLOR, 0.35)}`
-                  : "var(--shadow-card)",
-                border: isOwnerMember(m) ? `1px solid ${hexToRgba(OWNER_COLOR, 0.3)}` : undefined,
-              }}
-            >
-              {isOwnerMember(m) && (
-                <span
-                  className="absolute inset-x-3 top-0 h-1.5 rounded-t-3xl"
-                  style={{ background: "linear-gradient(90deg, #056cf2, " + OWNER_COLOR + ")" }}
-                />
-              )}
-              {canManageUsers && !isOwnerMember(m) && (
-                <MemberMenu
-                  className="absolute inset-0 z-20 pointer-events-none"
-                  buttonClassName="absolute top-3 right-3 pointer-events-auto"
-                  panelClassName="absolute left-full ml-2 top-3 z-30 w-60 rounded-2xl p-2 pointer-events-auto"
-                  member={m}
-                  onChangeRole={() => requestChangeRole(m)}
-                  onToggleStatus={() => requestToggleStatus(m)}
-                  onRemove={() => requestRemove(m)}
-                />
-              )}
-
-              <div className="relative">
-                <div
-                  className="w-20 h-20 rounded-full p-[3px] transition-transform hover:scale-105"
-                  style={{
-                    background:
-                      m.status === "inactif"
-                        ? "var(--border-subtle)"
-                        : isOwnerMember(m)
-                          ? "linear-gradient(145deg, #056cf2, #0a2a6b)"
-                          : accentOf(m),
-                    boxShadow: m.status !== "inactif" ? `0 8px 20px -8px ${hexToRgba(accentOf(m), 0.45)}` : "none",
-                  }}
-                  onClick={m.user.avatar ? () => setViewerMail(m.user.email) : undefined}
-                  title={m.user.avatar ? "Voir la photo de profil" : undefined}
-                >
-                  <div
-                    className="w-full h-full rounded-full overflow-hidden flex items-center justify-center"
-                    style={{ background: "var(--card-bg)" }}
-                  >
-                    {m.user.avatar ? (
-                      <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(${m.user.avatar})` }} />
-                    ) : (
-                      <UserRound
-                        className="w-9 h-9"
-                        style={{ color: m.status === "inactif" ? "var(--text-muted)" : accentOf(m) }}
-                      />
-                    )}
-                  </div>
-                </div>
-                {isOwnerMember(m) && (
-                  <span
-                    className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center"
-                    style={{ background: OWNER_COLOR, boxShadow: "0 4px 10px -3px rgba(0,0,0,0.35)", border: "2px solid var(--card-bg)" }}
-                  >
-                    <Crown size={11} className="text-white" />
-                  </span>
-                )}
-                {m.status === "actif" && !isOwnerMember(m) && (
-                  <span className="absolute bottom-0.5 right-0.5 flex h-3.5 w-3.5">
-                    <span
-                      className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60"
-                      style={{ background: "var(--color-success)" }}
-                    />
-                    <span
-                      className="relative inline-flex rounded-full h-3.5 w-3.5"
-                      style={{ background: "var(--color-success)", border: "2px solid var(--card-bg)" }}
-                    />
-                  </span>
-                )}
-              </div>
-
-              <div className="text-center">
-                <div className="font-bold" style={{ color: "var(--text-primary)" }}>
-                  {m.user.firstName} {m.user.lastName}
-                </div>
-                <div className="text-xs mt-1 flex items-center justify-center gap-1" style={{ color: "var(--text-muted)" }}>
-                  <Mail size={11} /> {m.user.email}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 flex-wrap justify-center">
-                {isOwnerMember(m) ? (
-                  <span
-                    className="inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1 rounded-full"
-                    style={{
-                      background: `linear-gradient(120deg, ${hexToRgba(OWNER_COLOR, 0.16)}, ${hexToRgba(OWNER_COLOR, 0.28)})`,
-                      color: "#8A6A0A",
-                      border: `1px solid ${hexToRgba(OWNER_COLOR, 0.4)}`,
-                    }}
-                  >
-                    <Crown size={11} /> Propriétaire
-                  </span>
-                ) : (
-                  <span
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1 rounded-full"
-                    style={
-                      m.role === "admin"
-                        ? { background: "var(--gradient-button)", color: "#fff", boxShadow: "0 4px 10px -5px rgba(37,99,235,0.45)" }
-                        : { background: "var(--surface)", color: "var(--text-secondary)", border: "1px solid var(--border-subtle)" }
-                    }
-                  >
-                    <ShieldCheck size={11} />
-                    {m.role === "admin" ? "Admin" : "Membre"}
-                  </span>
-                )}
-                <span
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1 rounded-full"
-                  style={
-                    m.status === "inactif"
-                      ? { background: "rgba(239,68,68,0.12)", color: "var(--color-error)" }
-                      : m.status === "en_attente"
-                        ? { background: "rgba(245,158,11,0.12)", color: "#f59e0b" }
-                        : { background: "rgba(16,185,129,0.12)", color: "var(--color-success)" }
-                  }
-                >
-                  <CheckCircle2 size={11} />
-                  {m.status === "inactif" ? "Inactif" : m.status === "en_attente" ? "En attente" : "Actif"}
-                </span>
-              </div>
-              <div
-                className="flex items-center gap-x-3 gap-y-1 flex-wrap justify-center text-[11px]"
-                style={{ color: "var(--text-muted)" }}
-              >
-                <span className="inline-flex items-center gap-1">
-                  <ClipboardList size={11} /> {taskCountFor(m)} tâche{taskCountFor(m) > 1 ? "s" : ""}
-                </span>
-                {formatJoinedAt(m.joinedAt) && (
-                  <span className="inline-flex items-center gap-1">
-                    <Calendar size={11} /> Membre depuis le {formatJoinedAt(m.joinedAt)}
-                  </span>
-                )}
-              </div>
-              {m.status === "inactif" && (
-                <div
-                  className="w-full mt-1 text-center text-[10px] font-semibold px-2 py-1 rounded-lg"
-                  style={{ background: "rgba(239,68,68,0.08)", color: "var(--color-error)" }}
-                >
-                  Aucune tâche possible
-                </div>
-              )}
-            </motion.div>
-          ))}
-        </div>
-      ) : (
   <div className="space-y-3">
     {people.map((m) => (
       <motion.div
@@ -953,7 +840,82 @@ export default function EquipePage() {
       </motion.div>
     ))}
   </div>
-)}
+
+      {canManageUsers && (invitationsLoading ? (
+        <motion.div
+          variants={item}
+          className="glass rounded-2xl p-5 flex items-center gap-3"
+          style={{ boxShadow: "var(--shadow-card)" }}
+        >
+          <span className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement des invitations...</span>
+        </motion.div>
+      ) : (invitations.filter((i) => i.status === "en_attente").length > 0 ? (
+        <motion.div
+          variants={item}
+          className="glass rounded-3xl p-6 md:p-7"
+          style={{ boxShadow: "var(--shadow-card)" }}
+        >
+          <div
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-4"
+            style={{ background: "rgba(245,158,11,0.12)", color: "#f59e0b" }}
+          >
+            <Clock size={13} /> Invitations en attente
+          </div>
+          <div className="space-y-3">
+            {invitations
+              .filter((i) => i.status === "en_attente")
+              .map((inv) => {
+                const expired = isInvitationExpired(inv);
+                return (
+                  <div
+                    key={inv.id}
+                    className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 rounded-2xl"
+                    style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>
+                        {inv.email}
+                      </div>
+                      <div className="text-xs mt-0.5 flex items-center gap-2 flex-wrap" style={{ color: "var(--text-muted)" }}>
+                        <span className="inline-flex items-center gap-1">
+                          <ShieldCheck size={11} />
+                          {inv.role === "admin" ? "Admin" : "Membre"}
+                        </span>
+                        {expired ? (
+                          <span className="inline-flex items-center gap-1" style={{ color: "var(--color-error)" }}>
+                            <X size={11} /> Expirée
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1">
+                            <Clock size={11} /> Expire le {formatExpiry(inv.expiresAt)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleResendInvitation(inv)}
+                        disabled={busyInvitationId === inv.id}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold disabled:opacity-60"
+                        style={{ background: "rgba(5,108,242,0.08)", border: "1px solid rgba(5,108,242,0.25)", color: "#056cf2" }}
+                      >
+                        <RefreshCw size={13} /> Relancer
+                      </button>
+                      <button
+                        onClick={() => handleCancelInvitation(inv)}
+                        disabled={busyInvitationId === inv.id}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold disabled:opacity-60"
+                        style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "var(--color-error)" }}
+                      >
+                        <X size={13} /> Annuler
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </motion.div>
+      ) : null))}
 
       {canInvite && (
         <motion.form

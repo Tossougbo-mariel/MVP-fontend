@@ -25,6 +25,28 @@ export type AgencyMember = {
   joinedAt: string | null; // date d'adhésion (created_at du membership), si fournie par l'API
 };
 
+export type AgencyInvitationStatus = "en_attente" | "acceptee" | "annulee" | "expiree";
+
+export type AgencyInvitation = {
+  id: number;
+  agencyId: number;
+  email: string;
+  role: AgencyMemberRole;
+  token: string;
+  status: AgencyInvitationStatus;
+  invitedBy: string | null; // nom de la personne qui a invité
+  expiresAt: string | null;
+  createdAt: string;
+};
+
+export type InvitationPreview = {
+  token: string;
+  email: string;
+  role: AgencyMemberRole;
+  expiresAt: string | null;
+  agency: { id: number; name: string };
+};
+
 export type AgencyRole = "owner" | "admin" | "membre";
 
 // ---------- Réglages d'agence (gérés par le propriétaire) ----------

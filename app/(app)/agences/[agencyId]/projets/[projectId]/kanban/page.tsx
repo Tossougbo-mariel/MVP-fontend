@@ -87,7 +87,7 @@ export default function ProjectKanbanPage() {
   const { agencyId, projectId } = useParams<{ agencyId: string; projectId: string }>();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const { reload, agencyById, getProject, tasksByProject } = useAppData();
+  const { reload, agencyById, getProject, tasksByProject, data } = useAppData();
 
   const agency = agencyById(agencyId);
   const project = getProject(projectId);
@@ -117,6 +117,14 @@ export default function ProjectKanbanPage() {
   const [taskFieldErrors, setTaskFieldErrors] = useState<Record<string, string>>({});
   const [taskApiError, setTaskApiError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  if (data.loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+      </div>
+    );
+  }
 
   // ✅ Si l'agence n'existe pas
   if (!agency) {

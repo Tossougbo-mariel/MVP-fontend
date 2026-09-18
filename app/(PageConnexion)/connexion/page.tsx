@@ -71,7 +71,7 @@ function ConnexionContent() {
       return;
     }
 
-    router.push(invitationId ? `/accepter-invitation?id=${invitationId}` : "/mes-agences");
+    router.push(invitationId ? `/accepter-invitation?token=${invitationId}` : "/mes-agences");
   };
 
   // --- Entrée en cascade : chaque enfant apparaît l'un après l'autre ---

@@ -7,10 +7,12 @@ import { splitName } from "./mappers";
 import type {
   ActivityEntry,
   Agency,
+  AgencyInvitation,
   AgencyMember,
   AgencyMemberRole,
   AgencySettings,
   AppNotification,
+  InvitationPreview,
   Project,
   ProjectMember,
   ProjectStatus,
@@ -55,6 +57,20 @@ const mapMember = (r: any): AgencyMember => ({
   status: r.status === "actif" ? "actif" : r.status === "en_attente" ? "en_attente" : "inactif",
   user: mapUser(r.user ?? {}),
   joinedAt: str(r.created_at),
+});
+
+const mapInvitation = (r: any): AgencyInvitation => ({
+  id: Number(r.id),
+  agencyId: Number(r.agency_id ?? 0),
+  email: String(r.email ?? ""),
+  role: r.role === "admin" ? "admin" : "membre",
+  token: String(r.token ?? ""),
+  status: ["en_attente", "acceptee", "annulee", "expiree"].includes(r.status)
+    ? r.status
+    : "en_attente",
+  invitedBy: str(r.invited_by?.name) ?? str(r.invited_by_name) ?? null,
+  expiresAt: str(r.expires_at),
+  createdAt: str(r.created_at) ?? "",
 });
 
 const mapProject = (r: any): Project => ({
@@ -173,11 +189,7 @@ export const deleteAgency = async (agencyId: number | string): Promise<void> => 
 };
 
 // ---------- Membres d'agence ----------
-export const inviteAgencyMember = async (
-  agencyId: number | string,
-  payload: { email: string; role?: AgencyMemberRole },
-): Promise<AgencyMember> =>
-  mapMember((await api.post(`/agencies/${agencyId}/members`, payload)).data);
+
 
 export const updateAgencyMember = async (
   agencyId: number | string,
@@ -196,8 +208,41 @@ export const removeAgencyMember = async (
   });
 };
 
-export const acceptAgencyInvitation = async (agencyMemberId: number | string): Promise<AgencyMember> =>
-  mapMember((await api.post(`/agency-members/${agencyMemberId}/accept`)).data);
+
+
+// ---------- Invitations d'agence ----------
+export const createInvitation = async (
+  agencyId: number | string,
+  payload: { email: string; role?: AgencyMemberRole },
+): Promise<AgencyInvitation> =>
+  mapInvitation((await api.post(`/agencies/${agencyId}/invitations`, payload)).data);
+
+export const fetchAgencyInvitations = async (
+  agencyId: number | string,
+): Promise<AgencyInvitation[]> => {
+  const list = (await api.get(`/agencies/${agencyId}/invitations`)).data;
+  return (Array.isArray(list) ? list : []).map(mapInvitation);
+};
+
+export const resendInvitation = async (
+  agencyId: number | string,
+  invitationId: number | string,
+): Promise<AgencyInvitation> =>
+  mapInvitation((await api.post(`/agencies/${agencyId}/invitations/${invitationId}/resend`)).data);
+
+export const cancelInvitation = async (
+  agencyId: number | string,
+  invitationId: number | string,
+): Promise<void> => {
+  await api.delete(`/agencies/${agencyId}/invitations/${invitationId}`);
+};
+
+export const fetchInvitationPreview = async (token: string): Promise<InvitationPreview> =>
+  (await api.get(`/invitations/${token}`)).data;
+
+export const acceptInvitation = async (token: string): Promise<void> => {
+  await api.post(`/invitations/${token}/accept`);
+};
 
 // ---------- Projets ----------
 export const fetchProjects = async (agencyId: number | string): Promise<Project[]> => {
