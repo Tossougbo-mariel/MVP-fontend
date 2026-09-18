@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Menu, Search, Bell, LogOut, User, ImageIcon } from "lucide-react";
+import { Menu, Bell, LogOut, User, ImageIcon } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
 import AvatarViewer from "./AvatarViewer";
@@ -70,21 +70,6 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
       </h1>
 
       <div className="ml-auto flex items-center gap-2">
-        <div
-          className="hidden md:flex items-center gap-2 rounded-lg px-3.5 py-2 w-60"
-          style={{
-            background: "var(--chrome-card)",
-            border: "1px solid var(--chrome-border)",
-          }}
-        >
-          <Search className="w-4 h-4" style={{ color: "var(--chrome-text-muted)" }} />
-          <input
-            placeholder="Rechercher..."
-            className="bg-transparent w-full text-sm focus:outline-none"
-            style={{ color: "var(--chrome-text)" }}
-          />
-        </div>
-
         <Link
           href="/notifications"
           className="relative p-2 rounded-lg transition-colors hover:bg-[var(--header-hover)]"
