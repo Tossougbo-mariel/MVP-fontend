@@ -6,23 +6,26 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import {
-  Users, Mail, ShieldCheck, UserRound, UserPlus, Plus,
+  Users, Users2, Mail, ShieldCheck, UserRound, UserPlus, Plus,
   Settings, CheckCircle2, MoreHorizontal, Trash2, ArrowLeft, Crown, Sparkles,
   Ban, UserCheck, ClipboardList, Copy, Calendar, Clock, RefreshCw, X, AlertTriangle,
+  Unlock, Lock, Pencil, Check,
 } from "lucide-react";
 import {
   useAppData,
 } from "@/lib/appData";
 import {
   userRoleInAgency, hasRight, OWNER_COLOR, colorizeMembers,
-  type AgencyMember, type DisplayMember, type AgencyInvitation,
+  type AgencyMember, type DisplayMember, type AgencyInvitation, type AgencyTeam,
 } from "@/lib/types";
 import {
   createInvitation, fetchAgencyInvitations, resendInvitation, cancelInvitation,
   updateAgencyMember, removeAgencyMember, getApiErrorMessage,
+  fetchAgencyTeams, createAgencyTeam, updateTeam, deleteTeam,
 } from "@/lib/services";
 import { useAuthStore } from "@/app/store/authStore";
 import AvatarViewer from "@/app/(app)/components/AvatarViewer";
+import CustomSelectField from "@/app/(app)/components/CustomSelectField";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -127,6 +130,136 @@ function InviteConfirmModal({
   );
 }
 
+function InviteModal({
+  open,
+  email,
+  role,
+  agencyName,
+  error,
+  focused,
+  onEmail,
+  onRole,
+  onFocused,
+  onSubmit,
+  onClose,
+}: {
+  open: boolean;
+  email: string;
+  role: string;
+  agencyName: string;
+  error: string | null;
+  focused: boolean;
+  onEmail: (v: string) => void;
+  onRole: (v: "admin" | "membre") => void;
+  onFocused: (v: boolean) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  onClose: () => void;
+}) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0"
+            style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ opacity: 0, y: 16, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.97 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="relative w-full max-w-md rounded-2xl p-6 space-y-5"
+            style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)", boxShadow: "var(--shadow-card)" }}
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: "var(--gradient-primary)", boxShadow: "0 10px 22px -8px rgba(5,108,242,0.5)" }}
+              >
+                <UserPlus className="w-5 h-5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+                  Inviter des utilisateurs
+                </h2>
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                  Ils rejoindront l&apos;agence <strong style={{ color: "var(--text-primary)" }}>{agencyName}</strong>
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={onSubmit} className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold mb-1 block" style={{ color: "var(--text-secondary)" }}>
+                  Adresse e-mail
+                </label>
+                <input
+                  value={email}
+                  onChange={(e) => onEmail(e.target.value)}
+                  onFocus={() => onFocused(true)}
+                  onBlur={() => onFocused(false)}
+                  placeholder="collaborateur@exemple.com"
+                  type="email"
+                  required
+                  autoFocus
+                  className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none transition-all duration-200"
+                  style={{
+                    background: focused ? "var(--card-bg)" : "var(--input-bg)",
+                    border: `1px solid ${focused ? "#056cf2" : "var(--input-border)"}`,
+                    boxShadow: focused ? "0 0 0 4px rgba(5,108,242,0.12)" : "none",
+                    color: "var(--text-primary)",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold mb-1 block" style={{ color: "var(--text-secondary)" }}>
+                  Rôle accordé
+                </label>
+                <CustomSelectField
+                  value={role}
+                  onChange={(v) => onRole(v as "admin" | "membre")}
+                  options={[
+                    { value: "membre", label: "Membre" },
+                    { value: "admin", label: "Admin" },
+                  ]}
+                  className="w-full"
+                  ariaLabel="Rôle accordé"
+                />
+              </div>
+
+              {error && (
+                <div className="flex items-center gap-2 text-xs font-semibold px-4 py-3 rounded-xl" style={{ background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--color-error)" }}>
+                  <AlertTriangle size={14} /> {error}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
+                  style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+                >
+                  <UserPlus size={15} /> Envoyer l&apos;invitation
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function ConfirmActionModal({
   icon,
   title,
@@ -205,6 +338,229 @@ function ConfirmActionModal({
         </div>
       </div>
     </div>
+  );
+}
+
+function TeamFormModal({
+  mode,
+  team,
+  collaborators,
+  defaultMembership,
+  saving,
+  onSave,
+  onClose,
+}: {
+  mode: "create" | "edit";
+  team: AgencyTeam | null;
+  collaborators: DisplayMember[];
+  defaultMembership: "ouverte" | "fermee";
+  saving: boolean;
+  onSave: (payload: { name: string; description: string; membership: "ouverte" | "fermee"; memberIds: number[] }) => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState(team?.name ?? "");
+  const [description, setDescription] = useState(team?.description ?? "");
+  const [membership, setMembership] = useState<"ouverte" | "fermee">(team?.membership ?? defaultMembership);
+  const [selected, setSelected] = useState<number[]>(team?.members.map((m) => m.id) ?? []);
+
+  const toggle = (id: number) =>
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0"
+        style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+        onClick={onClose}
+      />
+      <div
+        className="relative w-full max-w-lg rounded-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto"
+        style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)", boxShadow: "var(--shadow-card)" }}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: "var(--gradient-primary)" }}
+          >
+            <Users2 className="w-5 h-5 text-white" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+              {mode === "edit" ? "Modifier l'équipe" : "Créer une équipe"}
+            </h2>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+              Regroupez vos collaborateurs pour mieux organiser le travail.
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold mb-1 block" style={{ color: "var(--text-secondary)" }}>
+            Nom de l&apos;équipe
+          </label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ex : Développement, Marketing, Support…"
+            className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+            style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+          />
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold mb-1 block" style={{ color: "var(--text-secondary)" }}>
+            Description <span style={{ color: "var(--text-muted)" }}>(optionnel)</span>
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+            placeholder="À quoi sert cette équipe ?"
+            className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none resize-none"
+            style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+          />
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold mb-1 block" style={{ color: "var(--text-secondary)" }}>
+            Adhésion
+          </label>
+          <div className="flex gap-2 flex-wrap">
+            {([
+              { value: "fermee" as const, icon: <Lock size={15} />, label: "Fermée (sur invitation)" },
+              { value: "ouverte" as const, icon: <Unlock size={15} />, label: "Ouverte (tout membre rejoint)" },
+            ]).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setMembership(opt.value)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-105"
+                style={
+                  membership === opt.value
+                    ? { background: "var(--gradient-button)", color: "#fff", boxShadow: "0 6px 14px -6px rgba(37,99,235,0.45)" }
+                    : { background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }
+                }
+              >
+                {opt.icon} {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+              Membres de l&apos;équipe
+            </label>
+            <span className="text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>
+              {selected.length} sélectionné{selected.length > 1 ? "s" : ""}
+            </span>
+          </div>
+          <div className="max-h-48 overflow-y-auto rounded-xl border" style={{ borderColor: "var(--border-subtle)" }}>
+            {collaborators.length === 0 ? (
+              <p className="px-4 py-3 text-xs" style={{ color: "var(--text-muted)" }}>
+                Aucun collaborateur à ajouter pour le moment.
+              </p>
+            ) : (
+              collaborators.map((c) => {
+                const checked = selected.includes(c.user.id);
+                return (
+                  <button
+                    key={c.user.id}
+                    type="button"
+                    onClick={() => toggle(c.user.id)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--hover-soft)]"
+                    style={{ borderBottom: "1px solid var(--border-subtle)" }}
+                  >
+                    <span
+                      className="w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-colors"
+                      style={{
+                        background: checked ? "var(--gradient-button)" : "var(--surface)",
+                        border: `1px solid ${checked ? "transparent" : "var(--border-subtle)"}`,
+                        color: "#fff",
+                      }}
+                    >
+                      {checked && <Check size={12} />}
+                    </span>
+                    <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center shrink-0" style={{ background: c.color }}>
+                      {c.user.avatar ? (
+                        <span className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(${c.user.avatar})` }} />
+                      ) : (
+                        <UserRound size={16} className="text-white" />
+                      )}
+                    </div>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>
+                        {c.user.firstName} {c.user.lastName}
+                      </span>
+                      <span className="block text-[11px] truncate" style={{ color: "var(--text-muted)" }}>
+                        {c.user.email}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            onClick={onClose}
+            disabled={saving}
+            className="px-4 py-2 rounded-xl text-sm font-semibold"
+            style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+          >
+            Annuler
+          </button>
+          <button
+            onClick={() => onSave({ name: name.trim(), description: description.trim(), membership, memberIds: selected })}
+            disabled={saving || !name.trim()}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+            style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+          >
+            <CheckCircle2 size={15} /> {saving ? "Enregistrement…" : mode === "edit" ? "Enregistrer" : "Créer l'équipe"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Section({
+  icon,
+  title,
+  subtitle,
+  actions,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <motion.div variants={item} className="glass rounded-3xl p-6 md:p-7" style={{ boxShadow: "var(--shadow-card)" }}>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <div className="flex items-center gap-3 min-w-0">
+          <div
+            className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
+            style={{ background: "var(--accent-soft)" }}
+          >
+            {icon}
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{title}</h2>
+            {subtitle && (
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{subtitle}</p>
+            )}
+          </div>
+        </div>
+        {actions}
+      </div>
+      {children}
+    </motion.div>
   );
 }
 
@@ -356,6 +712,29 @@ export default function EquipePage() {
   const [invitationsLoading, setInvitationsLoading] = useState(true);
   const [cancelInvitationTarget, setCancelInvitationTarget] = useState<AgencyInvitation | null>(null);
   const [busyInvitationId, setBusyInvitationId] = useState<number | null>(null);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [teams, setTeams] = useState<AgencyTeam[]>([]);
+  const [teamsLoading, setTeamsLoading] = useState(true);
+  const [teamModal, setTeamModal] = useState<{ mode: "create" } | { mode: "edit"; team: AgencyTeam } | null>(null);
+  const [teamSaving, setTeamSaving] = useState(false);
+  const [deleteTeamTarget, setDeleteTeamTarget] = useState<AgencyTeam | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const list = await fetchAgencyTeams(agencyId);
+        if (alive) setTeams(list);
+      } catch {
+        // silencieux : la section n'apparaît tout simplement pas
+      } finally {
+        if (alive) setTeamsLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [agencyId]);
 
   useEffect(() => {
     let alive = true;
@@ -380,7 +759,13 @@ export default function EquipePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.lastLoadedAt]);
 
-  if (data.loading) {
+  useEffect(() => {
+    const def = agency?.settings?.defaultMemberRole;
+    if (def && inviteRole !== def) setInviteRole(def);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agency?.settings?.defaultMemberRole]);
+
+  if (data.loading && data.lastLoadedAt === null) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
@@ -416,6 +801,52 @@ export default function EquipePage() {
 
   const canInvite = hasRight(agency, user?.email ?? "", "invite");
   const canManageUsers = hasRight(agency, user?.email ?? "", "manageUsers");
+  const canManageTeams = hasRight(agency, user?.email ?? "", "manageTeams");
+
+  const reloadTeams = async () => {
+    try {
+      setTeams(await fetchAgencyTeams(agencyId));
+    } catch {
+      // silencieux
+    }
+  };
+
+  const saveTeam = async (payload: { name: string; description: string; membership: "ouverte" | "fermee"; memberIds: number[] }) => {
+    if (!teamModal) return;
+    setTeamSaving(true);
+    try {
+      if (teamModal.mode === "edit") {
+        await updateTeam(teamModal.team.id, payload);
+        setActionSuccess(`L'équipe « ${payload.name} » a été mise à jour.`);
+      } else {
+        await createAgencyTeam(agencyId, payload);
+        setActionSuccess(`L'équipe « ${payload.name} » a été créée.`);
+      }
+      await reloadTeams();
+      setTeamModal(null);
+      setTimeout(() => setActionSuccess(null), 3000);
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    } finally {
+      setTeamSaving(false);
+    }
+  };
+
+  const confirmDeleteTeam = async () => {
+    if (!deleteTeamTarget) return;
+    setTeamSaving(true);
+    try {
+      await deleteTeam(deleteTeamTarget.id);
+      await reloadTeams();
+      setActionSuccess(`L'équipe « ${deleteTeamTarget.name} » a été supprimée.`);
+      setDeleteTeamTarget(null);
+      setTimeout(() => setActionSuccess(null), 3000);
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    } finally {
+      setTeamSaving(false);
+    }
+  };
 
   type PendingAction =
     | { type: "changeRole"; member: AgencyMember }
@@ -495,6 +926,7 @@ export default function EquipePage() {
       setTimeout(() => setInviteError(null), 4000);
       return;
     }
+    setInviteModalOpen(false);
     setConfirmEmail(trimmed);
   };
 
@@ -712,6 +1144,22 @@ export default function EquipePage() {
         </motion.div>
       )}
 
+  <Section
+    icon={<Users size={20} style={{ color: "#056cf2" }} />}
+    title="Vos collaborateurs"
+    subtitle={`${people.length} membre${people.length > 1 ? "s" : ""} dans l'agence`}
+    actions={
+      canInvite && (
+        <button
+          onClick={() => { setInviteError(null); setInviteModalOpen(true); }}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white transition-transform hover:scale-105"
+          style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+        >
+          <UserPlus size={14} /> Inviter des utilisateurs
+        </button>
+      )
+    }
+  >
   <div className="space-y-3">
     {people.map((m) => (
       <motion.div
@@ -934,66 +1382,7 @@ export default function EquipePage() {
         </motion.div>
       ) : null))}
 
-      {canInvite && (
-        <motion.form
-          variants={item}
-          onSubmit={handleInvite}
-          className="glass relative rounded-3xl p-6 md:p-7 transition-all duration-300"
-          style={{
-            boxShadow: inviteFocused ? "0 16px 40px -16px rgba(5,108,242,0.35)" : "var(--shadow-card)",
-            borderStyle: inviteFocused ? "solid" : "dashed",
-            borderWidth: "1.5px",
-            borderColor: inviteFocused ? "#056cf2" : "var(--border-subtle)",
-          }}
-        >
-          <div
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-4"
-            style={{ background: "var(--accent-soft)", color: "#056cf2" }}
-          >
-            <UserPlus size={13} /> Inviter un agent
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onFocus={() => setInviteFocused(true)}
-              onBlur={() => setInviteFocused(false)}
-              placeholder="Email de l'agent à inviter"
-              type="email"
-              required
-              className="flex-1 rounded-xl px-4 py-3 text-sm focus:outline-none transition-all duration-200"
-              style={{
-                background: inviteFocused ? "var(--card-bg)" : "var(--input-bg)",
-                border: `1px solid ${inviteFocused ? "#056cf2" : "var(--input-border)"}`,
-                boxShadow: inviteFocused ? "0 0 0 4px rgba(5,108,242,0.12)" : "none",
-                color: "var(--text-primary)",
-              }}
-            />
-            <select
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as "admin" | "membre")}
-              className="rounded-xl px-4 py-3 text-sm focus:outline-none transition-all duration-200"
-              style={{
-                background: "var(--input-bg)",
-                border: "1px solid var(--input-border)",
-                color: "var(--text-primary)",
-              }}
-            >
-              <option value="membre">Membre</option>
-              <option value="admin">Admin</option>
-            </select>
-            <motion.button
-              type="submit"
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.97 }}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white shrink-0"
-              style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
-            >
-              <Plus size={16} /> Inviter
-            </motion.button>
-          </div>
-        </motion.form>
-      )}
+      </Section>
 
       {!canInvite && isAdmin && (
         <motion.div
@@ -1016,12 +1405,152 @@ export default function EquipePage() {
         </motion.div>
       )}
 
+      <Section
+        icon={<Users2 size={20} style={{ color: "#056cf2" }} />}
+        title="Vos équipes"
+        subtitle={`${teams.length} équipe${teams.length > 1 ? "s" : ""} regroupant vos collaborateurs`}
+        actions={
+          canManageTeams && (
+            <button
+              onClick={() => setTeamModal({ mode: "create" })}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white transition-transform hover:scale-105"
+              style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+            >
+              <Plus size={14} /> Créer une équipe
+            </button>
+          )
+        }
+      >
+        {teamsLoading ? (
+          <div className="rounded-2xl px-5 py-6 flex items-center gap-3" style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}>
+            <span className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement des équipes…</span>
+          </div>
+        ) : teams.length === 0 ? (
+          <div className="rounded-2xl px-6 py-10 text-center" style={{ background: "var(--surface)", border: "1px dashed var(--border-subtle)" }}>
+            <Users2 size={26} className="mx-auto mb-3" style={{ color: "var(--text-muted)", opacity: 0.6 }} />
+            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+              Aucune équipe pour le moment
+            </p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+              {canManageTeams
+                ? "Regroupez vos collaborateurs en équipes pour mieux organiser le travail."
+                : "Un admin de l'agence peut créer des équipes."}
+            </p>
+            {canManageTeams && (
+              <button
+                onClick={() => setTeamModal({ mode: "create" })}
+                className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-xl text-xs font-semibold text-white transition-transform hover:scale-105"
+                style={{ background: "var(--gradient-button)" }}
+              >
+                <Plus size={14} /> Créer une équipe
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2">
+            {teams.map((t) => (
+              <motion.div
+                key={t.id}
+                whileHover={{ y: -2 }}
+                transition={{ duration: 0.2 }}
+                className="relative rounded-2xl pl-6 pr-4 py-4"
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border-subtle)",
+                  boxShadow: "var(--shadow-card)",
+                }}
+              >
+                <div
+                  className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl"
+                  style={{ background: t.membership === "ouverte" ? "#f59e0b" : "#056cf2" }}
+                />
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-bold truncate flex items-center gap-1.5" style={{ color: "var(--text-primary)" }}>
+                      <Users2 size={15} style={{ color: "#056cf2" }} />
+                      {t.name}
+                    </div>
+                    {t.description && (
+                      <p className="text-xs mt-0.5 line-clamp-2" style={{ color: "var(--text-muted)" }}>
+                        {t.description}
+                      </p>
+                    )}
+                  </div>
+                  <span
+                    className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full"
+                    style={{
+                      background: t.membership === "ouverte" ? "rgba(245,158,11,0.12)" : "rgba(5,108,242,0.08)",
+                      color: t.membership === "ouverte" ? "#f59e0b" : "#056cf2",
+                      border: t.membership === "ouverte" ? "1px solid rgba(245,158,11,0.3)" : "1px solid rgba(5,108,242,0.25)",
+                    }}
+                  >
+                    {t.membership === "ouverte" ? <Unlock size={10} /> : <Lock size={10} />}
+                    {t.membership === "ouverte" ? "Ouverte" : "Fermée"}
+                  </span>
+                </div>
+
+                <div className="mt-3 flex items-center gap-2 flex-wrap">
+                  {t.members.slice(0, 5).map((mm) => (
+                    <div
+                      key={mm.id}
+                      className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center shrink-0"
+                      style={{ background: "var(--accent-soft)", border: "2px solid var(--card-bg)" }}
+                      title={`${mm.firstName} ${mm.lastName}`}
+                    >
+                      {mm.avatar ? (
+                        <span className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(${mm.avatar})` }} />
+                      ) : (
+                        <span className="text-[10px] font-bold" style={{ color: "#056cf2" }}>
+                          {(mm.firstName?.[0] ?? "") || mm.email?.[0]?.toUpperCase() || "?"}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                  {t.memberCount === 0 ? (
+                    <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                      Aucun membre — {canManageTeams ? "cliquez sur Modifier pour en ajouter" : "en attente de membres"}
+                    </span>
+                  ) : t.memberCount > 5 ? (
+                    <span className="text-[11px] font-semibold" style={{ color: "var(--text-muted)" }}>
+                      +{t.memberCount - 5}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-semibold" style={{ color: "var(--text-muted)" }}>
+                      {t.memberCount} membre{t.memberCount > 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
+
+                {canManageTeams && (
+                  <div className="mt-3 pt-3 flex items-center gap-2 border-t" style={{ borderColor: "var(--border-subtle)" }}>
+                    <button
+                      onClick={() => setTeamModal({ mode: "edit", team: t })}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-transform hover:scale-105"
+                      style={{ background: "rgba(5,108,242,0.08)", border: "1px solid rgba(5,108,242,0.25)", color: "#056cf2" }}
+                    >
+                      <Pencil size={12} /> Modifier
+                    </button>
+                    <button
+                      onClick={() => setDeleteTeamTarget(t)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-transform hover:scale-105"
+                      style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "var(--color-error)" }}
+                    >
+                      <Trash2 size={12} /> Supprimer
+                    </button>
+                  </div>
+                )}
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </Section>
+
       {pendingAction && (() => {
         const { type, member } = pendingAction;
         const fullName = `${member.user.firstName} ${member.user.lastName}`.trim() || member.user.email;
 
         if (type === "changeRole") {
-          const isPromote = member.role === "membre";
+          const isPromote = member.role !== "admin";
           return (
             <ConfirmActionModal
               icon={<ShieldCheck size={20} />}
@@ -1113,6 +1642,49 @@ export default function EquipePage() {
           confirmLabel="Annuler l'invitation"
           onConfirm={() => confirmCancelInvitation(cancelInvitationTarget)}
           onCancel={() => setCancelInvitationTarget(null)}
+        />
+      )}
+
+      <InviteModal
+        open={inviteModalOpen}
+        email={email}
+        role={inviteRole}
+        agencyName={agency.name}
+        error={inviteError}
+        focused={inviteFocused}
+        onEmail={setEmail}
+        onRole={(v) => setInviteRole(v)}
+        onFocused={setInviteFocused}
+        onSubmit={handleInvite}
+        onClose={() => setInviteModalOpen(false)}
+      />
+
+      {teamModal && (
+        <TeamFormModal
+          mode={teamModal.mode}
+          team={teamModal.mode === "edit" ? teamModal.team : null}
+          collaborators={people}
+          defaultMembership={agency.settings?.defaultTeamMembership ?? "fermee"}
+          saving={teamSaving}
+          onSave={saveTeam}
+          onClose={() => setTeamModal(null)}
+        />
+      )}
+
+      {deleteTeamTarget && (
+        <ConfirmActionModal
+          icon={<Users2 size={20} />}
+          tone="danger"
+          title="Supprimer cette équipe"
+          description={
+            <>
+              Supprimer l&apos;équipe <strong>{deleteTeamTarget.name}</strong> ? Ses membres ne seront pas supprimés,
+              seuls les regroupements le seront.
+            </>
+          }
+          confirmLabel="Supprimer l'équipe"
+          onConfirm={confirmDeleteTeam}
+          onCancel={() => setDeleteTeamTarget(null)}
         />
       )}
     </motion.div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -12,33 +12,101 @@ import {
   CheckCircle2,
   AlertTriangle,
   Save,
+  Loader2,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
+import { getApiErrorMessage } from "@/lib/api";
+import { fetchAgencies, fetchProjects, fetchTasks } from "@/lib/services";
+import type { Task } from "@/lib/types";
 
 export default function ProfilPage() {
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+  const updateUser = useAuthStore((s) => s.updateUser);
   const logout = useAuthStore((s) => s.logout);
 
-  // Données utilisateur (factice — viendra du backend)
-  const [firstName, setFirstName] = useState("Jean");
-  const [lastName, setLastName] = useState("Dupont");
-  const [email, setEmail] = useState("jean.dupont@email.com");
-  const [role] = useState("Administrateur");
-  const [tasksAssigned] = useState(14);
-  const [tasksDone] = useState(9);
-  const [tasksLate] = useState(2);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSave = () => {
-    setEditing(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [tasksAssigned, setTasksAssigned] = useState(0);
+  const [tasksDone, setTasksDone] = useState(0);
+  const [tasksLate, setTasksLate] = useState(0);
+
+  useEffect(() => {
+    if (user) {
+      setFirstName(user.firstName);
+      setLastName(user.lastName);
+      setEmail(user.email);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    let alive = true;
+    const loadStats = async () => {
+      if (!user) return;
+      setStatsLoading(true);
+      try {
+        const agencies = await fetchAgencies();
+        const allTasks: Task[] = [];
+        for (const agency of agencies) {
+          const projects = await fetchProjects(agency.id);
+          for (const project of projects) {
+            allTasks.push(...(await fetchTasks(project.id)));
+          }
+        }
+        const mine = allTasks.filter(
+          (t) => (t.assigneeEmail ?? "").toLowerCase() === user.email.toLowerCase(),
+        );
+        const today = new Date().toISOString().slice(0, 10);
+        const done = mine.filter((t) => t.status === "terminee").length;
+        const late = mine.filter(
+          (t) => t.status !== "terminee" && !!t.dueDate && t.dueDate < today,
+        ).length;
+        if (alive) {
+          setTasksAssigned(mine.length);
+          setTasksDone(done);
+          setTasksLate(late);
+        }
+      } catch {
+        // silencieux : stats seulement, pas bloquant
+      } finally {
+        if (alive) setStatsLoading(false);
+      }
+    };
+    void loadStats();
+    return () => {
+      alive = false;
+    };
+  }, [user]);
+
+  if (!user) {
+    router.replace("/connexion");
+    return null;
+  }
+
+  const handleSave = async () => {
+    setError(null);
+    setSaving(true);
+    try {
+      await updateUser({ firstName, lastName, email });
+      setEditing(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleLogout = () => {
-    // ✅ Branché : POST /api/logout (révocation du token Sanctum)
-    logout();
+    void logout();
     router.push("/connexion");
   };
 
@@ -48,7 +116,8 @@ export default function ProfilPage() {
       style={{ background: "var(--bg-obsidian)" }}
     >
       <div className="w-full max-w-3xl">
-        <div className="relative rounded-3xl p-8 md:p-10"
+        <div
+          className="relative rounded-3xl p-8 md:p-10"
           style={{
             background: "var(--card-bg)",
             backdropFilter: "blur(20px)",
@@ -67,6 +136,17 @@ export default function ProfilPage() {
             </motion.p>
           )}
 
+          {error && (
+            <motion.p
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-sm mb-4 flex items-center gap-2"
+              style={{ color: "var(--color-error)" }}
+            >
+              <AlertTriangle size={16} /> {error}
+            </motion.p>
+          )}
+
           {/* En-tête profil */}
           <div className="flex flex-col md:flex-row items-center gap-6 mb-8">
             <motion.div
@@ -75,13 +155,14 @@ export default function ProfilPage() {
               className="relative"
             >
               <div
-                className="w-24 h-24 rounded-full flex items-center justify-center"
+                className="w-24 h-24 rounded-full flex items-center justify-center bg-cover bg-center"
                 style={{
-                  background: "var(--gradient-primary)",
+                  backgroundImage: user.avatar ? `url(${user.avatar})` : undefined,
+                  background: user.avatar ? undefined : "var(--gradient-primary)",
                   boxShadow: "0 0 40px var(--glow-pink)",
                 }}
               >
-                <User className="w-12 h-12 text-white" />
+                {!user.avatar && <User className="w-12 h-12 text-white" />}
               </div>
             </motion.div>
 
@@ -107,13 +188,14 @@ export default function ProfilPage() {
                 style={{ color: "var(--text-secondary)" }}
               >
                 <Briefcase size={14} />
-                <span className="rounded-full px-3 py-0.5 text-xs"
+                <span
+                  className="rounded-full px-3 py-0.5 text-xs"
                   style={{
                     background: "var(--gradient-button)",
                     boxShadow: "0 0 15px var(--glow-pink)",
                   }}
                 >
-                  {role}
+                  {user.role === "admin" ? "Administrateur" : "Membre"}
                 </span>
               </motion.p>
             </div>
@@ -165,7 +247,10 @@ export default function ProfilPage() {
 
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <label className="text-xs uppercase tracking-wide mb-1 block" style={{ color: "var(--text-secondary)" }}>
+                <label
+                  className="text-xs uppercase tracking-wide mb-1 block"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Prénom
                 </label>
                 <input
@@ -182,7 +267,10 @@ export default function ProfilPage() {
                 />
               </div>
               <div>
-                <label className="text-xs uppercase tracking-wide mb-1 block" style={{ color: "var(--text-secondary)" }}>
+                <label
+                  className="text-xs uppercase tracking-wide mb-1 block"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Nom
                 </label>
                 <input
@@ -199,11 +287,18 @@ export default function ProfilPage() {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="text-xs uppercase tracking-wide mb-1 block" style={{ color: "var(--text-secondary)" }}>
+                <label
+                  className="text-xs uppercase tracking-wide mb-1 block"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Email
                 </label>
                 <div className="relative">
-                  <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-secondary)" }} />
+                  <Mail
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2"
+                    style={{ color: "var(--text-secondary)" }}
+                  />
                   <input
                     type="email"
                     value={email}
@@ -223,9 +318,10 @@ export default function ProfilPage() {
             {editing && (
               <motion.button
                 onClick={handleSave}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="mt-4 w-full md:w-auto px-6 py-2.5 rounded-xl font-medium text-white"
+                disabled={saving}
+                whileHover={{ scale: saving ? 1 : 1.02 }}
+                whileTap={{ scale: saving ? 1 : 0.98 }}
+                className="mt-4 w-full md:w-auto px-6 py-2.5 rounded-xl font-medium text-white disabled:opacity-60"
                 style={{
                   background: "var(--gradient-button)",
                   backgroundSize: "200% 200%",
@@ -234,8 +330,8 @@ export default function ProfilPage() {
                 }}
               >
                 <span className="inline-flex items-center gap-2">
-                  <Save size={16} />
-                  Enregistrer
+                  {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                  {saving ? "Enregistrement…" : "Enregistrer"}
                 </span>
               </motion.button>
             )}
@@ -248,27 +344,45 @@ export default function ProfilPage() {
             transition={{ delay: 0.3 }}
             className="grid grid-cols-3 gap-4"
           >
-            <div className="rounded-2xl p-4 text-center"
+            <div
+              className="rounded-2xl p-4 text-center"
               style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
             >
-              <div className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{tasksAssigned}</div>
-              <div className="flex items-center justify-center gap-1 text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+              <div className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
+                {statsLoading ? "…" : tasksAssigned}
+              </div>
+              <div
+                className="flex items-center justify-center gap-1 text-xs mt-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 <Briefcase size={12} /> Assignées
               </div>
             </div>
-            <div className="rounded-2xl p-4 text-center"
+            <div
+              className="rounded-2xl p-4 text-center"
               style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
             >
-              <div className="text-2xl font-bold" style={{ color: "var(--color-success)" }}>{tasksDone}</div>
-              <div className="flex items-center justify-center gap-1 text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+              <div className="text-2xl font-bold" style={{ color: "var(--color-success)" }}>
+                {statsLoading ? "…" : tasksDone}
+              </div>
+              <div
+                className="flex items-center justify-center gap-1 text-xs mt-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 <CheckCircle2 size={12} /> Terminées
               </div>
             </div>
-            <div className="rounded-2xl p-4 text-center"
+            <div
+              className="rounded-2xl p-4 text-center"
               style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
             >
-              <div className="text-2xl font-bold" style={{ color: "var(--color-error)" }}>{tasksLate}</div>
-              <div className="flex items-center justify-center gap-1 text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+              <div className="text-2xl font-bold" style={{ color: "var(--color-error)" }}>
+                {statsLoading ? "…" : tasksLate}
+              </div>
+              <div
+                className="flex items-center justify-center gap-1 text-xs mt-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 <AlertTriangle size={12} /> En retard
               </div>
             </div>

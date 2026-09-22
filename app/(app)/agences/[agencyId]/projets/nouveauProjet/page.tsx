@@ -17,7 +17,8 @@ import {
   Users,
 } from "lucide-react";
 import { useAppData } from "@/lib/appData";
-import { userRoleInAgency } from "@/lib/types";
+import { hasRight } from "@/lib/types";
+import DatePickerField from "@/app/(app)/components/DatePickerField";
 import { useAuthStore } from "@/app/store/authStore";
 import { createProject as apiCreateProject, addProjectMember, getApiErrorMessage } from "@/lib/services";
 import { WALLPAPERS } from "@/app/store/wallpapers";
@@ -39,8 +40,7 @@ export default function NouveauProjetPage() {
 
   const agency = agencyById(agencyId);
 
-  const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
-  const isAdmin = role === "owner" || role === "admin";
+  const canCreateProjects = hasRight(agency, user?.email ?? "", "createProjects");
 
   // ====== Champs du formulaire ======
   const [name, setName] = useState("");
@@ -163,8 +163,8 @@ export default function NouveauProjetPage() {
     );
   }
 
-  // ✅ Accès réservé à l'admin
-  if (!isAdmin) {
+  // ✅ Accès selon le réglage « qui peut créer des projets »
+  if (!canCreateProjects) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
         <div
@@ -177,7 +177,7 @@ export default function NouveauProjetPage() {
           Accès refusé
         </p>
         <p className="max-w-sm" style={{ color: "var(--text-secondary)" }}>
-          Cette page est réservée à l&apos;administrateur de l&apos;agence. Seul l&apos;admin peut créer un projet.
+          Cette page est réservée au propriétaire et aux admins de l&apos;agence. Seuls eux peuvent créer un projet.
         </p>
         <Link
           href={`/agences/${agencyId}/projets`}
@@ -252,15 +252,14 @@ export default function NouveauProjetPage() {
             <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
               <Calendar size={14} /> Date de début <span style={{ color: "var(--color-error)" }}>*</span>
             </label>
-            <input
-              type="date"
+            <DatePickerField
               value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
+              onChange={(v) => {
+                setStartDate(v);
                 clearFieldError("startDate");
                 clearFieldError("dueDate");
               }}
-              className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
+              className="w-full"
               style={inputStyle}
             />
             {fieldErrors.startDate && (
@@ -273,14 +272,13 @@ export default function NouveauProjetPage() {
             <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
               <CalendarPlus size={14} /> Date d&apos;échéance <span style={{ color: "var(--color-error)" }}>*</span>
             </label>
-            <input
-              type="date"
+            <DatePickerField
               value={dueDate}
-              onChange={(e) => {
-                setDueDate(e.target.value);
+              onChange={(v) => {
+                setDueDate(v);
                 clearFieldError("dueDate");
               }}
-              className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
+              className="w-full"
               style={inputStyle}
             />
             {fieldErrors.dueDate && (

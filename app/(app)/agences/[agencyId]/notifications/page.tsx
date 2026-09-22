@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
 import {
-  Bell, Check, CheckCheck, Clock, AlertTriangle, ListPlus,
-  UserMinus, MessageSquare, UserPlus, CheckCircle2,
+  Bell, Check, CheckCheck, Clock, ListPlus,
+  UserMinus, MessageSquare, UserPlus, CheckCircle2, AtSign, Eye, Info, ExternalLink,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
@@ -37,37 +38,37 @@ const getNotificationMeta = (
       color: "#7c3aed",
       bg: "rgba(139,92,246,0.12)",
     },
-    task_assigned: {
+    tache_assignee: {
       label: "Tâche assignée",
       icon: ListPlus,
       color: "#0c79f2",
       bg: "rgba(12,121,242,0.12)",
     },
-    task_unassigned: {
+    tache_retiree: {
       label: "Retrait d'une tâche",
       icon: UserMinus,
       color: "#a06be0",
       bg: "rgba(160,107,224,0.12)",
     },
-    comment_added: {
+    nouveau_commentaire: {
       label: "Commentaire",
       icon: MessageSquare,
       color: "#0d9488",
       bg: "rgba(13,148,136,0.12)",
     },
-    deadline_approaching: {
+    mention: {
+      label: "Mention",
+      icon: AtSign,
+      color: "#2563eb",
+      bg: "rgba(37,99,235,0.12)",
+    },
+    rappel_echeance: {
       label: "Échéance proche",
       icon: Clock,
       color: "#d97706",
       bg: "rgba(217,119,6,0.14)",
     },
-    task_overdue: {
-      label: "En retard",
-      icon: AlertTriangle,
-      color: "#ef4444",
-      bg: "rgba(239,68,68,0.12)",
-    },
-    task_completed: {
+    tache_terminee: {
       label: "Tâche terminée",
       icon: CheckCircle2,
       color: "var(--color-success)",
@@ -100,11 +101,93 @@ const relativeTime = (dateStr: string): string => {
 const ALL_FILTERS = [
   { key: "toutes", label: "Toutes" },
   { key: "invitation", label: "Invitations" },
-  { key: "task_assigned", label: "Tâches assignées" },
-  { key: "comment_added", label: "Commentaires" },
-  { key: "deadline_approaching", label: "Échéances" },
-  { key: "task_overdue", label: "En retard" },
+  { key: "tache_assignee", label: "Tâches assignées" },
+  { key: "nouveau_commentaire", label: "Commentaires" },
+  { key: "mention", label: "Mentions" },
+  { key: "rappel_echeance", label: "Échéances" },
 ] as const;
+
+const formatFullDate = (iso: string) => {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+function NotificationDetailModal({
+  notification,
+  onClose,
+  onMarkRead,
+}: {
+  notification: AppNotification | null;
+  onClose: () => void;
+  onMarkRead: (id: number) => void;
+}) {
+  if (!notification) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0"
+        style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+        onClick={onClose}
+      />
+      <div
+        className="relative w-full max-w-lg rounded-2xl p-6 space-y-4"
+        style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)", boxShadow: "var(--shadow-card)" }}
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}>
+            <Info className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--accent-text)" }}>
+              {notification.type}
+            </span>
+            <h2 className="text-lg font-bold leading-tight" style={{ color: "var(--text-primary)" }}>
+              {notification.title}
+            </h2>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+              {formatFullDate(notification.createdAt)}
+            </p>
+          </div>
+        </div>
+
+        {notification.message && (
+          <div
+            className="rounded-xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap"
+            style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)" }}
+          >
+            {notification.message}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {isUnread(notification) && (
+            <button
+              onClick={() => onMarkRead(notification.id)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
+              style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+            >
+              <Check size={14} /> Marquer comme lu
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="ml-auto px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80"
+            style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AgencyNotificationsPage() {
   const params = useParams<{ agencyId: string }>();
@@ -117,6 +200,7 @@ export default function AgencyNotificationsPage() {
 
   const [filter, setFilter] = useState<string>("toutes");
   const [markingAll, setMarkingAll] = useState(false);
+  const [notifView, setNotifView] = useState<AppNotification | null>(null);
 
   const notifications = useMemo(() => {
     return data.notifications;
@@ -159,6 +243,15 @@ export default function AgencyNotificationsPage() {
       // silent
     }
     setMarkingAll(false);
+  };
+
+  const handleMarkRead = async (id: number) => {
+    try {
+      await markNotificationRead(id);
+      await reload();
+    } catch {
+      // silent
+    }
   };
 
   if (data.loading) {
@@ -274,21 +367,26 @@ export default function AgencyNotificationsPage() {
             const Icon = meta.icon;
             const unread = isUnread(n);
             return (
-              <motion.button
+              <motion.div
                 key={n.id}
                 variants={item}
                 onClick={() => handleClick(n)}
-                className="w-full text-left glass rounded-2xl p-5 flex items-start gap-4 transition-transform hover:scale-[1.01] active:scale-[0.99]"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") handleClick(n);
+                }}
+                className="w-full text-left glass rounded-2xl p-4 flex items-start gap-3 transition-transform hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
                 style={{
                   boxShadow: "var(--shadow-card)",
                   opacity: unread ? 1 : 0.72,
                 }}
               >
                 <div
-                  className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                   style={{ background: meta.bg, color: meta.color }}
                 >
-                  <Icon className="w-5 h-5" />
+                  <Icon className="w-4.5 h-4.5" />
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -310,14 +408,14 @@ export default function AgencyNotificationsPage() {
                     )}
                   </div>
                   <div
-                    className={`mt-1 text-sm ${unread ? "font-semibold" : ""}`}
+                    className={`mt-0.5 text-[13px] ${unread ? "font-semibold" : ""}`}
                     style={{ color: "var(--chrome-text)" }}
                   >
                     {n.title}
                   </div>
                   {n.message && (
                     <div
-                      className="mt-1 text-xs truncate"
+                      className="mt-0.5 text-[11px] truncate"
                       style={{ color: "var(--chrome-text-muted)" }}
                     >
                       {n.message}
@@ -333,15 +431,46 @@ export default function AgencyNotificationsPage() {
                     <Check size={12} /> Non lu
                   </span>
                 )}
-              </motion.button>
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  {n.link && (
+                    <Link
+                      href={n.link}
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all hover:scale-105"
+                      style={{ background: "rgba(5,108,242,0.08)", border: "1px solid rgba(5,108,242,0.25)", color: "#056cf2" }}
+                    >
+                      <ExternalLink size={13} /> Voir la tâche
+                    </Link>
+                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setNotifView(n);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all hover:scale-105"
+                    style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--accent-text)" }}
+                  >
+                    <Eye size={13} /> Lire le message
+                  </button>
+                </div>
+              </motion.div>
             );
           })}
 
           <motion.p variants={item} className="text-xs px-2" style={{ color: "var(--chrome-text-muted)" }}>
-            Cliquez sur une notification pour la marquer comme lue.
+            Cliquez sur une notification pour la marquer comme lue, ou sur « Lire le message » pour voir son contenu.
           </motion.p>
         </div>
       )}
+
+      <NotificationDetailModal
+        notification={notifView}
+        onClose={() => setNotifView(null)}
+        onMarkRead={(id) => {
+          void handleMarkRead(id);
+          setNotifView((v) => (v && v.id === id ? { ...v, readAt: new Date().toISOString() } : v));
+        }}
+      />
     </motion.div>
   );
 }

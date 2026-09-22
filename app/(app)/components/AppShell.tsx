@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import GlobalSearch from "./GlobalSearch";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -14,6 +15,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <Header onMenuClick={() => setOpen(true)} />
         {children}
       </div>
+      <GlobalSearch />
       {open && (
         <div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden"

@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
 import {
-  Bell, Check, CheckCheck, Eye, Info,
+  Bell, Check, CheckCheck, Eye, Info, ExternalLink,
 } from "lucide-react";
 import { useAppData } from "@/lib/appData";
 import { markNotificationRead, markAllNotificationsRead } from "@/lib/services";
@@ -202,14 +203,14 @@ export default function NotificationsPage() {
               <motion.div
                 key={n.id}
                 variants={item}
-                className="glass rounded-2xl p-5 flex items-start gap-4"
+                className="glass rounded-2xl p-4 flex items-start gap-3"
                 style={{ boxShadow: "var(--shadow-card)", opacity: unread ? 1 : 0.72 }}
               >
                 <div
-                  className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                   style={{ background: unread ? "var(--accent-soft)" : "var(--surface)", color: "var(--accent-text)" }}
                 >
-                  <Bell className="w-5 h-5" />
+                  <Bell className="w-4.5 h-4.5" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -223,20 +224,30 @@ export default function NotificationsPage() {
                       <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "#056cf2" }} />
                     )}
                   </div>
-                  <div className={`mt-1 text-sm ${unread ? "font-semibold" : ""}`} style={{ color: "var(--text-primary)" }}>
+                  <div className={`mt-0.5 text-[13px] ${unread ? "font-semibold" : ""}`} style={{ color: "var(--text-primary)" }}>
                     {n.title}
                   </div>
                   {n.message && (
-                    <div className="mt-1 text-xs truncate" style={{ color: "var(--text-muted)" }}>
+                    <div className="mt-0.5 text-[11px] truncate" style={{ color: "var(--text-muted)" }}>
                       {n.message}
                     </div>
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">
                   <div className="flex items-center gap-2">
+                    {n.link && (
+                      <Link
+                        href={n.link}
+                        onClick={() => handleMarkRead(n.id)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all hover:scale-105"
+                        style={{ background: "rgba(5,108,242,0.08)", border: "1px solid rgba(5,108,242,0.25)", color: "#056cf2" }}
+                      >
+                        <ExternalLink size={13} /> Voir la tâche
+                      </Link>
+                    )}
                     <button
                       onClick={() => setNotifView(n)}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-105"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all hover:scale-105"
                       style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
                     >
                       <Eye size={13} /> Lire le message
@@ -244,7 +255,7 @@ export default function NotificationsPage() {
                     {unread && (
                       <button
                         onClick={() => handleMarkRead(n.id)}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-105"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all hover:scale-105"
                         style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
                       >
                         <Check size={13} /> Marquer comme lu

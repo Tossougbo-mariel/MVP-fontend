@@ -1,17 +1,20 @@
 "use client";
 
+import { useState } from "react";
 import { motion, type Variants } from "framer-motion";
 import {
   FolderKanban, Users, CheckCircle2, Clock, AlertTriangle, Plus,
-  ShieldCheck, ListTodo, ArrowLeft, Activity, CalendarClock,
+  ShieldCheck, ListTodo, ArrowLeft, CalendarClock,
   Lightbulb, Award, AlarmClock, Ban, Crown, TrendingUp,
+  History, CalendarPlus, Flag, UserRound, MessageSquare, Pencil,
+  ChevronDown, ChevronUp,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData, useAsync } from "@/lib/appData";
 import { fetchActivity } from "@/lib/services";
-import { userRoleInAgency, type AgencyRole, overdueTasks } from "@/lib/types";
+import { userRoleInAgency, type AgencyRole, overdueTasks, ACTIVITY_LABELS } from "@/lib/types";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -22,15 +25,7 @@ const item: Variants = {
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
 };
 
-const weeklyReport = [
-  { day: "Lun", value: 3 },
-  { day: "Mar", value: 7 },
-  { day: "Mer", value: 4 },
-  { day: "Jeu", value: 8 },
-  { day: "Ven", value: 6 },
-  { day: "Sam", value: 2 },
-  { day: "Dim", value: 5 },
-];
+
 
 const timeAgo = (iso: string | null | undefined): string => {
   if (!iso) return "";
@@ -48,6 +43,15 @@ const timeAgo = (iso: string | null | undefined): string => {
   const weeks = Math.floor(days / 7);
   if (weeks < 5) return `il y a ${weeks} sem`;
   return new Date(iso).toLocaleDateString("fr-FR");
+};
+
+const activityConfig: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
+  creation: { label: ACTIVITY_LABELS["creation"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CalendarPlus },
+  changement_statut: { label: ACTIVITY_LABELS["changement_statut"], color: "#056cf2", bg: "var(--accent-soft)", icon: Flag },
+  changement_responsable: { label: ACTIVITY_LABELS["changement_responsable"], color: "#7c3aed", bg: "rgba(139,92,246,0.12)", icon: UserRound },
+  changement_priorite: { label: ACTIVITY_LABELS["changement_priorite"], color: "#d97706", bg: "rgba(245,158,11,0.15)", icon: Flag },
+  changement_echeance: { label: ACTIVITY_LABELS["changement_echeance"], color: "#db2777", bg: "rgba(219,39,119,0.12)", icon: CalendarClock },
+  commentaire: { label: ACTIVITY_LABELS["commentaire"], color: "var(--accent-text)", bg: "var(--accent-soft)", icon: MessageSquare },
 };
 
 const smoothCurve = (pts: { x: number; y: number }[]) => {
@@ -200,6 +204,8 @@ function AdminDashboard({
     () => fetchActivity({ agencyId }),
     [agencyId],
   );
+  const [activityExpanded, setActivityExpanded] = useState(false);
+  const ACTIVITY_VISIBLE = 5;
 
   const members = agency?.members ?? [];
   const totalMembers = members.length;
@@ -214,6 +220,46 @@ function AdminDashboard({
     agencyTasks.map((t) => ({ deadline: t.dueDate, status: t.status })),
   ).length;
 
+  const WEEK_DAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+
+  // Lundi de la semaine courante à 00:00
+  const thisWeekStart = (() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return d;
+  })();
+
+  // Lundi de la semaine précédente
+  const lastWeekStart = new Date(thisWeekStart);
+  lastWeekStart.setDate(thisWeekStart.getDate() - 7);
+
+  // Compte les tâches terminées (completedAt) jour par jour dans un intervalle
+  const countDone = (from: Date, to: Date): number[] => {
+    const counts = Array(7).fill(0) as number[];
+    for (const t of agencyTasks) {
+      if (t.status !== "terminee" || !t.completedAt) continue;
+      const completed = new Date(t.completedAt);
+      if (completed >= from && completed < to) {
+        counts[(completed.getDay() + 6) % 7]++;
+      }
+    }
+    return counts;
+  };
+
+  const thisWeek = countDone(thisWeekStart, new Date(thisWeekStart.getTime() + 7 * 86400000));
+  const lastWeek = countDone(lastWeekStart, thisWeekStart);
+
+  const weeklyReport = WEEK_DAY_LABELS.map((day, i) => ({ day, value: thisWeek[i] }));
+
+  const doneThisWeek = thisWeek.reduce((s, n) => s + n, 0);
+  const doneLastWeek = lastWeek.reduce((s, n) => s + n, 0);
+  const deltaPct: number | null =
+    doneLastWeek === 0
+      ? doneThisWeek > 0
+        ? 100
+        : null
+      : Math.round(((doneThisWeek - doneLastWeek) / doneLastWeek) * 100);
   const taskStatuses = [
     { label: "À faire", value: agencyTasks.filter((t) => t.status === "a_faire").length, color: "#0c79f2" },
     { label: "En cours", value: agencyTasks.filter((t) => t.status === "en_cours").length, color: "#056cf2" },
@@ -240,8 +286,6 @@ function AdminDashboard({
   } Z`;
   const avg = weeklyReport.reduce((s, r) => s + r.value, 0) / weeklyReport.length;
   const avgY = chartTop + (1 - avg / chartMax) * (chartHeight - chartTop - chartBottom);
-  const doneThisWeek = weeklyReport.reduce((s, r) => s + r.value, 0);
-  const deltaPct: number | null = null;
 
   const statCards = [
     { label: "Total projets", value: String(totalProjects), icon: FolderKanban, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
@@ -468,69 +512,97 @@ function AdminDashboard({
               </svg>
             </div>
           </motion.div>
-
-          {/* Activité récente */}
-          <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(139,92,246,0.14)" }}>
-                <Activity size={16} style={{ color: "#7C3AED" }} />
-              </div>
-              <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Activité récente</h2>
-            </div>
-            <motion.ul
-              initial="hidden"
-              animate="show"
-              variants={{ show: { transition: { staggerChildren: 0.12 } } }}
-              className="space-y-3"
-            >
-              {activityLoading ? (
-                <motion.li
-                  variants={{ hidden: { opacity: 0, x: -14 }, show: { opacity: 1, x: 0, transition: { duration: 0.4 } } }}
-                  className="text-sm"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  Chargement de l&apos;activité…
-                </motion.li>
-              ) : activity && activity.length > 0 ? (
-                activity.map((a, i) => (
-                  <motion.li
-                    key={a.id}
-                    variants={{ hidden: { opacity: 0, x: -14 }, show: { opacity: 1, x: 0, transition: { duration: 0.4 } } }}
-                    whileHover={{ x: 4 }}
-                    className="flex items-start gap-3 text-sm"
-                  >
-                    <span className="relative w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: "#056cf2" }}>
-                      <motion.span
-                        className="absolute inset-0 rounded-full"
-                        style={{ background: "#056cf2" }}
-                        animate={{ scale: [1, 2.2], opacity: [0.6, 0] }}
-                        transition={{ duration: 1.8, repeat: Infinity, delay: i * 0.3 }}
-                      />
-                    </span>
-                    <div>
-                      <div style={{ color: "var(--text-primary)" }}>
-                        <span className="font-semibold">{a.actorName ?? a.actorEmail}</span>{" "}
-                        {a.description}
-                      </div>
-                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>{timeAgo(a.createdAt)}</div>
-                    </div>
-                  </motion.li>
-                ))
-              ) : (
-                <motion.li
-                  variants={{ hidden: { opacity: 0, x: -14 }, show: { opacity: 1, x: 0, transition: { duration: 0.4 } } }}
-                  className="text-sm"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  Aucune activité récente.
-                </motion.li>
-              )}
-            </motion.ul>
-          </motion.div>
         </div>
 
         {/* Colonne droite */}
         <div className="space-y-6">
+          {/* Activité récente — à côté, comme l'historique des tâches */}
+          <motion.div variants={item} className="glass rounded-2xl p-5" style={{ boxShadow: "var(--shadow-card)" }}>
+            <h2 className="font-bold flex items-center gap-2.5 mb-3" style={{ color: "var(--text-primary)" }}>
+              <span
+                className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: "rgba(139,92,246,0.15)" }}
+              >
+                <History size={14} style={{ color: "#7c3aed" }} />
+              </span>
+              Activité récente
+            </h2>
+
+            {activityLoading ? (
+              <p className="text-sm text-center py-3" style={{ color: "var(--text-muted)" }}>
+                Chargement de l&apos;activité…
+              </p>
+            ) : activity && activity.length > 0 ? (
+              <>
+                {(() => {
+                  const visible = activity.slice(0, activityExpanded ? activity.length : ACTIVITY_VISIBLE);
+                  return (
+                    <div className="flex flex-col">
+                      {visible.map((a, idx) => {
+                        const cfg = activityConfig[a.action] ?? {
+                          label: a.action,
+                          color: "var(--text-secondary)",
+                          bg: "var(--hover-soft)",
+                          icon: History,
+                        };
+                        const Icon = cfg.icon;
+                        const isLast = idx === visible.length - 1;
+                        return (
+                          <div key={a.id} className="flex gap-3">
+                            <div className="flex flex-col items-center shrink-0">
+                              <div
+                                className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                                style={{ background: cfg.bg }}
+                              >
+                                <Icon className="w-3.5 h-3.5" style={{ color: cfg.color }} />
+                              </div>
+                              {!isLast && (
+                                <div className="w-px flex-1 min-h-3" style={{ background: "var(--border-subtle)" }} />
+                              )}
+                            </div>
+
+                            <div className={`flex-1 min-w-0 ${isLast ? "" : "pb-3"}`}>
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                                  {a.description ?? a.action}
+                                </span>
+                                <span
+                                  className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                                  style={{ color: cfg.color, background: cfg.bg }}
+                                >
+                                  {cfg.label}
+                                </span>
+                              </div>
+                              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                                {a.actorName ?? a.actorEmail} · {timeAgo(a.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+                {activity.length > ACTIVITY_VISIBLE && (
+                  <button
+                    onClick={() => setActivityExpanded((v) => !v)}
+                    className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors hover:bg-[var(--hover-soft)]"
+                    style={{ color: "#056cf2", background: "rgba(5,108,242,0.08)" }}
+                  >
+                    {activityExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    {activityExpanded
+                      ? "Voir moins"
+                      : `Voir plus (${activity.length - ACTIVITY_VISIBLE})`}
+                  </button>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-center py-3" style={{ color: "var(--text-muted)" }}>
+                Aucune activité récente.
+              </p>
+            )}
+          </motion.div>
+
           {/* Statut de l'équipe */}
           <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
             <div className="flex items-center gap-2 mb-4">

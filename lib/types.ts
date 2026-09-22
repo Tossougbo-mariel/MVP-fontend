@@ -53,6 +53,7 @@ export type AgencyRole = "owner" | "admin" | "membre";
 // ---------- Réglages d'agence (gérés par le propriétaire) ----------
 export type AgencyPermission = "owner" | "admin" | "all";
 export type AgencyTaskView = "grid" | "list" | "kanban";
+export type AgencyTeamMembership = "ouverte" | "fermee";
 
 export type AgencySettings = {
   whoCanInvite: AgencyPermission;
@@ -60,6 +61,8 @@ export type AgencySettings = {
   defaultTaskView: AgencyTaskView;
   defaultMemberRole: AgencyMemberRole;
   emailNotifications: boolean;
+  whoCanManageTeams: AgencyPermission;
+  defaultTeamMembership: AgencyTeamMembership;
 };
 
 export const DEFAULT_AGENCY_SETTINGS: AgencySettings = {
@@ -68,6 +71,18 @@ export const DEFAULT_AGENCY_SETTINGS: AgencySettings = {
   defaultTaskView: "grid",
   defaultMemberRole: "membre",
   emailNotifications: true,
+  whoCanManageTeams: "admin",
+  defaultTeamMembership: "fermee",
+};
+
+export type AgencyTeam = {
+  id: number;
+  name: string;
+  description: string | null;
+  membership: AgencyTeamMembership;
+  createdBy: number | null;
+  memberCount: number;
+  members: UserLite[];
 };
 
 export type Agency = {
@@ -141,6 +156,7 @@ export const userAgencies = (agencies: Agency[], email: string): Agency[] => {
 export type TaskPlatformRight =
   | "invite"
   | "manageUsers"
+  | "manageTeams"
   | "createProjects"
   | "deleteProjects"
   | "createTasks"
@@ -163,9 +179,23 @@ export const hasRight = (
   email: string,
   right: TaskPlatformRight,
 ): boolean => {
-  if (!agency) return false;
+  if (!agency || !email) return false;
   const role = userRoleInAgency(agency, email);
   if (role === "owner" || role === "admin") return true;
+  const settings = agency.settings ?? DEFAULT_AGENCY_SETTINGS;
+
+  if (right === "invite") {
+    return settings.whoCanInvite === "all";
+  }
+
+  if (right === "createProjects") {
+    return settings.whoCanCreateProjects === "all";
+  }
+
+  if (right === "manageTeams") {
+    return settings.whoCanManageTeams === "all";
+  }
+
   return MEMBRE_RIGHTS.includes(right);
 };
 
@@ -195,6 +225,13 @@ export type ProjectMember = {
 export type TaskStatus = "a_faire" | "en_cours" | "en_revision" | "terminee";
 export type TaskPriority = "basse" | "moyenne" | "haute" | "urgente";
 
+export type TaskDepRef = {
+  id: number;
+  title: string;
+  status: TaskStatus;
+  dueDate?: string | null;
+};
+
 export type Task = {
   id: number;
   projectId: number;
@@ -211,6 +248,10 @@ export type Task = {
   dueDate: string | null;
   completedAt: string | null;
   createdAt: string;
+  archivedAt: string | null;
+  tags: Tag[];
+  dependencies?: TaskDepRef[];
+  dependents?: TaskDepRef[];
 };
 
 export type MyTask = {
@@ -335,6 +376,54 @@ export const LABEL_PROJECT_STATUS: Record<ProjectStatus, string> = {
   archive: "Archivé",
 };
 
+// ---------- Étiquettes ----------
+export type Tag = {
+  id: number;
+  agencyId: number;
+  name: string;
+  color: string;
+};
+
+// ---------- Pièces jointes ----------
+export type Attachment = {
+  id: number;
+  taskId: number;
+  fileName: string;
+  fileSize: number;
+  mimeType: string | null;
+  uploaderId: number | null;
+  authorName: string | null;
+  createdAt: string;
+};
+
+export const formatFileSize = (bytes: number): string => {
+  if (!bytes || bytes < 1024) return `${bytes || 0} o`;
+  const units = ["Ko", "Mo", "Go"];
+  let value = bytes / 1024;
+  let i = 0;
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024;
+    i += 1;
+  }
+  return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[i]}`;
+};
+
+// ---------- Sous-tâches ----------
+export type Subtask = {  id: number;
+  taskId: number;
+  title: string;
+  done: boolean;
+  position: number;
+};
+
+export const subtaskProgress = (
+  list: Subtask[],
+): { done: number; total: number; percent: number } => {
+  const total = list.length;
+  const done = list.filter((s) => s.done).length;
+  return { done, total, percent: total === 0 ? 0 : Math.round((done / total) * 100) };
+};
+
 // ---------- Commentaires ----------
 export type TaskComment = {
   id: number;
@@ -342,7 +431,36 @@ export type TaskComment = {
   authorEmail: string;
   authorName: string | null;
   content: string;
+  mentionIds: number[];
   createdAt: string;
+};
+
+// ---------- Préférences de notifications ----------
+export type NotificationPreferences = {
+  task_assigned: boolean;
+  task_completed: boolean;
+  task_removed: boolean;
+  comment: boolean;
+  mention: boolean;
+  deadline_reminder: boolean;
+};
+
+export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  task_assigned: true,
+  task_completed: true,
+  task_removed: true,
+  comment: true,
+  mention: true,
+  deadline_reminder: true,
+};
+
+export const LABEL_NOTIFICATION_PREFERENCE: Record<keyof NotificationPreferences, string> = {
+  task_assigned: "Nouvelle tâche assignée",
+  task_completed: "Tâche terminée",
+  task_removed: "Retiré d'une tâche",
+  comment: "Nouveau commentaire",
+  mention: "Mention (@)",
+  deadline_reminder: "Rappel d'échéance",
 };
 
 export const getCommentsByTask = (
@@ -383,12 +501,17 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   commentaire: "Commentaire ajouté",
 };
 
+// Une tâche est bloquée si une de ses dépendances n'est pas terminée
+export const isTaskBlocked = (task: Pick<Task, "dependencies">): boolean =>
+  (task.dependencies ?? []).some((d) => d.status !== "terminee");
+
 // ---------- Notifications ----------
 export type AppNotification = {
   id: number;
   type: string;
   title: string;
   message: string | null;
+  link: string | null;
   readAt: string | null;
   createdAt: string;
 };

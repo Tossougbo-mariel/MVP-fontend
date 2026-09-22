@@ -9,6 +9,7 @@ import Cropper from "react-easy-crop";
 import { Sparkles, Eye, EyeOff, Camera, User, X, ZoomIn, CheckCircle2, ArrowLeft } from "lucide-react";
 import AuthCard from "../components/AuthCard";
 import { useAuthStore } from "@/app/store/authStore";
+import CustomSlider from "@/app/(app)/components/CustomSlider";
 
 type CropperArea = { x: number; y: number; width: number; height: number };
 
@@ -535,14 +536,12 @@ function InscriptionContent() {
             <div className="px-5 py-4 space-y-4">
               <div className="flex items-center gap-3">
                 <ZoomIn size={18} style={{ color: "var(--text-secondary)" }} />
-                <input
-                  type="range"
+                <CustomSlider
+                  value={zoom}
+                  onChange={setZoom}
                   min={1}
                   max={3}
                   step={0.1}
-                  value={zoom}
-                  onChange={(e) => setZoom(Number(e.target.value))}
-                  className="flex-1"
                 />
               </div>
               <div className="flex justify-end gap-3">

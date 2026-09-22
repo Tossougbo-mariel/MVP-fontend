@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
 import Cropper from "react-easy-crop";
@@ -11,7 +11,10 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
-import { userAgencies, userRoleInAgency, type MyTask } from "@/lib/types";
+import CustomSelectField from "@/app/(app)/components/CustomSelectField";
+import CustomSlider from "@/app/(app)/components/CustomSlider";
+import { userAgencies, userRoleInAgency, DEFAULT_NOTIFICATION_PREFERENCES, LABEL_NOTIFICATION_PREFERENCE, type MyTask, type NotificationPreferences } from "@/lib/types";
+import { fetchNotificationPreferences, updateNotificationPreferences, getApiErrorMessage } from "@/lib/services";
 import AvatarViewer from "@/app/(app)/components/AvatarViewer";
 
 const container: Variants = {
@@ -35,6 +38,12 @@ type InfosPersonnelles = {
 type CropperArea = { x: number; y: number; width: number; height: number };
 
 type TacheStatus = "Assignée" | "Terminée" | "En retard";
+
+const ROLE_LABEL: Record<"owner" | "admin" | "membre", string> = {
+  owner: "Propriétaire",
+  admin: "Administrateur",
+  membre: "Membre",
+};
 
 const STATUS_STYLE: Record<TacheStatus, React.CSSProperties> = {
   "Assignée": { background: "rgba(5,108,242,0.15)", color: "#0c79f2" },
@@ -160,7 +169,8 @@ export default function ProfilPage() {
     const roles = myAgencies.map((a) => userRoleInAgency(a, user.email));
     if (roles.includes("owner")) return "owner";
     if (roles.includes("admin")) return "admin";
-    return "membre";
+    if (roles.includes("membre")) return "membre";
+    return null;
   })();
   const displayRole = contextRole ?? fallbackRole;
 
@@ -181,7 +191,7 @@ export default function ProfilPage() {
     email: user?.email ?? "",
     phone: user?.phone ?? "",
     city: user?.city ?? "",
-    jobTitle: user?.jobTitle ?? (displayRole ? (displayRole === "owner" ? "Propriétaire" : displayRole === "admin" ? "Administrateur" : "Membre") : ""),
+    jobTitle: user?.jobTitle ?? (displayRole ? ROLE_LABEL[displayRole] : ""),
     bio: user?.bio ?? "",
   });
   const [draft, setDraft] = useState<InfosPersonnelles>(infos);
@@ -197,7 +207,36 @@ export default function ProfilPage() {
   const [cropping, setCropping] = useState(false);
 
   const [language, setLanguage] = useState("fr");
-  const [notifEnabled, setNotifEnabled] = useState(true);
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
+  const [notifPrefsError, setNotifPrefsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchNotificationPreferences()
+      .then((prefs) => {
+        if (active) setNotifPrefs({ ...DEFAULT_NOTIFICATION_PREFERENCES, ...prefs });
+      })
+      .catch(() => {
+        if (active) setNotifPrefsError("Impossible de charger vos préférences de notifications.");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const toggleNotifPref = async (key: keyof NotificationPreferences) => {
+    const previous = notifPrefs;
+    const next = { ...notifPrefs, [key]: !notifPrefs[key] };
+    setNotifPrefs(next);
+    setNotifPrefsError(null);
+    try {
+      const saved = await updateNotificationPreferences({ [key]: next[key] });
+      setNotifPrefs({ ...DEFAULT_NOTIFICATION_PREFERENCES, ...saved });
+    } catch (err) {
+      setNotifPrefs(previous);
+      setNotifPrefsError(getApiErrorMessage(err));
+    }
+  };
 
   const startEdit = () => {
     setDraft(infos);
@@ -340,7 +379,7 @@ export default function ProfilPage() {
                     style={{ background: "var(--gradient-button)", boxShadow: "0 4px 10px -4px rgba(37,99,235,0.4)" }}
                   >
                     <ShieldCheck size={13} />{" "}
-                    {displayRole === "owner" ? "Propriétaire" : displayRole === "admin" ? "Administrateur" : "Membre"}
+                    {ROLE_LABEL[displayRole]}
                   </span>
                 )}
               </div>
@@ -592,34 +631,48 @@ export default function ProfilPage() {
                 <label className="text-xs uppercase tracking-wide block mb-1" style={{ color: "var(--text-secondary)" }}>
                   Langue
                 </label>
-                <select
+                <CustomSelectField
                   value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  className="w-full rounded-xl px-4 py-3 focus:outline-none"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
-                >
-                  <option value="fr">Français</option>
-                  <option value="en">English</option>
-                </select>
+                  onChange={setLanguage}
+                  options={[
+                    { value: "fr", label: "Français" },
+                    { value: "en", label: "English" },
+                  ]}
+                  className="w-full"
+                  ariaLabel="Langue"
+                />
               </div>
-              <button
-                onClick={() => setNotifEnabled((n) => !n)}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-xl"
-                style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
-              >
+              <div className="space-y-2">
                 <span className="text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
                   <Bell size={15} style={{ color: "var(--text-secondary)" }} /> Notifications
                 </span>
-                <span
-                  className="w-10 h-6 rounded-full relative transition-colors"
-                  style={{ background: notifEnabled ? "var(--gradient-button)" : "var(--border-subtle)" }}
-                >
-                  <span
-                    className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all"
-                    style={{ left: notifEnabled ? "19px" : "2px", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }}
-                  />
-                </span>
-              </button>
+                {(Object.keys(LABEL_NOTIFICATION_PREFERENCE) as (keyof NotificationPreferences)[]).map((key) => (
+                  <button
+                    key={key}
+                    onClick={() => toggleNotifPref(key)}
+                    className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl"
+                    style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
+                  >
+                    <span className="text-sm" style={{ color: "var(--text-primary)" }}>
+                      {LABEL_NOTIFICATION_PREFERENCE[key]}
+                    </span>
+                    <span
+                      className="w-10 h-6 rounded-full relative transition-colors shrink-0"
+                      style={{ background: notifPrefs[key] ? "var(--gradient-button)" : "var(--border-subtle)" }}
+                    >
+                      <span
+                        className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all"
+                        style={{ left: notifPrefs[key] ? "19px" : "2px", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }}
+                      />
+                    </span>
+                  </button>
+                ))}
+                {notifPrefsError && (
+                  <p className="text-xs font-semibold" style={{ color: "var(--color-error)" }}>
+                    {notifPrefsError}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </motion.div>
@@ -655,14 +708,12 @@ export default function ProfilPage() {
             <div className="px-5 py-4 space-y-4">
               <div className="flex items-center gap-3">
                 <ZoomIn size={18} style={{ color: "var(--text-secondary)" }} />
-                <input
-                  type="range"
+                <CustomSlider
+                  value={zoom}
+                  onChange={setZoom}
                   min={1}
                   max={3}
                   step={0.1}
-                  value={zoom}
-                  onChange={(e) => setZoom(Number(e.target.value))}
-                  className="flex-1"
                 />
               </div>
               <div className="flex justify-end gap-3">

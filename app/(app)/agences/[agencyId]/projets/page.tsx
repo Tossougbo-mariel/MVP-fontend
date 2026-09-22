@@ -10,13 +10,20 @@ import {
   ArrowLeft,
   LayoutGrid,
   MoreHorizontal,
+  Download,
+  Archive,
+  ArchiveRestore,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useState } from "react";
 import { useAppData } from "@/lib/appData";
-import { userRoleInAgency, getProjectStatusFromTasks, getProjectProgress, memberDisplayName, memberInitials, type ProjectStatus } from "@/lib/types";
+import { userRoleInAgency, getProjectStatusFromTasks, getProjectProgress, memberDisplayName, memberInitials, hasRight, DEFAULT_AGENCY_SETTINGS, type ProjectStatus, type Project } from "@/lib/types";
 import { useAuthStore } from "@/app/store/authStore";
 import { getWallpaperBg } from "@/app/store/wallpapers";
+import ConfirmDialog from "@/app/(app)/components/ConfirmDialog";
+import { updateProject as apiUpdateProject, deleteProject as apiDeleteProject, downloadAgencyTasksCsv, getApiErrorMessage } from "@/lib/services";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -60,8 +67,52 @@ export default function ProjetsPage() {
 
   const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
   const isAdmin = role === "owner" || role === "admin";
+  const canCreateProjects = hasRight(agency, user?.email ?? "", "createProjects");
 
-  const visibleProjects = agency ? projectsByAgency(agencyId) : [];
+  // Vue par défaut configurée dans les paramètres de l'agence.
+  // Le Kanban reste la seule vue accessible aux membres ; les admins
+  // disposent en plus de la page projet (grille/liste).
+  const defaultTaskView = agency?.settings?.defaultTaskView ?? DEFAULT_AGENCY_SETTINGS.defaultTaskView;
+  const projectHref = (id: number) =>
+    defaultTaskView !== "kanban" && isAdmin
+      ? `/agences/${agencyId}/projets/${id}`
+      : `/agences/${agencyId}/projets/${id}/kanban`;
+
+  const [showArchivedOnly, setShowArchivedOnly] = useState(false);
+  const [projectBusyId, setProjectBusyId] = useState<number | null>(null);
+  const [confirmDeleteProjectId, setConfirmDeleteProjectId] = useState<number | null>(null);
+
+  const allProjects = agency ? projectsByAgency(agencyId) : [];
+  const visibleProjects = showArchivedOnly
+    ? allProjects.filter((p) => p.status === "archive")
+    : allProjects;
+  const archivedCount = allProjects.filter((p) => p.status === "archive").length;
+
+  const handleRestoreProject = async (p: Project) => {
+    setProjectBusyId(p.id);
+    try {
+      await apiUpdateProject(p.id, { status: "en_cours" });
+      await reload();
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    } finally {
+      setProjectBusyId(null);
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    if (confirmDeleteProjectId === null) return;
+    setProjectBusyId(confirmDeleteProjectId);
+    try {
+      await apiDeleteProject(confirmDeleteProjectId);
+      await reload();
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    } finally {
+      setProjectBusyId(null);
+      setConfirmDeleteProjectId(null);
+    }
+  };
 
   if (data.loading) {
     return (
@@ -135,16 +186,46 @@ export default function ProjetsPage() {
           <p className="flex items-center gap-1.5 mt-1" style={{ color: "var(--text-secondary)" }}>
             {visibleProjects.length} projet{visibleProjects.length > 1 ? "s" : ""} dans {agency.name}
           </p>
+          {archivedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowArchivedOnly((v) => !v)}
+              className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+              style={
+                showArchivedOnly
+                  ? { background: "#b45309", color: "#fff" }
+                  : { background: "var(--hover-soft)", color: "var(--text-secondary)" }
+              }
+            >
+              <Archive size={13} />
+              {showArchivedOnly ? "Tous les projets" : `Archivés (${archivedCount})`}
+            </button>
+          )}
         </div>
 
-        {isAdmin && (
-          <Link
-            href={`/agences/${agencyId}/projets/nouveauProjet`}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 self-start sm:self-auto"
-            style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
-          >
-            <Plus size={16} /> Nouveau projet
-          </Link>
+        {canCreateProjects && (
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              onClick={async () => {
+                try {
+                  await downloadAgencyTasksCsv(agencyId);
+                } catch (err) {
+                  alert(getApiErrorMessage(err));
+                }
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-transform hover:scale-105"
+              style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+            >
+              <Download size={16} /> Export CSV
+            </button>
+            <Link
+              href={`/agences/${agencyId}/projets/nouveauProjet`}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
+              style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+            >
+              <Plus size={16} /> Nouveau projet
+            </Link>
+          </div>
         )}
       </motion.div>
 
@@ -158,10 +239,12 @@ export default function ProjetsPage() {
             <LayoutGrid className="w-7 h-7" style={{ color: "var(--accent-text)" }} />
           </div>
           <p className="font-bold" style={{ color: "var(--text-primary)" }}>
-            Aucun projet pour le moment
+            {showArchivedOnly ? "Aucun projet archivé" : "Aucun projet pour le moment"}
           </p>
           <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-            {isAdmin
+            {showArchivedOnly
+              ? "Les projets archivés apparaîtront ici pour être restaurés."
+              : isAdmin
               ? "Créez votre premier projet pour commencer à structurer le travail."
               : "Les projets auxquels vous êtes assigné apparaîtront ici."}
           </p>
@@ -201,9 +284,9 @@ export default function ProjetsPage() {
                 >
                   {/* Lien vers le Kanban du projet — cliquable pour tout le monde */}
                   <Link
-                    href={`/agences/${agencyId}/projets/${p.id}/kanban`}
+                    href={projectHref(p.id)}
                     className="absolute inset-0 rounded-2xl"
-                    aria-label={`Voir le Kanban du projet ${p.name}`}
+                    aria-label={`Voir le projet ${p.name}`}
                   />
 
                   {/* Fond de couverture : le wallpaper choisi s'affiche au-dessus de la progression,
@@ -285,15 +368,45 @@ export default function ProjetsPage() {
                         {owner ? memberDisplayName(owner) : p.ownerId ? `Utilisateur #${p.ownerId}` : "Responsable inconnu"}
                       </span>
                     </div>
-                    {isAdmin && (
-                      <Link
-                        href={`/agences/${agencyId}/projets/${p.id}`}
-                        title="Gérer le projet (admin)"
-                        className="relative p-2 rounded-lg transition-all hover:bg-[var(--hover-soft)] shrink-0"
-                      >
-                        <MoreHorizontal size={18} style={{ color: "var(--text-secondary)" }} />
-                      </Link>
-                    )}
+                    {isAdmin ? (
+                      p.status === "archive" ? (
+                        <div className="relative z-10 flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => handleRestoreProject(p)}
+                            disabled={projectBusyId === p.id}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors disabled:opacity-60"
+                            style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}
+                          >
+                            <ArchiveRestore size={12} />
+                            {projectBusyId === p.id ? "…" : "Restaurer"}
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteProjectId(p.id)}
+                            disabled={projectBusyId === p.id}
+                            title="Supprimer définitivement"
+                            className="p-1.5 rounded-lg transition-colors disabled:opacity-60"
+                            style={{ background: "var(--color-danger-soft)", color: "var(--color-error)" }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                          <Link
+                            href={`/agences/${agencyId}/projets/${p.id}`}
+                            title="Gérer le projet (admin)"
+                            className="p-2 rounded-lg transition-all hover:bg-[var(--hover-soft)]"
+                          >
+                            <MoreHorizontal size={18} style={{ color: "var(--text-secondary)" }} />
+                          </Link>
+                        </div>
+                      ) : (
+                        <Link
+                          href={`/agences/${agencyId}/projets/${p.id}`}
+                          title="Gérer le projet (admin)"
+                          className="relative p-2 rounded-lg transition-all hover:bg-[var(--hover-soft)] shrink-0"
+                        >
+                          <MoreHorizontal size={18} style={{ color: "var(--text-secondary)" }} />
+                        </Link>
+                      )
+                    ) : null}
                   </div>
                 </div>
               </motion.div>
@@ -301,6 +414,19 @@ export default function ProjetsPage() {
           })}
         </motion.div>
       )}
+      <ConfirmDialog
+        open={confirmDeleteProjectId !== null}
+        title="Supprimer définitivement ?"
+        message={
+          confirmDeleteProjectId !== null
+            ? `Ce projet et toutes ses tâches, sous-tâches, fichiers et commentaires seront définitivement supprimés. Cette action est irréversible.`
+            : ""
+        }
+        confirmLabel="Supprimer"
+        tone="danger"
+        onConfirm={handleDeleteProject}
+        onCancel={() => setConfirmDeleteProjectId(null)}
+      />
     </motion.div>
   );
 }

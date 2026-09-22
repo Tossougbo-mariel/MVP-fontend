@@ -6,26 +6,42 @@ import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
 import {
   ArrowLeft,
+  Archive,
+  ArchiveRestore,
   CalendarClock,
+  Check,
+  CheckSquare,
   FolderKanban,
+  Lock,
   Plus,
   Save,
+  Tags,
+  Trash2,
   UserRound,
   X,
 } from "lucide-react";
 import { useAppData, useAsync } from "@/lib/appData";
+import DatePickerField from "@/app/(app)/components/DatePickerField";
+import CustomSelectField from "@/app/(app)/components/CustomSelectField";
+import ConfirmDialog from "@/app/(app)/components/ConfirmDialog";
 import {
   userRoleInAgency,
   getProjectStatusFromTasks,
+  isTaskBlocked,
   type ProjectStatus,
+  type Task,
   type TaskPriority,
   type TaskStatus,
 } from "@/lib/types";
 import { useAuthStore } from "@/app/store/authStore";
 import {
   fetchProjectMembers,
+  fetchAgencyTags,
   createTask as apiCreateTask,
   updateTaskStatus as apiUpdateTaskStatus,
+  bulkUpdateTasks as apiBulkUpdateTasks,
+  restoreTask as apiRestoreTask,
+  deleteTask as apiDeleteTask,
   getApiErrorMessage,
 } from "@/lib/services";
 import { getWallpaperBg } from "@/app/store/wallpapers";
@@ -87,7 +103,7 @@ export default function ProjectKanbanPage() {
   const { agencyId, projectId } = useParams<{ agencyId: string; projectId: string }>();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const { reload, agencyById, getProject, tasksByProject, data } = useAppData();
+  const { refresh, agencyById, getProject, tasksByProject, data } = useAppData();
 
   const agency = agencyById(agencyId);
   const project = getProject(projectId);
@@ -98,6 +114,12 @@ export default function ProjectKanbanPage() {
   // Members du projet via API
   const membersResult = useAsync(() => fetchProjectMembers(projectId), [projectId]);
   const projectMembers = membersResult.data ?? [];
+  const tagsResult = useAsync(() => fetchAgencyTags(agencyId), [agencyId]);
+  const agencyTags = tagsResult.data ?? [];
+  const [activeTagIds, setActiveTagIds] = useState<number[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
+  const [restoreBusyId, setRestoreBusyId] = useState<number | null>(null);
+  const [confirmingDeleteTask, setConfirmingDeleteTask] = useState<Task | null>(null);
 
   // ====== Drag & drop ======
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -117,6 +139,31 @@ export default function ProjectKanbanPage() {
   const [taskFieldErrors, setTaskFieldErrors] = useState<Record<string, string>>({});
   const [taskApiError, setTaskApiError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // ====== Actions groupées ======
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  // ====== Blocage « Terminée » ======
+  const [forceConfirm, setForceConfirm] = useState<{
+    kind: "task" | "bulk";
+    taskId?: string;
+    targetStatus?: TaskStatus;
+    payload?: { status?: TaskStatus; priority?: TaskPriority; assigned_to?: number | null; add_tag_ids?: number[] };
+    message?: string;
+  } | null>(null);
+
+  const toggleSelected = (taskId: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(taskId) ? prev.filter((id) => id !== taskId) : [...prev, taskId],
+    );
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds([]);
+  };
 
   if (data.loading) {
     return (
@@ -206,7 +253,20 @@ export default function ProjectKanbanPage() {
   }
 
   const projectTasks = tasksByProject(project.id);
-  const badge = statusConfig[getProjectStatusFromTasks(project.status, projectTasks)];
+  const archivedTasks = project
+    ? data.tasks.filter(
+        (t) => Number(t.projectId) === Number(project.id) && !!t.archivedAt,
+      )
+    : [];
+  const visibleTasks =
+    activeTagIds.length === 0
+      ? projectTasks
+      : projectTasks.filter((t) => t.tags.some((tg) => activeTagIds.includes(tg.id)));
+  const effectiveProjectTasks = projectTasks.map((t) => ({
+    ...t,
+    status: localStatuses[String(t.id)] ?? t.status,
+  })) as Task[];
+  const badge = statusConfig[getProjectStatusFromTasks(project.status, effectiveProjectTasks)];
   const wallpaperSrc = getWallpaperBg(project.wallpaper);
 
   // Map email→membre pour afficher l'assigné sur les cartes
@@ -232,14 +292,31 @@ export default function ProjectKanbanPage() {
     try {
       await apiUpdateTaskStatus(taskId, targetStatus);
       // Synchronisation lente en arrière-plan (non bloquante) pour les compteurs/badges du projet.
-      void reload();
-    } catch {
+      void refresh();
+    } catch (err) {
       // Rollback visuel en cas d'échec.
-      setLocalStatuses((prev) => {
-        const next = { ...prev };
-        delete next[taskId];
-        return next;
-      });
+      const rollback = () =>
+        setLocalStatuses((prev) => {
+          const next = { ...prev };
+          delete next[taskId];
+          return next;
+        });
+      const d = (err as any)?.response?.data;
+      if (d?.requires_force) {
+        rollback();
+        if (isAdmin) {
+          setForceConfirm({
+            kind: "task",
+            taskId,
+            targetStatus,
+            message: d.message || "Cette tâche a des sous-tâches non cochées.",
+          });
+        } else {
+          alert(d.message || "Impossible de terminer : des sous-tâches ne sont pas cochées.");
+        }
+        return;
+      }
+      rollback();
     }
   };
 
@@ -297,12 +374,44 @@ export default function ProjectKanbanPage() {
         start_date: taskStartDate || null,
         due_date: taskDueDate || null,
       });
-      await reload();
+      await refresh();
       setCreating(false);
     } catch (err) {
       setTaskApiError(getApiErrorMessage(err));
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const runBulk = async (payload: {
+    status?: TaskStatus;
+    priority?: TaskPriority;
+    assigned_to?: number | null;
+    add_tag_ids?: number[];
+  }) => {
+    if (!project || selectedIds.length === 0) return;
+    setBulkBusy(true);
+    try {
+      await apiBulkUpdateTasks(project.id, { task_ids: selectedIds, ...payload });
+      await refresh();
+      setSelectedIds([]);
+    } catch (err) {
+      const d = (err as any)?.response?.data;
+      if (d?.requires_force) {
+        if (isAdmin) {
+          setForceConfirm({
+            kind: "bulk",
+            payload,
+            message: d.message || "Certaines tâches ont des sous-tâches non cochées.",
+          });
+          return;
+        }
+        alert(d.message || "Impossible de terminer : des sous-tâches ne sont pas cochées.");
+        return;
+      }
+      alert(getApiErrorMessage(err));
+    } finally {
+      setBulkBusy(false);
     }
   };
 
@@ -359,13 +468,86 @@ export default function ProjectKanbanPage() {
               <span className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
                 {projectTasks.length} tâche{projectTasks.length > 1 ? "s" : ""}
               </span>
+              {isAdmin && archivedTasks.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowArchived((v) => !v)}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                  style={
+                    showArchived
+                      ? { background: "#b45309", color: "#fff" }
+                      : { background: "var(--hover-soft)", color: "var(--text-secondary)" }
+                  }
+                >
+                  <Archive size={13} />
+                  {showArchived ? "Masquer l'archive" : `Archivées (${archivedTasks.length})`}
+                </button>
+              )}
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+                  className="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                  style={
+                    selectMode
+                      ? { background: "var(--gradient-button)", color: "#fff" }
+                      : { background: "var(--hover-soft)", color: "var(--text-secondary)" }
+                  }
+                >
+                  <CheckSquare size={13} /> {selectMode ? "Annuler" : "Sélectionner"}
+                </button>
+              )}
             </div>
+
+            {/* Filtres par étiquette */}
+            {agencyTags.length > 0 && (
+              <div
+                className="flex items-center gap-2 flex-wrap rounded-xl px-3 py-2"
+                style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", backdropFilter: "blur(12px)" }}
+              >
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+                  <Tags size={13} /> Filtrer
+                </span>
+                {agencyTags.map((tg) => {
+                  const on = activeTagIds.includes(tg.id);
+                  return (
+                    <button
+                      key={tg.id}
+                      type="button"
+                      onClick={() =>
+                        setActiveTagIds((prev) =>
+                          on ? prev.filter((id) => id !== tg.id) : [...prev, tg.id],
+                        )
+                      }
+                      className="text-[11px] font-semibold px-2.5 py-1 rounded-full transition-all hover:scale-105"
+                      style={
+                        on
+                          ? { background: tg.color, color: "#fff", border: "1px solid transparent" }
+                          : { background: "transparent", color: tg.color, border: `1px solid ${tg.color}66` }
+                      }
+                    >
+                      {tg.name}
+                    </button>
+                  );
+                })}
+                {activeTagIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTagIds([])}
+                    className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                    style={{ color: "var(--text-muted)", background: "var(--hover-soft)" }}
+                  >
+                    Effacer
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Board Kanban — grille 3/2 : Ligne 1 (À faire · En cours · En révision), Ligne 2 (Terminée · Nouvelle tâche) */}
             <div className={`no-scrollbar overflow-x-auto ${wallpaperSrc ? "" : "pb-1"}`}>
               <div className="grid grid-cols-[repeat(3,280px)] gap-3 w-max items-start">
         {KANBAN_COLUMNS.map((col) => {
-          const colTasks = projectTasks.filter(
+          const colTasks = visibleTasks.filter(
             (t) => (localStatuses[String(t.id)] ?? t.status) === col.status
           );
           return (
@@ -416,26 +598,50 @@ export default function ProjectKanbanPage() {
                     return (
                       <div
                         key={task.id}
-                        draggable={canDrag}
+                        draggable={canDrag && !selectMode}
                         onDragStart={(e) => {
                           e.dataTransfer.setData("text/plain", String(task.id));
                           setDraggingId(String(task.id));
                         }}
                         onDragEnd={() => setDraggingId(null)}
-                        onClick={() => openTaskDetail(String(task.id))}
+                        onClick={() =>
+                          selectMode ? toggleSelected(task.id) : openTaskDetail(String(task.id))
+                        }
                         className="rounded-lg p-2.5 flex flex-col gap-2 transition-all hover:opacity-95"
                         style={{
                           background: "var(--card-bg)",
-                          border: draggingId === String(task.id) ? "1px solid var(--accent-text)" : "1px solid var(--border-subtle)",
+                          border:
+                            draggingId === String(task.id)
+                              ? "1px solid var(--accent-text)"
+                              : selectMode && selectedIds.includes(task.id)
+                                ? "2px solid var(--accent-text)"
+                                : "1px solid var(--border-subtle)",
                           boxShadow: "var(--shadow-card)",
                           opacity: draggingId === String(task.id) ? 0.5 : 1,
-                          cursor: canDrag ? "grab" : "pointer",
+                          cursor: selectMode ? "pointer" : canDrag ? "grab" : "pointer",
                         }}
-                        title={canDrag ? "Cliquer pour les détails — glisser pour changer de colonne" : "Déplacement réservé à l'assigné ou à l'admin — cliquer pour les détails"}
+                        title={
+                          selectMode
+                            ? "Cliquer pour sélectionner"
+                            : canDrag
+                              ? "Cliquer pour les détails — glisser pour changer de colonne"
+                              : "Déplacement réservé à l'assigné ou à l'admin — cliquer pour les détails"
+                        }
                       >
                         {/* Titre + badge priorité compact */}
                         <div className="flex items-start justify-between gap-2">
-                          <span className="text-sm font-semibold leading-snug" style={{ color: "var(--text-primary)" }}>
+                          {selectMode && (
+                            <span
+                              className="shrink-0 w-4 h-4 rounded flex items-center justify-center mt-0.5"
+                              style={{
+                                background: selectedIds.includes(task.id) ? "var(--accent-text)" : "transparent",
+                                border: "1.5px solid var(--accent-text)",
+                              }}
+                            >
+                              {selectedIds.includes(task.id) && <Check size={11} color="#fff" />}
+                            </span>
+                          )}
+                          <span className="text-sm font-semibold leading-snug flex-1" style={{ color: "var(--text-primary)" }}>
                             {task.title}
                           </span>
                           <span
@@ -446,10 +652,41 @@ export default function ProjectKanbanPage() {
                           </span>
                         </div>
 
+                        {isTaskBlocked(task) && (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="inline-flex items-center gap-1 text-[9px] font-bold" style={{ color: "var(--color-error)" }}>
+                              <Lock size={10} /> Bloquée
+                            </span>
+                          </div>
+                        )}
+
                         {task.description && (
                           <p className="text-xs line-clamp-2" style={{ color: "var(--text-secondary)" }}>
                             {task.description}
                           </p>
+                        )}
+
+                        {task.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {task.tags.map((tg) => (
+                              <span
+                                key={tg.id}
+                                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-semibold whitespace-nowrap"
+                                style={{
+                                  background: "var(--surface)",
+                                  border: "1px solid var(--border-subtle)",
+                                  borderLeft: `3px solid ${tg.color}`,
+                                  color: "var(--text-secondary)",
+                                }}
+                              >
+                                <span
+                                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                                  style={{ background: tg.color }}
+                                />
+                                {tg.name}
+                              </span>
+                            ))}
+                          </div>
                         )}
 
                         {/* Bas de carte : échéance à gauche, avatar à droite */}
@@ -506,6 +743,156 @@ export default function ProjectKanbanPage() {
           </div>
         </div>
       </motion.div>
+
+      {/* Tâches archivées */}
+      {showArchived && archivedTasks.length > 0 && (
+        <motion.div
+          variants={item}
+          className="rounded-2xl p-4 space-y-2"
+          style={{ background: "var(--surface)", border: "1px solid rgba(245,158,11,0.35)", boxShadow: "var(--shadow-card)" }}
+        >
+          <div className="flex items-center gap-2 pb-1">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+              style={{ background: "rgba(245,158,11,0.16)" }}
+            >
+              <Archive className="w-4 h-4" style={{ color: "#b45309" }} />
+            </div>
+            <h2 className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
+              Tâches archivées ({archivedTasks.length})
+            </h2>
+            <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+              Retirées du tableau, elles restent restaurables à tout moment.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+            {archivedTasks.map((t) => (
+              <div
+                key={t.id}
+                className="flex items-center justify-between gap-2 rounded-xl px-3 py-2.5"
+                style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)" }}
+              >
+                <Link
+                  href={`/agences/${agencyId}/projets/${projectId}/taches/${t.id}`}
+                  className="flex items-center gap-2 min-w-0"
+                >
+                  <span className="truncate text-[13px] font-semibold hover:underline" style={{ color: "var(--text-primary)" }}>
+                    {t.title}
+                  </span>
+                </Link>
+                <div className="flex items-center gap-2 shrink-0">
+                  {t.dueDate && (
+                    <span className="text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>
+                      {formatDate(t.dueDate)}
+                    </span>
+                  )}
+                  <button
+                    onClick={async () => {
+                      setRestoreBusyId(t.id);
+                      try {
+                        await apiRestoreTask(t.id);
+                        await refresh();
+                      } catch (err) {
+                        alert(getApiErrorMessage(err));
+                      } finally {
+                        setRestoreBusyId(null);
+                      }
+                    }}
+                    disabled={restoreBusyId === t.id}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors disabled:opacity-60"
+                    style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}
+                  >
+                    <ArchiveRestore size={12} />
+                    {restoreBusyId === t.id ? "…" : "Restaurer"}
+                  </button>
+                  {isAdmin && (
+                    <button
+                      onClick={() => setConfirmingDeleteTask(t)}
+                      title="Supprimer définitivement"
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-lg transition-colors"
+                      style={{ background: "var(--color-danger-soft)", color: "var(--color-error)" }}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Barre d'actions groupées */}
+      {selectMode && (
+        <motion.div
+          initial={{ y: 80, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-3xl rounded-2xl px-4 py-3 flex items-center gap-2 flex-wrap"
+          style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)", boxShadow: "var(--shadow-card)" }}
+        >
+          <span className="text-sm font-bold shrink-0" style={{ color: "var(--text-primary)" }}>
+            {selectedIds.length} sélectionnée{selectedIds.length > 1 ? "s" : ""}
+          </span>
+
+          <CustomSelectField
+            disabled={bulkBusy || selectedIds.length === 0}
+            placeholder="Statut…"
+            resetAfterChange
+            onChange={(v) => {
+              if (v) runBulk({ status: v as TaskStatus });
+            }}
+            options={KANBAN_COLUMNS.map((c) => ({ value: c.status, label: c.label }))}
+            className="text-xs font-semibold"
+          />
+
+          <CustomSelectField
+            disabled={bulkBusy || selectedIds.length === 0}
+            placeholder="Priorité…"
+            resetAfterChange
+            onChange={(v) => {
+              if (v) runBulk({ priority: v as TaskPriority });
+            }}
+            options={(Object.keys(priorityConfig) as TaskPriority[]).map((p) => ({ value: p, label: priorityConfig[p].label }))}
+            className="text-xs font-semibold"
+          />
+
+          <CustomSelectField
+            disabled={bulkBusy || selectedIds.length === 0}
+            placeholder="Responsable…"
+            resetAfterChange
+            onChange={(v) => {
+              if (v) runBulk({ assigned_to: Number(v) });
+            }}
+            options={projectMembers.map((pm) => ({
+              value: String(pm.user.id),
+              label: `${pm.user.firstName} ${pm.user.lastName}`.trim() || pm.user.name,
+            }))}
+            className="text-xs font-semibold"
+          />
+
+          {agencyTags.length > 0 && (
+          <CustomSelectField
+            disabled={bulkBusy || selectedIds.length === 0}
+            placeholder="+ Étiquette…"
+            resetAfterChange
+            onChange={(v) => {
+              if (v) runBulk({ add_tag_ids: [Number(v)] });
+            }}
+            options={agencyTags.map((tg) => ({ value: String(tg.id), label: tg.name }))}
+            className="text-xs font-semibold"
+          />
+          )}
+
+          <button
+            onClick={exitSelectMode}
+            className="ml-auto text-xs font-semibold px-3 py-2 rounded-lg"
+            style={{ color: "var(--text-muted)" }}
+          >
+            Fermer
+          </button>
+        </motion.div>
+      )}
 
       {/* Modal « Nouvelle tâche » */}
       {creating && (
@@ -571,17 +958,16 @@ export default function ProjectKanbanPage() {
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Date de début
                 </label>
-                <input
-                  type="date"
+                <DatePickerField
                   min={project.startDate || undefined}
                   max={project.dueDate || undefined}
                   value={taskStartDate}
-                  onChange={(e) => {
-                    setTaskStartDate(e.target.value);
+                  onChange={(v) => {
+                    setTaskStartDate(v);
                     clearTaskFieldError("startDate");
                     clearTaskFieldError("dueDate");
                   }}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                  className="w-full"
                   style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 />
                 {taskFieldErrors.startDate && (
@@ -594,16 +980,15 @@ export default function ProjectKanbanPage() {
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Date d&apos;échéance
                 </label>
-                <input
-                  type="date"
+                <DatePickerField
                   min={taskStartDate || project.startDate || undefined}
                   max={project.dueDate || undefined}
                   value={taskDueDate}
-                  onChange={(e) => {
-                    setTaskDueDate(e.target.value);
+                  onChange={(v) => {
+                    setTaskDueDate(v);
                     clearTaskFieldError("dueDate");
                   }}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                  className="w-full"
                   style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 />
                 {taskFieldErrors.dueDate && (
@@ -619,36 +1004,32 @@ export default function ProjectKanbanPage() {
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Priorité
                 </label>
-                <select
+                <CustomSelectField
                   value={taskPriority}
-                  onChange={(e) => setTaskPriority(e.target.value as TaskPriority)}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
-                >
-                  {(Object.keys(priorityConfig) as TaskPriority[]).map((p) => (
-                    <option key={p} value={p}>
-                      {priorityConfig[p].label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setTaskPriority(v as TaskPriority)}
+                  options={(Object.keys(priorityConfig) as TaskPriority[]).map((p) => ({ value: p, label: priorityConfig[p].label }))}
+                  className="w-full"
+                  ariaLabel="Priorité"
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Assignée à
                 </label>
-                <select
+                <CustomSelectField
                   value={taskAssigneeId}
-                  onChange={(e) => setTaskAssigneeId(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
-                >
-                  <option value="">Non assignée</option>
-                  {projectMembers.map((pm) => (
-                    <option key={pm.user.id} value={pm.user.id}>
-                      {pm.user.firstName} {pm.user.lastName}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setTaskAssigneeId(v)}
+                  placeholder="Non assignée"
+                  options={[
+                    { value: "", label: "Non assignée" },
+                    ...projectMembers.map((pm) => ({
+                      value: String(pm.user.id),
+                      label: `${pm.user.firstName} ${pm.user.lastName}`.trim() || pm.user.name,
+                    })),
+                  ]}
+                  className="w-full"
+                  ariaLabel="Assignée à"
+                />
               </div>
             </div>
 
@@ -679,6 +1060,57 @@ export default function ProjectKanbanPage() {
           </motion.form>
         </motion.div>
       )}
+    <ConfirmDialog
+        open={forceConfirm !== null}
+        title="Terminer malgré tout ?"
+        message={forceConfirm?.message ?? ""}
+        confirmLabel="Terminer quand même"
+        onConfirm={async () => {
+          const fc = forceConfirm;
+          if (!fc) return;
+          if (fc.kind === "task" && fc.taskId && fc.targetStatus) {
+            try {
+              await apiUpdateTaskStatus(fc.taskId, fc.targetStatus, { force: true });
+              void refresh();
+            } catch (err) {
+              alert(getApiErrorMessage(err));
+            }
+          } else if (fc.kind === "bulk" && fc.payload) {
+            try {
+              await apiBulkUpdateTasks(project.id, { task_ids: selectedIds, ...fc.payload }, { force: true });
+              await refresh();
+              setSelectedIds([]);
+            } catch (err) {
+              alert(getApiErrorMessage(err));
+            }
+          }
+          setForceConfirm(null);
+        }}
+        onCancel={() => setForceConfirm(null)}
+      />
+      <ConfirmDialog
+        open={confirmingDeleteTask !== null}
+        title="Supprimer définitivement ?"
+        message={
+          confirmingDeleteTask
+            ? `« ${confirmingDeleteTask.title} » et toutes ses données (sous-tâches, fichiers, commentaires) seront définitivement supprimées. Cette action est irréversible.`
+            : ""
+        }
+        confirmLabel="Supprimer"
+        tone="danger"
+        onConfirm={async () => {
+          const t = confirmingDeleteTask;
+          if (!t) return;
+          try {
+            await apiDeleteTask(t.id);
+            void refresh();
+          } catch (err) {
+            alert(getApiErrorMessage(err));
+          }
+          setConfirmingDeleteTask(null);
+        }}
+        onCancel={() => setConfirmingDeleteTask(null)}
+      />
     </motion.div>
   );
 }
