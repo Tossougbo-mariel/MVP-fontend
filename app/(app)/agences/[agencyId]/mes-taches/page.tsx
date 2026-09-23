@@ -325,15 +325,6 @@ export default function MesTachesPage() {
                         : { border: "1px solid var(--border-subtle)" }
                     }
                   />
-                  {active && (
-                    <motion.span
-                      initial={{ scale: 1, opacity: 1 }}
-                      animate={{ scale: [1, 2.2], opacity: [1, 0] }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "easeOut" }}
-                      className="absolute inset-0 rounded-full"
-                      style={{ background: accent }}
-                    />
-                  )}
                 </span>
                 {f.label}
               </button>

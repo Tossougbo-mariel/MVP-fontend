@@ -41,6 +41,7 @@ const MEMBER_AGENCY_ITEMS = [
   { suffix: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { suffix: "mes-taches", label: "Mes tâches", icon: CheckSquare },
   { suffix: "projets", label: "Projets", icon: FolderKanban },
+  { suffix: "equipe", label: "Équipe", icon: Users },
 ];
 
 export default function Sidebar({

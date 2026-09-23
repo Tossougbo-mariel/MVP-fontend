@@ -19,7 +19,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { useAppData } from "@/lib/appData";
-import { userRoleInAgency, getProjectStatusFromTasks, getProjectProgress, memberDisplayName, memberInitials, hasRight, DEFAULT_AGENCY_SETTINGS, type ProjectStatus, type Project } from "@/lib/types";
+import { userRoleInAgency, getProjectStatusFromTasks, getProjectProgress, memberDisplayName, memberInitials, hasRight, type ProjectStatus, type Project } from "@/lib/types";
 import { useAuthStore } from "@/app/store/authStore";
 import { getWallpaperBg } from "@/app/store/wallpapers";
 import ConfirmDialog from "@/app/(app)/components/ConfirmDialog";
@@ -69,14 +69,9 @@ export default function ProjetsPage() {
   const isAdmin = role === "owner" || role === "admin";
   const canCreateProjects = hasRight(agency, user?.email ?? "", "createProjects");
 
-  // Vue par défaut configurée dans les paramètres de l'agence.
-  // Le Kanban reste la seule vue accessible aux membres ; les admins
-  // disposent en plus de la page projet (grille/liste).
-  const defaultTaskView = agency?.settings?.defaultTaskView ?? DEFAULT_AGENCY_SETTINGS.defaultTaskView;
-  const projectHref = (id: number) =>
-    defaultTaskView !== "kanban" && isAdmin
-      ? `/agences/${agencyId}/projets/${id}`
-      : `/agences/${agencyId}/projets/${id}/kanban`;
+  // Cliquer sur un projet ouvre toujours son Kanban.
+  // L'accès à la page de gestion reste disponible via le menu « Gérer le projet (admin) » de la carte.
+  const projectHref = (id: number) => `/agences/${agencyId}/projets/${id}/kanban`;
 
   const [showArchivedOnly, setShowArchivedOnly] = useState(false);
   const [projectBusyId, setProjectBusyId] = useState<number | null>(null);

@@ -85,8 +85,13 @@ export default function ProfilPage() {
     };
   }, [user]);
 
+  useEffect(() => {
+    if (!user) {
+      router.replace("/connexion");
+    }
+  }, [user, router]);
+
   if (!user) {
-    router.replace("/connexion");
     return null;
   }
 

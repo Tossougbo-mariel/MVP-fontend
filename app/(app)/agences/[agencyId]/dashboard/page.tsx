@@ -7,14 +7,14 @@ import {
   ShieldCheck, ListTodo, ArrowLeft, CalendarClock,
   Lightbulb, Award, AlarmClock, Ban, Crown, TrendingUp,
   History, CalendarPlus, Flag, UserRound, MessageSquare, Pencil,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData, useAsync } from "@/lib/appData";
 import { fetchActivity } from "@/lib/services";
-import { userRoleInAgency, type AgencyRole, overdueTasks, ACTIVITY_LABELS } from "@/lib/types";
+import { userRoleInAgency, type AgencyRole, overdueTasks, ACTIVITY_LABELS, getProjectProgress } from "@/lib/types";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -738,7 +738,7 @@ const badPractices = [
 ];
 
 function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: string }) {
-  const { myTasksInAgency } = useAppData();
+  const { myTasksInAgency, projectsByAgency, tasksByProject } = useAppData();
   const myT = myTasksInAgency(agencyId);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -748,6 +748,18 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
     { label: "Terminées", value: myT.filter((t) => t.status === "terminee").length, icon: CheckCircle2, color: "var(--color-success)" },
     { label: "En retard", value: myT.filter((t) => t.status !== "terminee" && t.deadline !== null && t.deadline < today).length, icon: AlertTriangle, color: "var(--color-error)" },
   ];
+
+  // Projets dans lesquels le membre participe (au moins une tâche), non archivés
+  const projectIds = new Set(myT.map((t) => t.projectId));
+  const myProjects = projectsByAgency(agencyId).filter(
+    (p) => p.status !== "archive" && projectIds.has(p.id),
+  );
+
+  const projectStatusInfo: Record<string, { label: string; color: string; bg: string }> = {
+    a_venir: { label: "À venir", color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+    en_cours: { label: "En cours", color: "#056cf2", bg: "rgba(5,108,242,0.12)" },
+    termine: { label: "Terminé", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
+  };
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
@@ -885,15 +897,78 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
       </div>
 
       <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(5,108,242,0.12)" }}>
-            <FolderKanban size={16} style={{ color: "#056cf2" }} />
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(5,108,242,0.12)" }}>
+              <FolderKanban size={16} style={{ color: "#056cf2" }} />
+            </div>
+            <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Vos projets</h2>
           </div>
-          <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Vos projets</h2>
+          <Link
+            href={`/agences/${agencyId}/projets`}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold transition-transform hover:scale-105"
+            style={{ color: "#056cf2" }}
+          >
+            Voir tous <ArrowRight size={13} />
+          </Link>
         </div>
-        <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          Ici s&apos;afficheront les projets auxquels vous participez.
-        </div>
+
+        {myProjects.length === 0 ? (
+          <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            Vous ne participez à aucun projet pour le moment. Vos projets apparaîtront ici dès qu&apos;une
+            tâche vous sera assignée.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {myProjects.slice(0, 4).map((p) => {
+              const info = projectStatusInfo[p.status] ?? projectStatusInfo.en_cours;
+              const progress = getProjectProgress(tasksByProject(p.id));
+              return (
+                <Link
+                  key={p.id}
+                  href={`/agences/${agencyId}/projets/${p.id}/kanban`}
+                  className="block rounded-xl px-4 py-3 transition-colors hover:bg-[var(--hover-soft)]"
+                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>
+                      {p.name}
+                    </span>
+                    <span
+                      className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full"
+                      style={{ background: info.bg, color: info.color }}
+                    >
+                      <FolderKanban size={10} /> {info.label}
+                    </span>
+                  </div>
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <div className="flex-1 h-1.5 rounded-full" style={{ background: "var(--surface)" }}>
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress}%` }}
+                        transition={{ duration: 0.8, ease: "easeOut" }}
+                        className="h-full rounded-full"
+                        style={{ background: "var(--gradient-button)" }}
+                      />
+                    </div>
+                    <span className="text-[11px] font-bold shrink-0" style={{ color: "var(--text-secondary)" }}>
+                      {progress}%
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+            {myProjects.length > 4 && (
+              <Link
+                href={`/agences/${agencyId}/projets`}
+                className="block text-center text-xs font-semibold pt-1 transition-colors hover:opacity-80"
+                style={{ color: "#056cf2" }}
+              >
+                +{myProjects.length - 4} autre{myProjects.length - 4 > 1 ? "s" : ""} projet{myProjects.length - 4 > 1 ? "s" : ""}…
+              </Link>
+            )}
+          </div>
+        )}
       </motion.div>
     </motion.div>
   );
