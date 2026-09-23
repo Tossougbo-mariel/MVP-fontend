@@ -18,7 +18,7 @@ export default function AuthCard({
       <div
         className="absolute -inset-px rounded-3xl"
         style={{
-          background: "conic-gradient(from var(--angle), #056cf2, #589bff, #9dc7ff, #056cf2)",
+          background: "conic-gradient(from var(--angle), var(--blue), var(--blue-mid), var(--blue-light), var(--blue))",
           animation: "border-spin 4s linear infinite",
         }}
       />

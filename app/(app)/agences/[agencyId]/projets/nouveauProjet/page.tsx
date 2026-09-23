@@ -23,6 +23,7 @@ import { userRoleInAgency } from "@/lib/types";
 import { useAuthStore } from "@/app/store/authStore";
 import { createProject as apiCreateProject, addProjectMember, getApiErrorMessage } from "@/lib/services";
 import { WALLPAPERS } from "@/app/store/wallpapers";
+import DatePicker from "@/app/(app)/components/DatePicker";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -228,12 +229,27 @@ export default function NouveauProjetPage() {
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={item}>
-        <h1 className="text-2xl font-black flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-          <FolderKanban className="w-6 h-6" style={{ color: "#056cf2" }} /> Nouveau projet
-        </h1>
-        <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
-          Créer un projet dans {agency.name}. Le statut démarre à « À venir ».
-        </p>
+        <div className="flex items-center gap-4">
+          <div
+            className="w-13 h-13 rounded-2xl flex items-center justify-center shrink-0"
+            style={{
+              width: 52,
+              height: 52,
+              background: "var(--gradient-primary)",
+              boxShadow: "0 10px 26px -8px rgba(var(--blue-rgb),0.55)",
+            }}
+          >
+            <FolderKanban className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
+              Nouveau projet
+            </h1>
+            <p className="mt-0.5 text-sm" style={{ color: "var(--text-secondary)" }}>
+              Créer un projet dans {agency.name}. Le statut démarre à « À venir ».
+            </p>
+          </div>
+        </div>
       </motion.div>
 
       {addResult && (
@@ -322,17 +338,15 @@ export default function NouveauProjetPage() {
             <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
               <Calendar size={14} /> Date de début <span style={{ color: "var(--color-error)" }}>*</span>
             </label>
-            <input
-              type="date"
+            <DatePicker
               value={startDate}
               min={todayISO}
-              onChange={(e) => {
-                setStartDate(e.target.value);
+              onChange={(v) => {
+                setStartDate(v);
                 clearFieldError("startDate");
                 clearFieldError("dueDate");
               }}
-              className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
-              style={inputStyle}
+              className="w-full"
             />
             {fieldErrors.startDate && (
               <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
@@ -344,15 +358,13 @@ export default function NouveauProjetPage() {
             <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
               <CalendarPlus size={14} /> Date d&apos;échéance <span style={{ color: "var(--color-error)" }}>*</span>
             </label>
-            <input
-              type="date"
+            <DatePicker
               value={dueDate}
-              onChange={(e) => {
-                setDueDate(e.target.value);
+              onChange={(v) => {
+                setDueDate(v);
                 clearFieldError("dueDate");
               }}
-              className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
-              style={inputStyle}
+              className="w-full"
             />
             {fieldErrors.dueDate && (
               <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
@@ -438,7 +450,7 @@ export default function NouveauProjetPage() {
                   className="relative rounded-xl overflow-hidden aspect-video transition-all"
                   style={{
                     border: active ? "2px solid var(--accent-text)" : "1px solid var(--input-border)",
-                    boxShadow: active ? "0 6px 16px -6px rgba(5,108,242,0.5)" : undefined,
+                    boxShadow: active ? "0 6px 16px -6px rgba(var(--blue-rgb),0.5)" : undefined,
                   }}
                   title={wp.label}
                 >
@@ -476,7 +488,7 @@ export default function NouveauProjetPage() {
             type="submit"
             disabled={submitting}
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
-            style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+            style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
           >
             <Send size={16} /> {submitting ? "Création…" : "Créer le projet"}
           </button>

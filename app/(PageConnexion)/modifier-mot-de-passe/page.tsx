@@ -2,13 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, type Variants } from "framer-motion";
 import { Lock, Eye, EyeOff, ShieldCheck, KeyRound, CheckCircle2 } from "lucide-react";
 import AuthCard from "../components/AuthCard";
 import MagneticButton from "../components/MagneticButton";
+import { useAuthStore } from "@/app/store/authStore";
 import api, { getApiErrorMessage } from "@/lib/api";
 
 export default function ModifierMotDePassePage() {
+  const router = useRouter();
+  const logout = useAuthStore((s) => s.logout);
   const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -34,7 +38,7 @@ export default function ModifierMotDePassePage() {
     color: "var(--text-primary)",
   };
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.currentTarget.style.borderColor = "#056cf2";
+    e.currentTarget.style.borderColor = "var(--blue)";
     e.currentTarget.style.boxShadow = "0 0 20px var(--glow-pink)";
   };
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -139,10 +143,17 @@ export default function ModifierMotDePassePage() {
                   Votre mot de passe a été mis à jour avec succès.
                 </p>
                 <Link
-                  href="/mon_profil"
+                  href="/connexion"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    void (async () => {
+                      await logout();
+                      router.push("/connexion");
+                    })();
+                  }}
                   className="font-semibold"
                   style={{
-                    backgroundImage: "linear-gradient(135deg, #0c79f2, #056cf2)",
+                    backgroundImage: "linear-gradient(135deg, var(--blue-accent), var(--blue))",
                     backgroundClip: "text",
                     WebkitBackgroundClip: "text",
                     color: "transparent",
@@ -250,7 +261,7 @@ export default function ModifierMotDePassePage() {
                     style={{
                       background: "var(--gradient-button)",
                       backgroundSize: "200% 200%",
-                      boxShadow: "0 10px 30px -10px rgba(5,108,242,0.55)",
+                      boxShadow: "0 10px 30px -10px rgba(var(--blue-rgb),0.55)",
                       animation: "gradient-shift 3s ease infinite",
                       color: "#fff",
                       width: "100%",
@@ -268,10 +279,10 @@ export default function ModifierMotDePassePage() {
                 >
                   Retour à{" "}
                   <Link
-                    href="/mon_profil"
+                    href="/connexion"
                     className="font-semibold"
                     style={{
-                      backgroundImage: "linear-gradient(135deg, #0c79f2, #056cf2)",
+                      backgroundImage: "linear-gradient(135deg, var(--blue-accent), var(--blue))",
                       backgroundClip: "text",
                       WebkitBackgroundClip: "text",
                       color: "transparent",

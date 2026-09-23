@@ -87,7 +87,7 @@ export default function MesAgencesPage() {
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white"
             style={{
               background: "var(--gradient-button)",
-              boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)",
+              boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)",
             }}
           >
             <Plus className="w-5 h-5" />
@@ -119,7 +119,7 @@ export default function MesAgencesPage() {
                   <div className="flex items-center gap-3 min-w-0">
                     <div
                       className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
-                      style={{ background: "var(--gradient-primary)", boxShadow: "0 6px 16px -6px rgba(37,99,235,0.45)" }}
+                      style={{ background: "var(--gradient-primary)", boxShadow: "0 6px 16px -6px rgba(var(--blue-rgb),0.45)" }}
                     >
                       <Building2 className="w-6 h-6 text-white" />
                     </div>
@@ -139,7 +139,7 @@ export default function MesAgencesPage() {
                             : {
                                 background: "var(--gradient-button)",
                                 color: "#fff",
-                                boxShadow: "0 4px 10px -5px rgba(37,99,235,0.45)",
+                                boxShadow: "0 4px 10px -5px rgba(var(--blue-rgb),0.45)",
                               }
                         }
                       >

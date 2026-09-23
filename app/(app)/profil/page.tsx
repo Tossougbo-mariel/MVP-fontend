@@ -7,12 +7,16 @@ import Cropper from "react-easy-crop";
 import {
   User, Mail, Briefcase, Pencil, Save, CheckCircle2, ShieldCheck,
   Globe, Bell, Camera, Calendar, ClipboardList, Building2, ChevronRight, X, ZoomIn,
-  CheckSquare, AlertTriangle, Eye, Plus,
+  CheckSquare, AlertTriangle, Eye, Plus, Palette, ChevronDown, Check,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
 import { userAgencies, userRoleInAgency, type MyTask } from "@/lib/types";
+import { useActiveAgencyId } from "@/lib/useActiveAgencyId";
 import AvatarViewer from "@/app/(app)/components/AvatarViewer";
+import Select from "@/app/(app)/components/Select";
+import { DEFAULT_ACCENT, PRESET_COLORS, toAccentHex } from "@/lib/accentTheme";
+import { applyAccent } from "@/lib/applyAccent";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -146,9 +150,7 @@ export default function ProfilPage() {
 
   // ✅ Agence active : transmise via ?agency= depuis le Header quand on navigue
   // depuis une agence. Sans contexte → rôle agrégé et tâches de toutes les agences.
-  const contextAgencyId = typeof window !== "undefined"
-    ? new URLSearchParams(window.location.search).get("agency")
-    : null;
+  const contextAgencyId = useActiveAgencyId();
   const contextAgency = contextAgencyId ? agencyById(contextAgencyId) : undefined;
   const contextRole: "owner" | "admin" | "membre" | null =
     contextAgency && user ? userRoleInAgency(contextAgency, user.email) : null;
@@ -198,6 +200,7 @@ export default function ProfilPage() {
 
   const [language, setLanguage] = useState("fr");
   const [notifEnabled, setNotifEnabled] = useState(true);
+  const [showThemes, setShowThemes] = useState(false);
 
   const startEdit = () => {
     setDraft(infos);
@@ -222,6 +225,19 @@ export default function ProfilPage() {
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Impossible d'enregistrer les modifications.");
+    }
+  };
+
+  const userAccent = toAccentHex(user?.themeColor);
+
+  const handleAccentSelect = async (hex: string) => {
+    if (!user) return;
+    if (hex.toLowerCase() === userAccent.toLowerCase()) return;
+    applyAccent(hex);
+    try {
+      await updateUser({ themeColor: hex });
+    } catch {
+      setSaveError("Impossible d'enregistrer la couleur d'accent.");
     }
   };
 
@@ -302,7 +318,7 @@ export default function ProfilPage() {
               <div className="relative">
                 <div
                   className={`w-28 h-28 rounded-full flex items-center justify-center overflow-hidden${avatarUrl ? " cursor-pointer" : ""}`}
-                  style={{ background: "var(--gradient-primary)", boxShadow: "0 8px 20px -8px rgba(37,99,235,0.4)" }}
+                  style={{ background: "var(--gradient-primary)", boxShadow: "0 8px 20px -8px rgba(var(--blue-rgb),0.4)" }}
                   onClick={avatarUrl ? () => setViewerOpen(true) : undefined}
                   role={avatarUrl ? "button" : undefined}
                   title={avatarUrl ? "Voir la photo de profil" : undefined}
@@ -320,7 +336,7 @@ export default function ProfilPage() {
                   onClick={() => fileInputRef.current?.click()}
                   aria-label="Changer la photo"
                   className="absolute -bottom-1 -right-1 w-9 h-9 rounded-full flex items-center justify-center text-white"
-                  style={{ background: "var(--gradient-button)", boxShadow: "0 4px 10px -4px rgba(37,99,235,0.4)" }}
+                  style={{ background: "var(--gradient-button)", boxShadow: "0 4px 10px -4px rgba(var(--blue-rgb),0.4)" }}
                 >
                   <Camera className="w-4 h-4" />
                 </button>
@@ -337,7 +353,7 @@ export default function ProfilPage() {
                 {displayRole && (
                   <span
                     className="inline-flex items-center gap-1.5 mt-3 text-xs font-semibold text-white px-3 py-1 rounded-full"
-                    style={{ background: "var(--gradient-button)", boxShadow: "0 4px 10px -4px rgba(37,99,235,0.4)" }}
+                    style={{ background: "var(--gradient-button)", boxShadow: "0 4px 10px -4px rgba(var(--blue-rgb),0.4)" }}
                   >
                     <ShieldCheck size={13} />{" "}
                     {displayRole === "owner" ? "Propriétaire" : displayRole === "admin" ? "Administrateur" : "Membre"}
@@ -366,7 +382,7 @@ export default function ProfilPage() {
               <button
                 onClick={startEdit}
                 className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg text-white"
-                style={{ background: "var(--gradient-button)", boxShadow: "0 4px 12px -4px rgba(37,99,235,0.35)" }}
+                style={{ background: "var(--gradient-button)", boxShadow: "0 4px 12px -4px rgba(var(--blue-rgb),0.35)" }}
               >
                 <Pencil size={14} /> Modifier
               </button>
@@ -392,7 +408,7 @@ export default function ProfilPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="mt-5 inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium text-white"
-              style={{ background: "var(--gradient-button)", boxShadow: "0 6px 16px -6px rgba(37,99,235,0.4)" }}
+              style={{ background: "var(--gradient-button)", boxShadow: "0 6px 16px -6px rgba(var(--blue-rgb),0.4)" }}
             >
               <Save size={16} /> Enregistrer
             </motion.button>
@@ -422,7 +438,7 @@ export default function ProfilPage() {
                 <Link
                   href="/agences/nouvelle"
                   className="inline-flex items-center gap-1.5 text-sm font-semibold"
-                  style={{ color: "#056cf2" }}
+                  style={{ color: "var(--blue)" }}
                 >
                   <Plus size={15} /> Créer une agence
                 </Link>
@@ -592,15 +608,15 @@ export default function ProfilPage() {
                 <label className="text-xs uppercase tracking-wide block mb-1" style={{ color: "var(--text-secondary)" }}>
                   Langue
                 </label>
-                <select
+                <Select
                   value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  className="w-full rounded-xl px-4 py-3 focus:outline-none"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
-                >
-                  <option value="fr">Français</option>
-                  <option value="en">English</option>
-                </select>
+                  onChange={setLanguage}
+                  options={[
+                    { value: "fr", label: "Français" },
+                    { value: "en", label: "English" },
+                  ]}
+                  className="w-full"
+                />
               </div>
               <button
                 onClick={() => setNotifEnabled((n) => !n)}
@@ -620,6 +636,61 @@ export default function ProfilPage() {
                   />
                 </span>
               </button>
+              <div>
+                <button
+                  onClick={() => setShowThemes((s) => !s)}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
+                >
+                  <span className="text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                    <Palette size={15} style={{ color: "var(--text-secondary)" }} /> Thème
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    style={{ color: "var(--text-secondary)", transform: showThemes ? "rotate(180deg)" : "none" }}
+                  />
+                </button>
+                {showThemes && (
+                  <>
+                    <div className="mt-3 grid grid-cols-6 gap-x-1.5 gap-y-2">
+                      {[{ label: `Défaut (${DEFAULT_ACCENT})`, hex: DEFAULT_ACCENT }, ...PRESET_COLORS].map((item) => {
+                        const active = userAccent.toLowerCase() === item.hex.toLowerCase();
+                        return (
+                          <button
+                            key={item.label}
+                            onClick={() => handleAccentSelect(item.hex)}
+                            title={item.label}
+                            aria-label={`Couleur d'accent ${item.label}`}
+                            className="h-9 w-9 justify-self-center rounded-full flex items-center justify-center transition-transform hover:scale-110"
+                            style={{
+                              background: item.hex,
+                              border: active ? "2px solid var(--accent-text)" : "2px solid transparent",
+                              boxShadow: active ? "0 0 0 2px var(--surface), 0 0 0 4px var(--accent-text)" : "none",
+                            }}
+                          >
+                            {active && <Check size={13} style={{ color: "#fff", strokeWidth: 3 }} />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <label
+                      className="mt-4 flex items-center gap-3 rounded-xl px-4 py-3 cursor-pointer"
+                      style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
+                    >
+                      <span className="text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                        <Palette size={15} style={{ color: "var(--text-secondary)" }} /> Couleur personnalisée
+                      </span>
+                      <input
+                        type="color"
+                        value={userAccent}
+                        onChange={(e) => handleAccentSelect(e.target.value)}
+                        aria-label="Couleur personnalisée"
+                        className="ml-auto h-9 w-12 cursor-pointer rounded-lg border-none bg-transparent p-0"
+                      />
+                    </label>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </motion.div>
@@ -677,7 +748,7 @@ export default function ProfilPage() {
                   onClick={handleApplyCrop}
                   disabled={cropping}
                   className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-60"
-                  style={{ background: "var(--gradient-button)", boxShadow: "0 5px 14px -5px rgba(37,99,235,0.4)" }}
+                  style={{ background: "var(--gradient-button)", boxShadow: "0 5px 14px -5px rgba(var(--blue-rgb),0.4)" }}
                 >
                   <CheckCircle2 size={15} /> {cropping ? "Traitement..." : "Valider"}
                 </button>

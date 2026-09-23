@@ -17,6 +17,8 @@ import { useAppData } from "@/lib/appData";
 import { useAuthStore } from "@/app/store/authStore";
 import {
   userRoleInAgency,
+  DEADLINE_META,
+  type TaskDeadlineStatus,
   type TaskPriority,
   type TaskStatus,
 } from "@/lib/types";
@@ -72,6 +74,7 @@ type RowTask = {
   priority: TaskPriority;
   dueDate: string | null;
   assigneeEmail: string | null;
+  deadlineStatus: TaskDeadlineStatus;
 };
 
 export default function MesTachesPage() {
@@ -88,8 +91,6 @@ export default function MesTachesPage() {
 
   const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
   const isAdmin = role === "owner" || role === "admin";
-
-  const today = new Date().toISOString().slice(0, 10);
 
   const projects = projectsByAgency(agencyId);
   const projectNameOf = useCallback(
@@ -108,6 +109,7 @@ export default function MesTachesPage() {
       priority: t.priority,
       dueDate: t.deadline,
       assigneeEmail: user?.email ?? null,
+      deadlineStatus: t.deadlineStatus,
     }));
   }, [myTasksInAgency, agencyId, user]);
 
@@ -122,14 +124,15 @@ export default function MesTachesPage() {
       priority: t.priority,
       dueDate: t.dueDate,
       assigneeEmail: t.assigneeEmail,
+      deadlineStatus: t.deadlineStatus,
     }));
   }, [tasksByAgency, agencyId, projectNameOf]);
 
   const visibleTasks = scope === "all" && isAdmin ? agencyTasks : mineTasks;
 
   const isLate = useCallback(
-    (t: RowTask) => t.status !== "terminee" && !!t.dueDate && t.dueDate < today,
-    [today],
+    (t: RowTask) => t.status !== "terminee" && t.deadlineStatus === "en_retard",
+    [],
   );
 
   const filteredTasks = useMemo(() => {
@@ -215,29 +218,23 @@ export default function MesTachesPage() {
       {/* En-tête */}
       <motion.div variants={item} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
-          <motion.div
-            initial={{ scale: 0.6, opacity: 0, rotate: -8 }}
-            animate={{ scale: 1, opacity: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 220, damping: 16 }}
-            className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
-            style={{ background: "linear-gradient(135deg, #8B5CF6, #3B82F6 55%, #101725)", boxShadow: "0 10px 24px -8px rgba(99,102,241,0.6)" }}
+          <div
+            className="w-13 h-13 rounded-2xl flex items-center justify-center shrink-0"
+            style={{
+              width: 52,
+              height: 52,
+              background: "var(--gradient-primary)",
+              boxShadow: "0 10px 26px -8px rgba(var(--blue-rgb),0.55)",
+            }}
           >
             <CheckSquare className="w-6 h-6 text-white" />
-          </motion.div>
+          </div>
           <div>
-            <h1
-              className="text-2xl font-black leading-none"
-              style={{
-                backgroundImage: "linear-gradient(135deg, #8B5CF6, #3B82F6 55%, #101725)",
-                backgroundClip: "text",
-                WebkitBackgroundClip: "text",
-                color: "transparent",
-              }}
-            >
+            <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
               Mes tâches
             </h1>
-            <p className="mt-1.5 text-sm flex items-center gap-2" style={{ color: "var(--text-secondary)" }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#8B5CF6" }} />
+            <p className="mt-0.5 text-sm flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--blue)" }} />
               {scope === "all"
                 ? `Toutes les tâches de ${agency.name}`
                 : `Vos tâches assignées dans ${agency.name}`}
@@ -255,7 +252,7 @@ export default function MesTachesPage() {
               className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all"
               style={
                 scope === "mine"
-                  ? { background: "var(--gradient-primary)", color: "#fff", boxShadow: "0 6px 14px -6px rgba(5,108,242,0.55)" }
+                  ? { background: "var(--gradient-primary)", color: "#fff", boxShadow: "0 6px 14px -6px rgba(var(--blue-rgb),0.55)" }
                   : { color: "var(--text-secondary)" }
               }
             >
@@ -266,7 +263,7 @@ export default function MesTachesPage() {
               className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all"
               style={
                 scope === "all"
-                  ? { background: "var(--gradient-primary)", color: "#fff", boxShadow: "0 6px 14px -6px rgba(5,108,242,0.55)" }
+                  ? { background: "var(--gradient-primary)", color: "#fff", boxShadow: "0 6px 14px -6px rgba(var(--blue-rgb),0.55)" }
                   : { color: "var(--text-secondary)" }
               }
             >
@@ -345,7 +342,7 @@ export default function MesTachesPage() {
       {/* État vide */}
       {sortedTasks.length === 0 && (
         <motion.div variants={item} className="glass rounded-2xl p-10 text-center" style={{ boxShadow: "var(--shadow-card)" }}>
-          <div className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center mb-5" style={{ background: "var(--gradient-primary)", boxShadow: "0 14px 30px -10px rgba(5,108,242,0.55)" }}>
+          <div className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center mb-5" style={{ background: "var(--gradient-primary)", boxShadow: "0 14px 30px -10px rgba(var(--blue-rgb),0.55)" }}>
             <CheckSquare className="w-8 h-8 text-white" />
           </div>
           <p className="font-bold" style={{ color: "var(--text-primary)" }}>
@@ -388,6 +385,10 @@ export default function MesTachesPage() {
                   const status = statusConfig[task.status];
                   const prio = priorityConfig[task.priority];
                   const late = isLate(task);
+                  const deadlineBadge =
+                    task.deadlineStatus && task.deadlineStatus !== "a_venir"
+                      ? DEADLINE_META[task.deadlineStatus]
+                      : null;
                   const assignee = memberOf(task.assigneeEmail);
 
                   return (
@@ -445,20 +446,30 @@ export default function MesTachesPage() {
 
                       {/* Échéance */}
                       <td className="px-5 py-4 whitespace-nowrap">
-                        {task.dueDate ? (
-                          <span
-                            className="inline-flex items-center gap-1.5 text-xs font-semibold"
-                            style={{ color: late ? "var(--color-error)" : "var(--text-secondary)" }}
-                            title={late ? "En retard" : undefined}
-                          >
-                            <CalendarClock className="w-3.5 h-3.5" />
-                            {formatDate(task.dueDate)}
-                          </span>
-                        ) : (
-                          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                            Sans échéance
-                          </span>
-                        )}
+                        <span className="inline-flex items-center gap-2">
+                          {task.dueDate ? (
+                            <span
+                              className="inline-flex items-center gap-1.5 text-xs font-semibold"
+                              style={{ color: late ? "var(--color-error)" : "var(--text-secondary)" }}
+                              title={late ? "En retard" : undefined}
+                            >
+                              <CalendarClock className="w-3.5 h-3.5" />
+                              {formatDate(task.dueDate)}
+                            </span>
+                          ) : (
+                            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                              Sans échéance
+                            </span>
+                          )}
+                          {deadlineBadge && (
+                            <span
+                              className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full"
+                              style={{ color: deadlineBadge.color, background: deadlineBadge.bg }}
+                            >
+                              {deadlineBadge.label}
+                            </span>
+                          )}
+                        </span>
                       </td>
 
                       {/* Projet */}

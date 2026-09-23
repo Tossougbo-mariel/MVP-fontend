@@ -31,6 +31,8 @@ import {
   getApiErrorMessage,
 } from "@/lib/services";
 import { WALLPAPERS } from "@/app/store/wallpapers";
+import Select from "@/app/(app)/components/Select";
+import DatePicker from "@/app/(app)/components/DatePicker";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -48,7 +50,7 @@ const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: st
     bg: "transparent",
     border: "1px solid var(--border-subtle)",
   },
-  en_cours: { label: "En cours", color: "#056cf2", bg: "var(--accent-soft)" },
+  en_cours: { label: "En cours", color: "var(--blue)", bg: "var(--accent-soft)" },
   termine: { label: "Terminé", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
   archive: {
     label: "Archivé",
@@ -387,7 +389,7 @@ export default function ProjectDetailPage() {
                   <button
                     onClick={openEdit}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5"
-                    style={{ background: "var(--accent-soft)", color: "var(--accent-text)", boxShadow: "0 2px 6px -2px rgba(37,99,235,0.35)" }}
+                    style={{ background: "var(--accent-soft)", color: "var(--accent-text)", boxShadow: "0 2px 6px -2px rgba(var(--blue-rgb),0.35)" }}
                   >
                     <Pencil size={13} /> Modifier
                   </button>
@@ -619,17 +621,17 @@ export default function ProjectDetailPage() {
               <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                 Statut
               </label>
-              <select
-                value={editStatus}
-                onChange={(e) => setEditStatus(e.target.value as ProjectStatus)}
-                className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
-                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
-              >
-                <option value="a_venir">À venir</option>
-                <option value="en_cours">En cours</option>
-                <option value="termine">Terminé</option>
-                <option value="archive">Archivé</option>
-              </select>
+<Select
+                  value={editStatus}
+                  onChange={(v) => setEditStatus(v as ProjectStatus)}
+                  options={[
+                    { value: "a_venir", label: "À venir" },
+                    { value: "en_cours", label: "En cours" },
+                    { value: "termine", label: "Terminé" },
+                    { value: "archive", label: "Archivé" },
+                  ]}
+                  className="w-full"
+                />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -637,17 +639,15 @@ export default function ProjectDetailPage() {
                 <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   <Calendar size={14} /> Date de début
                 </label>
-                <input
-                  type="date"
+                <DatePicker
                   value={editStartDate}
                   min={todayISO}
-                  onChange={(e) => {
-                    setEditStartDate(e.target.value);
+                  onChange={(v) => {
+                    setEditStartDate(v);
                     clearEditFieldError("startDate");
                     clearEditFieldError("dueDate");
                   }}
-                  className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                  className="w-full"
                 />
                 {editFieldErrors.startDate && (
                   <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
@@ -659,15 +659,13 @@ export default function ProjectDetailPage() {
                 <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   <CalendarClock size={14} /> Date d&apos;échéance
                 </label>
-                <input
-                  type="date"
+                <DatePicker
                   value={editDueDate}
-                  onChange={(e) => {
-                    setEditDueDate(e.target.value);
+                  onChange={(v) => {
+                    setEditDueDate(v);
                     clearEditFieldError("dueDate");
                   }}
-                  className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                  className="w-full"
                 />
                 {editFieldErrors.dueDate && (
                   <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
@@ -706,7 +704,7 @@ export default function ProjectDetailPage() {
                       className="relative rounded-xl overflow-hidden aspect-video transition-all"
                       style={{
                         border: active ? "2px solid var(--accent-text)" : "1px solid var(--input-border)",
-                        boxShadow: active ? "0 6px 16px -6px rgba(5,108,242,0.5)" : undefined,
+                        boxShadow: active ? "0 6px 16px -6px rgba(var(--blue-rgb),0.5)" : undefined,
                       }}
                       title={wp.label}
                     >
@@ -743,7 +741,7 @@ export default function ProjectDetailPage() {
                 type="submit"
                 disabled={actionLoading}
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
-                style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+                style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
               >
                 <Save size={16} /> {actionLoading ? "Enregistrement…" : "Enregistrer"}
               </button>

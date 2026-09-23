@@ -8,7 +8,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen app-zone">
       <Sidebar open={open} onClose={() => setOpen(false)} />
       <div className="lg:pl-60 flex min-h-screen flex-col">
         <Header onMenuClick={() => setOpen(true)} />

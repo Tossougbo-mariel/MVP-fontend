@@ -122,7 +122,7 @@ function AcceptInvitationContent() {
               <Link
                 href="/connexion"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
-                style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+                style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
               >
                 <ArrowRight size={16} /> Aller à la connexion
               </Link>
@@ -256,7 +256,7 @@ function AcceptInvitationContent() {
               <Link
                 href={`/inscription?invitation=${token}`}
                 className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-[1.01] active:scale-[0.99]"
-                style={{ background: "var(--gradient-button)", boxShadow: "0 10px 30px -10px rgba(5,108,242,0.55)" }}
+                style={{ background: "var(--gradient-button)", boxShadow: "0 10px 30px -10px rgba(var(--blue-rgb),0.55)" }}
               >
                 Créer mon compte <ArrowRight size={16} />
               </Link>
@@ -282,7 +282,7 @@ function AcceptInvitationContent() {
                 onClick={handleAccept}
                 disabled={processing}
                 className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60"
-                style={{ background: "var(--gradient-button)", boxShadow: "0 10px 30px -10px rgba(5,108,242,0.55)" }}
+                style={{ background: "var(--gradient-button)", boxShadow: "0 10px 30px -10px rgba(var(--blue-rgb),0.55)" }}
               >
                 {processing ? "Traitement..." : (
                   <>

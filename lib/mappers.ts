@@ -11,6 +11,7 @@ export type ApiUser = {
   city: string | null;
   bio: string | null;
   job_title: string | null;
+  theme_color: string | null;
   status: string;
   created_at?: string | null;
   updated_at?: string | null;
@@ -37,6 +38,7 @@ export const apiUserToLocalUser = (u: ApiUser): User => {
     city: u.city ?? undefined,
     bio: u.bio ?? undefined,
     jobTitle: u.job_title ?? undefined,
+    themeColor: u.theme_color ?? undefined,
     createdAt: u.created_at?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
   };
 };

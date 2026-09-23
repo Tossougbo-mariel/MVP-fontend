@@ -17,6 +17,7 @@ import { useAppData, useAsync } from "@/lib/appData";
 import {
   userRoleInAgency,
   getProjectStatusFromTasks,
+  DEADLINE_META,
   type ProjectStatus,
   type TaskPriority,
   type TaskStatus,
@@ -29,6 +30,8 @@ import {
   getApiErrorMessage,
 } from "@/lib/services";
 import { getWallpaperBg } from "@/app/store/wallpapers";
+import Select from "@/app/(app)/components/Select";
+import DatePicker from "@/app/(app)/components/DatePicker";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -46,7 +49,7 @@ const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: st
     bg: "transparent",
     border: "1px solid var(--border-subtle)",
   },
-  en_cours: { label: "En cours", color: "#056cf2", bg: "var(--accent-soft)" },
+  en_cours: { label: "En cours", color: "var(--blue)", bg: "var(--accent-soft)" },
   termine: { label: "Terminé", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
   archive: {
     label: "Archivé",
@@ -71,7 +74,7 @@ const priorityConfig: Record<TaskPriority, { label: string; color: string; bg: s
     bg: "transparent",
     border: "1px solid var(--border-subtle)",
   },
-  moyenne: { label: "Moyenne", color: "#056cf2", bg: "var(--accent-soft)" },
+  moyenne: { label: "Moyenne", color: "var(--blue)", bg: "var(--accent-soft)" },
   haute: { label: "Haute", color: "#d97706", bg: "rgba(245,158,11,0.15)" },
   urgente: { label: "Urgente", color: "var(--color-error)", bg: "rgba(239,68,68,0.12)" },
 };
@@ -420,6 +423,10 @@ export default function ProjectKanbanPage() {
                     const canDrag = canDragTask(task);
                     const assignee = memberById(task.assignedTo);
                     const prio = priorityConfig[task.priority];
+                    const deadlineBadge =
+                      task.deadlineStatus && task.deadlineStatus !== "a_venir"
+                        ? DEADLINE_META[task.deadlineStatus]
+                        : null;
                     return (
                       <div
                         key={task.id}
@@ -457,6 +464,15 @@ export default function ProjectKanbanPage() {
                           <p className="text-xs line-clamp-2" style={{ color: "var(--text-secondary)" }}>
                             {task.description}
                           </p>
+                        )}
+
+                        {deadlineBadge && (
+                          <span
+                            className="inline-flex w-fit items-center text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                            style={{ color: deadlineBadge.color, background: deadlineBadge.bg }}
+                          >
+                            {deadlineBadge.label}
+                          </span>
                         )}
 
                         {/* Bas de carte : échéance à gauche, avatar à droite */}
@@ -578,19 +594,16 @@ export default function ProjectKanbanPage() {
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Date de début *
                 </label>
-                <input
-                  type="date"
-                  required
+                <DatePicker
+                  value={taskStartDate}
                   min={project.startDate || undefined}
                   max={project.dueDate || undefined}
-                  value={taskStartDate}
-                  onChange={(e) => {
-                    setTaskStartDate(e.target.value);
+                  onChange={(v) => {
+                    setTaskStartDate(v);
                     clearTaskFieldError("startDate");
                     clearTaskFieldError("dueDate");
                   }}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                  className="w-full"
                 />
                 {taskFieldErrors.startDate && (
                   <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
@@ -602,18 +615,15 @@ export default function ProjectKanbanPage() {
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Date d&apos;échéance *
                 </label>
-                <input
-                  type="date"
-                  required
+                <DatePicker
+                  value={taskDueDate}
                   min={taskStartDate || project.startDate || undefined}
                   max={project.dueDate || undefined}
-                  value={taskDueDate}
-                  onChange={(e) => {
-                    setTaskDueDate(e.target.value);
+                  onChange={(v) => {
+                    setTaskDueDate(v);
                     clearTaskFieldError("dueDate");
                   }}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                  className="w-full"
                 />
                 {taskFieldErrors.dueDate && (
                   <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
@@ -628,36 +638,32 @@ export default function ProjectKanbanPage() {
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Priorité
                 </label>
-                <select
+                <Select
                   value={taskPriority}
-                  onChange={(e) => setTaskPriority(e.target.value as TaskPriority)}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
-                >
-                  {(Object.keys(priorityConfig) as TaskPriority[]).map((p) => (
-                    <option key={p} value={p}>
-                      {priorityConfig[p].label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setTaskPriority(v as TaskPriority)}
+                  options={(Object.keys(priorityConfig) as TaskPriority[]).map((p) => ({
+                    value: p,
+                    label: priorityConfig[p].label,
+                  }))}
+                  className="w-full"
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Assignée à
                 </label>
-                <select
+                <Select
                   value={taskAssigneeId}
-                  onChange={(e) => setTaskAssigneeId(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
-                >
-                  <option value="">Non assignée</option>
-                  {projectMembers.map((pm) => (
-                    <option key={pm.user.id} value={pm.user.id}>
-                      {pm.user.firstName} {pm.user.lastName}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setTaskAssigneeId}
+                  options={[
+                    { value: "", label: "Non assignée" },
+                    ...projectMembers.map((pm) => ({
+                      value: pm.user.id,
+                      label: `${pm.user.firstName} ${pm.user.lastName}`,
+                    })),
+                  ]}
+                  className="w-full"
+                />
               </div>
             </div>
 
@@ -680,7 +686,7 @@ export default function ProjectKanbanPage() {
                 type="submit"
                 disabled={actionLoading}
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
-                style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+                style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
               >
                 <Save size={16} /> {actionLoading ? "Création…" : "Créer la tâche"}
               </button>

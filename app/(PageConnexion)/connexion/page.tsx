@@ -48,7 +48,7 @@ function ConnexionContent() {
     color: "var(--text-primary)",
   };
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.currentTarget.style.borderColor = "#056cf2";
+    e.currentTarget.style.borderColor = "var(--blue)";
     e.currentTarget.style.boxShadow = "0 0 20px var(--glow-pink)";
   };
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -97,21 +97,21 @@ function ConnexionContent() {
         <div
           className="absolute -top-20 -left-20 w-[480px] h-[480px] rounded-full blur-3xl pointer-events-none"
           style={{
-            background: "radial-gradient(circle, rgba(5,108,242,0.45), transparent 60%)",
+            background: "radial-gradient(circle, rgba(var(--blue-rgb),0.45), transparent 60%)",
             animation: "aurora-breathe 9s ease-in-out infinite",
           }}
         />
         <div
           className="absolute top-1/3 -right-24 w-[420px] h-[420px] rounded-full blur-3xl pointer-events-none"
           style={{
-            background: "radial-gradient(circle, rgba(156,199,255,0.35), transparent 60%)",
+            background: "radial-gradient(circle, rgba(var(--blue-light-rgb),0.35), transparent 60%)",
             animation: "aurora-breathe 11s ease-in-out infinite reverse",
           }}
         />
         <div
           className="absolute bottom-0 left-1/3 w-[380px] h-[380px] rounded-full blur-3xl pointer-events-none"
           style={{
-            background: "radial-gradient(circle, rgba(88,155,255,0.4), transparent 60%)",
+            background: "radial-gradient(circle, rgba(var(--blue-mid-rgb),0.4), transparent 60%)",
             animation: "aurora-breathe 8s ease-in-out infinite",
           }}
         />
@@ -175,7 +175,7 @@ function ConnexionContent() {
               transition={{ duration: 0.6, delay: 0.8, ease: "easeOut" }}
               className="glass rounded-2xl px-5 py-4 flex items-center gap-3"
             >
-              <Rocket className="w-6 h-6" style={{ color: "#056cf2" }} />
+              <Rocket className="w-6 h-6" style={{ color: "var(--blue)" }} />
               <div>
                 <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Livraisons</p>
                 <p className="text-xs" style={{ color: "var(--text-secondary)" }}>en avance</p>
@@ -188,7 +188,7 @@ function ConnexionContent() {
               transition={{ duration: 0.6, delay: 1, ease: "easeOut" }}
               className="glass rounded-2xl px-5 py-4 flex items-center gap-3"
             >
-              <Users className="w-6 h-6" style={{ color: "#9dc7ff" }} />
+              <Users className="w-6 h-6" style={{ color: "var(--blue-light)" }} />
               <div>
                 <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Équipes</p>
                 <p className="text-xs" style={{ color: "var(--text-secondary)" }}>synchronisées</p>
@@ -332,7 +332,7 @@ function ConnexionContent() {
                       style={{
                         background: "var(--gradient-button)",
                         backgroundSize: "200% 200%",
-                        boxShadow: "0 10px 30px -10px rgba(5,108,242,0.55)",
+                        boxShadow: "0 10px 30px -10px rgba(var(--blue-rgb),0.55)",
                         animation: "gradient-shift 3s ease infinite",
                         color: "#fff",
                         width: "100%",
@@ -353,7 +353,7 @@ function ConnexionContent() {
                       href="/inscription"
                       className="font-semibold"
                       style={{
-                        backgroundImage: "linear-gradient(135deg, #0c79f2, #056cf2)",
+                        backgroundImage: "linear-gradient(135deg, var(--blue-accent), var(--blue))",
                         backgroundClip: "text",
                         WebkitBackgroundClip: "text",
                         color: "transparent",

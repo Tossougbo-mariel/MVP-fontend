@@ -27,6 +27,7 @@ import {
   userRoleInAgency,
   getHistoryByTask,
   ACTIVITY_LABELS,
+  DEADLINE_META,
   type TaskPriority,
   type TaskStatus,
   type ProjectMember,
@@ -43,6 +44,8 @@ import {
   deleteTask as apiDeleteTask,
   getApiErrorMessage,
 } from "@/lib/services";
+import Select from "@/app/(app)/components/Select";
+import DatePicker from "@/app/(app)/components/DatePicker";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -86,7 +89,7 @@ const formatDate = (date: string | null) => {
 
 const historyConfig: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
   creation: { label: ACTIVITY_LABELS["creation"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CalendarPlus },
-  changement_statut: { label: ACTIVITY_LABELS["changement_statut"], color: "#056cf2", bg: "var(--accent-soft)", icon: Flag },
+  changement_statut: { label: ACTIVITY_LABELS["changement_statut"], color: "var(--blue)", bg: "var(--accent-soft)", icon: Flag },
   tache_terminee: { label: ACTIVITY_LABELS["tache_terminee"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CheckCircle2 },
   changement_responsable: { label: ACTIVITY_LABELS["changement_responsable"], color: "#7c3aed", bg: "rgba(139,92,246,0.12)", icon: UserRound },
   changement_priorite: { label: ACTIVITY_LABELS["changement_priorite"], color: "#d97706", bg: "rgba(245,158,11,0.15)", icon: Flag },
@@ -401,6 +404,10 @@ export default function TaskDetailPage() {
 
   const statusBadge = statusConfig[task.status];
   const prio = priorityConfig[task.priority];
+  const deadlineMeta =
+    task.deadlineStatus && task.deadlineStatus !== "a_venir"
+      ? DEADLINE_META[task.deadlineStatus]
+      : null;
 
   // En-tête : teinte PLUS PROFONDE que le statut (couleur pure, opaque)
   const STATUS_HEADER_SHADE: Record<string, string> = {
@@ -464,6 +471,38 @@ export default function TaskDetailPage() {
                   >
                     Priorité {prio.label.toLowerCase()}
                   </span>
+                  {deadlineMeta && (
+                    <span
+                      className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                      style={{ color: readableOnWhite(deadlineMeta.color), background: "#fff", border: `1px solid ${deadlineMeta.color}` }}
+                    >
+                      {deadlineMeta.label}
+                    </span>
+                  )}
+                  {task.deadlineStatus && task.deadlineStatus !== "a_venir" && (
+                    <span
+                      className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                      style={{
+                        color: readableOnWhite(DEADLINE_META[task.deadlineStatus].color),
+                        background: "#fff",
+                        border: `1px solid ${DEADLINE_META[task.deadlineStatus].color}`,
+                      }}
+                    >
+                      {DEADLINE_META[task.deadlineStatus].label}
+                    </span>
+                  )}
+                  {task.deadlineStatus && task.deadlineStatus !== "a_venir" && (
+                    <span
+                      className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                      style={{
+                        color: readableOnWhite(DEADLINE_META[task.deadlineStatus].color),
+                        background: "#fff",
+                        border: `1px solid ${DEADLINE_META[task.deadlineStatus].color}`,
+                      }}
+                    >
+                      {DEADLINE_META[task.deadlineStatus].label}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -473,7 +512,7 @@ export default function TaskDetailPage() {
                   <button
                     onClick={openEdit}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5"
-                    style={{ background: "#fff", color: "var(--accent-text)", boxShadow: "0 2px 6px -2px rgba(37,99,235,0.35)" }}
+                    style={{ background: "#fff", color: "var(--accent-text)", boxShadow: "0 2px 6px -2px rgba(var(--blue-rgb),0.35)" }}
                   >
                     <Pencil size={13} /> Modifier
                   </button>
@@ -764,7 +803,7 @@ export default function TaskDetailPage() {
                   <button
                     type="submit"
                     className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white transition-all hover:scale-105"
-                    style={{ background: "var(--gradient-button)", boxShadow: "0 6px 14px -6px rgba(37,99,235,0.4)" }}
+                    style={{ background: "var(--gradient-button)", boxShadow: "0 6px 14px -6px rgba(var(--blue-rgb),0.4)" }}
                   >
                     <Send size={14} /> Envoyer
                   </button>
@@ -778,7 +817,7 @@ export default function TaskDetailPage() {
                   setCommentOpen(true);
                 }}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-transform hover:scale-105"
-                style={{ background: "var(--gradient-button)", boxShadow: "0 6px 14px -6px rgba(37,99,235,0.4)" }}
+                style={{ background: "var(--gradient-button)", boxShadow: "0 6px 14px -6px rgba(var(--blue-rgb),0.4)" }}
               >
                 <MessageSquare size={13} /> Envoyer un commentaire
               </button>
@@ -921,18 +960,16 @@ export default function TaskDetailPage() {
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Date de début *
                 </label>
-                <input
-                  type="date"
+                <DatePicker
+                  value={editStartDate}
                   min={project.startDate || undefined}
                   max={project.dueDate || undefined}
-                  value={editStartDate}
-                  onChange={(e) => {
-                    setEditStartDate(e.target.value);
+                  onChange={(v) => {
+                    setEditStartDate(v);
                     clearEditFieldError("startDate");
                     clearEditFieldError("dueDate");
                   }}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                  className="w-full"
                 />
                 {editFieldErrors.startDate && (
                   <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
@@ -944,17 +981,15 @@ export default function TaskDetailPage() {
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Date d&apos;échéance *
                 </label>
-                <input
-                  type="date"
+                <DatePicker
+                  value={editDueDate}
                   min={editStartDate || project.startDate || undefined}
                   max={project.dueDate || undefined}
-                  value={editDueDate}
-                  onChange={(e) => {
-                    setEditDueDate(e.target.value);
+                  onChange={(v) => {
+                    setEditDueDate(v);
                     clearEditFieldError("dueDate");
                   }}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                  className="w-full"
                 />
                 {editFieldErrors.dueDate && (
                   <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
@@ -969,36 +1004,32 @@ export default function TaskDetailPage() {
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Priorité
                 </label>
-                <select
+                <Select
                   value={editPriority}
-                  onChange={(e) => setEditPriority(e.target.value as TaskPriority)}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
-                >
-                  {(Object.keys(priorityConfig) as TaskPriority[]).map((p) => (
-                    <option key={p} value={p}>
-                      {priorityConfig[p].label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setEditPriority(v as TaskPriority)}
+                  options={(Object.keys(priorityConfig) as TaskPriority[]).map((p) => ({
+                    value: p,
+                    label: priorityConfig[p].label,
+                  }))}
+                  className="w-full"
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Assignée à
                 </label>
-                <select
+                <Select
                   value={editAssignee}
-                  onChange={(e) => setEditAssignee(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
-                >
-                  <option value="">Non assignée</option>
-                  {projectMembers.map((pm) => (
-                    <option key={pm.user.id} value={pm.user.id}>
-                      {pm.user.firstName} {pm.user.lastName}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setEditAssignee}
+                  options={[
+                    { value: "", label: "Non assignée" },
+                    ...projectMembers.map((pm) => ({
+                      value: pm.user.id,
+                      label: `${pm.user.firstName} ${pm.user.lastName}`,
+                    })),
+                  ]}
+                  className="w-full"
+                />
               </div>
             </div>
 
@@ -1021,7 +1052,7 @@ export default function TaskDetailPage() {
                 type="submit"
                 disabled={actionLoading}
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
-                style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+                style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
               >
                 <Save size={16} /> {actionLoading ? "Enregistrement…" : "Enregistrer"}
               </button>
@@ -1127,7 +1158,7 @@ export default function TaskDetailPage() {
                 form="comment-form"
                 onClick={() => setShowCommentPreview(false)}
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white transition-all hover:scale-105"
-                style={{ background: "var(--gradient-button)", boxShadow: "0 6px 14px -6px rgba(37,99,235,0.4)" }}
+                style={{ background: "var(--gradient-button)", boxShadow: "0 6px 14px -6px rgba(var(--blue-rgb),0.4)" }}
               >
                 <Send size={14} /> Envoyer
               </button>

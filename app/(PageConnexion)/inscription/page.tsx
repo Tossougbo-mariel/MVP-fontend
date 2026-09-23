@@ -180,7 +180,7 @@ function InscriptionContent() {
   };
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.currentTarget.style.borderColor = "#056cf2";
+    e.currentTarget.style.borderColor = "var(--blue)";
     e.currentTarget.style.boxShadow = "0 0 20px var(--glow-pink)";
   };
 
@@ -215,7 +215,7 @@ function InscriptionContent() {
           <h2
             className="text-3xl font-bold mb-2"
             style={{
-              backgroundImage: "linear-gradient(135deg, #0c79f2, #056cf2, #589bff)",
+              backgroundImage: "linear-gradient(135deg, var(--blue-accent), var(--blue), var(--blue-mid))",
               backgroundClip: "text",
               WebkitBackgroundClip: "text",
               color: "transparent",
@@ -469,7 +469,7 @@ function InscriptionContent() {
               style={{
                 background: "var(--gradient-button)",
                 backgroundSize: "200% 200%",
-                boxShadow: "0 10px 30px -10px rgba(5,108,242,0.55)",
+                boxShadow: "0 10px 30px -10px rgba(var(--blue-rgb),0.55)",
                 animation: "gradient-shift 3s ease infinite",
               }}
             >
@@ -488,7 +488,7 @@ function InscriptionContent() {
                 href="/connexion"
                 className="font-semibold"
                 style={{
-                  backgroundImage: "linear-gradient(135deg, #0c79f2, #056cf2)",
+                  backgroundImage: "linear-gradient(135deg, var(--blue-accent), var(--blue))",
                   backgroundClip: "text",
                   WebkitBackgroundClip: "text",
                   color: "transparent",
@@ -557,7 +557,7 @@ function InscriptionContent() {
                   onClick={handleApplyCrop}
                   disabled={cropping}
                   className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-60"
-                  style={{ background: "var(--gradient-button)", boxShadow: "0 5px 14px -5px rgba(37,99,235,0.4)" }}
+                  style={{ background: "var(--gradient-button)", boxShadow: "0 5px 14px -5px rgba(var(--blue-rgb),0.4)" }}
                 >
                   <CheckCircle2 size={15} /> {cropping ? "Traitement..." : "Valider"}
                 </button>

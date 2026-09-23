@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion, type Variants } from "framer-motion";
 import {
   FolderKanban, Users, CheckCircle2, Clock, AlertTriangle, Plus,
@@ -11,7 +12,7 @@ import { useParams } from "next/navigation";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData, useAsync } from "@/lib/appData";
 import { fetchActivity } from "@/lib/services";
-import { userRoleInAgency, type AgencyRole, overdueTasks } from "@/lib/types";
+import { userRoleInAgency, type AgencyRole, type Task } from "@/lib/types";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -22,15 +23,18 @@ const item: Variants = {
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
 };
 
-const weeklyReport = [
-  { day: "Lun", value: 3 },
-  { day: "Mar", value: 7 },
-  { day: "Mer", value: 4 },
-  { day: "Jeu", value: 8 },
-  { day: "Ven", value: 6 },
-  { day: "Sam", value: 2 },
-  { day: "Dim", value: 5 },
-];
+const WEEKDAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+
+const buildWeeklyReport = (tasks: Task[]): { day: string; value: number }[] => {
+  const counts = new Array(7).fill(0);
+  for (const t of tasks) {
+    if (t.status !== "terminee" || !t.completedAt) continue;
+    const date = new Date(t.completedAt.includes("T") ? t.completedAt : t.completedAt.replace(" ", "T"));
+    if (Number.isNaN(date.getTime())) continue;
+    counts[(date.getDay() + 6) % 7] += 1;
+  }
+  return WEEKDAYS.map((day, i) => ({ day, value: counts[i] }));
+};
 
 const timeAgo = (iso: string | null | undefined): string => {
   if (!iso) return "";
@@ -144,7 +148,7 @@ function Breadcrumb({ title, agencyName }: { title: string; agencyName: string }
           <li>/</li>
           <li>{agencyName}</li>
           <li>/</li>
-          <li className="font-semibold" style={{ color: "#056cf2" }}>Dashboard</li>
+          <li className="font-semibold" style={{ color: "var(--blue)" }}>Dashboard</li>
         </ol>
       </nav>
     </motion.div>
@@ -201,6 +205,8 @@ function AdminDashboard({
     [agencyId],
   );
 
+  const [showAllActivities, setShowAllActivities] = useState(false);
+
   const members = agency?.members ?? [];
   const totalMembers = members.length;
   const activeMembers = members.filter((m) => m.status === "actif").length;
@@ -210,17 +216,18 @@ function AdminDashboard({
   const agencyProjects = projectsByAgency(agencyId);
   const totalTasks = agencyTasks.length;
   const totalProjects = agencyProjects.length;
-  const overdueCount = overdueTasks(
-    agencyTasks.map((t) => ({ deadline: t.dueDate, status: t.status })),
-  ).length;
+  const overdueCount = agencyTasks.filter((t) => t.deadlineStatus === "en_retard").length;
 
   const taskStatuses = [
-    { label: "À faire", value: agencyTasks.filter((t) => t.status === "a_faire").length, color: "#0c79f2" },
-    { label: "En cours", value: agencyTasks.filter((t) => t.status === "en_cours").length, color: "#056cf2" },
-    { label: "En révision", value: agencyTasks.filter((t) => t.status === "en_revision").length, color: "#589bff" },
+    { label: "À faire", value: agencyTasks.filter((t) => t.status === "a_faire").length, color: "var(--blue-accent)" },
+    { label: "En cours", value: agencyTasks.filter((t) => t.status === "en_cours").length, color: "var(--blue)" },
+    { label: "En révision", value: agencyTasks.filter((t) => t.status === "en_revision").length, color: "var(--blue-mid)" },
     { label: "Terminées", value: agencyTasks.filter((t) => t.status === "terminee").length, color: "var(--color-success)" },
     { label: "En retard", value: overdueCount, color: "var(--color-error)" },
   ];
+
+  const weeklyReport = buildWeeklyReport(agencyTasks);
+  const totalCompleted = weeklyReport.reduce((s, r) => s + r.value, 0);
 
   const maxReport = Math.max(1, ...weeklyReport.map((r) => r.value));
 
@@ -240,14 +247,13 @@ function AdminDashboard({
   } Z`;
   const avg = weeklyReport.reduce((s, r) => s + r.value, 0) / weeklyReport.length;
   const avgY = chartTop + (1 - avg / chartMax) * (chartHeight - chartTop - chartBottom);
-  const doneThisWeek = weeklyReport.reduce((s, r) => s + r.value, 0);
   const deltaPct: number | null = null;
 
   const statCards = [
-    { label: "Total projets", value: String(totalProjects), icon: FolderKanban, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
-    { label: "Total tâches", value: String(totalTasks), icon: ListTodo, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
-    { label: "Membres", value: String(totalMembers), icon: Users, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
-    { label: "En retard", value: String(overdueCount), icon: AlarmClock, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
+    { label: "Total projets", value: String(totalProjects), icon: FolderKanban, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+    { label: "Total tâches", value: String(totalTasks), icon: ListTodo, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+    { label: "Membres", value: String(totalMembers), icon: Users, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+    { label: "En retard", value: String(overdueCount), icon: AlarmClock, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
   ];
 
   return (
@@ -287,9 +293,9 @@ function AdminDashboard({
                 transition={{ type: "spring", stiffness: 240, damping: 15 }}
                 whileHover={{ rotate: 8, scale: 1.1 }}
                 className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: "linear-gradient(135deg, #E8F2FF 0%, #C9DEFF 100%)", border: `1px solid ${s.color}66` }}
+                style={{ background: `linear-gradient(135deg, rgba(var(--blue-rgb),0.12) 0%, rgba(var(--blue-mid-rgb),0.28) 100%)`, border: `1px solid rgba(var(--blue-rgb),0.35)` }}
               >
-                <s.icon className="w-5 h-5" style={{ color: "#2e70d0" }} />
+                <s.icon className="w-5 h-5" style={{ color: "var(--blue)" }} />
               </motion.div>
               <div className="min-w-0">
                 <motion.div
@@ -314,8 +320,8 @@ function AdminDashboard({
           {/* Répartition des tâches */}
           <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(5,108,242,0.12)" }}>
-                <CalendarClock size={16} style={{ color: "#056cf2" }} />
+              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(var(--blue-rgb),0.12)" }}>
+                <CalendarClock size={16} style={{ color: "var(--blue)" }} />
               </div>
               <div>
                 <h2 className="font-bold leading-none" style={{ color: "var(--text-primary)" }}>Tâches par statut</h2>
@@ -359,13 +365,13 @@ function AdminDashboard({
                 style={{ background: "rgba(16,185,129,0.12)", color: "var(--color-success)" }}
               >
                 {deltaPct === null
-                  ? `${doneThisWeek} terminée${doneThisWeek > 1 ? "s" : ""} cette semaine`
+                  ? `${totalCompleted} tâche${totalCompleted > 1 ? "s" : ""} terminée${totalCompleted > 1 ? "s" : ""}`
                   : `${deltaPct >= 0 ? "+" : ""}${deltaPct}% cette semaine`}
               </span>
             </div>
             <div className="mb-4 flex items-center gap-5 text-xs">
               <span className="flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
-                <span className="w-4 h-0.5 rounded-full" style={{ background: "linear-gradient(90deg, #056cf2, #589bff)" }} />
+                <span className="w-4 h-0.5 rounded-full" style={{ background: "linear-gradient(90deg, var(--blue), var(--blue-mid))" }} />
                 Tâches terminées
               </span>
               <span className="flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
@@ -378,13 +384,13 @@ function AdminDashboard({
               <svg viewBox="0 0 640 200" className="w-full h-auto overflow-visible">
                 <defs>
                   <linearGradient id="chartLine" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#0c79f2" />
-                    <stop offset="55%" stopColor="#589bff" />
+                    <stop offset="0%" stopColor="var(--blue-accent)" />
+                    <stop offset="55%" stopColor="var(--blue-mid)" />
                     <stop offset="100%" stopColor="#8b5cf6" />
                   </linearGradient>
                   <linearGradient id="chartArea" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#056cf2" stopOpacity="0.35" />
-                    <stop offset="100%" stopColor="#056cf2" stopOpacity="0.02" />
+                    <stop offset="0%" stopColor="var(--blue)" stopOpacity="0.35" />
+                    <stop offset="100%" stopColor="var(--blue)" stopOpacity="0.02" />
                   </linearGradient>
                 </defs>
 
@@ -418,7 +424,7 @@ function AdminDashboard({
                   stroke="url(#chartLine)"
                   strokeWidth="2.5"
                   strokeLinecap="round"
-                  style={{ filter: "drop-shadow(0 0 6px rgba(5,108,242,0.45))" }}
+                  style={{ filter: "drop-shadow(0 0 6px rgba(var(--blue-rgb),0.45))" }}
                 />
 
                 <line x1="28" y1={avgY} x2="612" y2={avgY} stroke="#7C3AED" strokeDasharray="5 4" strokeWidth="1" opacity="0.7" />
@@ -432,7 +438,7 @@ function AdminDashboard({
                       cx={points[i].x}
                       cy={points[i].y}
                       r="10"
-                      fill="rgba(5,108,242,0.15)"
+                      fill="rgba(var(--blue-rgb),0.15)"
                       className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 cursor-pointer"
                     />
                     <motion.circle
@@ -442,7 +448,7 @@ function AdminDashboard({
                       cx={points[i].x}
                       cy={points[i].y}
                       r="4"
-                      fill="#0c79f2"
+                      fill="var(--blue-accent)"
                       stroke="rgba(255,255,255,0.6)"
                       strokeWidth="1.5"
                       className="cursor-pointer"
@@ -456,7 +462,7 @@ function AdminDashboard({
                       y={points[i].y - 14}
                       fontSize="11"
                       fontWeight="700"
-                      fill="#9dc7ff"
+                      fill="var(--blue-light)"
                     >
                       {r.value}
                     </motion.text>
@@ -492,17 +498,17 @@ function AdminDashboard({
                   Chargement de l&apos;activité…
                 </motion.li>
               ) : activity && activity.length > 0 ? (
-                activity.map((a, i) => (
+                activity.slice(0, showAllActivities ? activity.length : 10).map((a, i) => (
                   <motion.li
                     key={a.id}
                     variants={{ hidden: { opacity: 0, x: -14 }, show: { opacity: 1, x: 0, transition: { duration: 0.4 } } }}
                     whileHover={{ x: 4 }}
                     className="flex items-start gap-3 text-sm"
                   >
-                    <span className="relative w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: "#056cf2" }}>
+                    <span className="relative w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: "var(--blue)" }}>
                       <motion.span
                         className="absolute inset-0 rounded-full"
-                        style={{ background: "#056cf2" }}
+                        style={{ background: "var(--blue)" }}
                         animate={{ scale: [1, 2.2], opacity: [0.6, 0] }}
                         transition={{ duration: 1.8, repeat: Infinity, delay: i * 0.3 }}
                       />
@@ -526,6 +532,21 @@ function AdminDashboard({
                 </motion.li>
               )}
             </motion.ul>
+            {!activityLoading && activity && activity.length > 10 && (
+              <motion.button
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.4 }}
+                onClick={() => setShowAllActivities((v) => !v)}
+                className="mt-4 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                style={{ background: "var(--banner-gradient)", boxShadow: "var(--banner-shadow)" }}
+              >
+                <Activity size={15} />
+                {showAllActivities
+                  ? "Voir moins"
+                  : `Voir toutes les activités (${activity.length})`}
+              </motion.button>
+            )}
           </motion.div>
         </div>
 
@@ -534,8 +555,8 @@ function AdminDashboard({
           {/* Statut de l'équipe */}
           <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(5,108,242,0.12)" }}>
-                <Users size={16} style={{ color: "#056cf2" }} />
+              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(var(--blue-rgb),0.12)" }}>
+                <Users size={16} style={{ color: "var(--blue)" }} />
               </div>
               <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Statut de l&apos;équipe</h2>
             </div>
@@ -595,11 +616,11 @@ function AdminDashboard({
                       <motion.span
                         whileHover={{ rotate: 8, scale: 1.12 }}
                         className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
-                        style={{ background: "rgba(5,108,242,0.12)" }}
+                        style={{ background: "rgba(var(--blue-rgb),0.12)" }}
                       >
-                        <b.icon className="w-4.5 h-4.5" style={{ color: "#056cf2" }} />
+                        <b.icon className="w-4.5 h-4.5" style={{ color: "var(--blue)" }} />
                       </motion.span>
-                      <span className="font-medium text-sm group-hover:text-[#589bff] transition-colors duration-200">{b.label}</span>
+                      <span className="font-medium text-sm group-hover:text-[color:var(--blue-mid)] transition-colors duration-200">{b.label}</span>
                     </Link>
                   </motion.div>
                 ))}
@@ -610,7 +631,7 @@ function AdminDashboard({
           {/* Droits */}
           <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
             <div className="flex items-center gap-2 mb-3">
-              <ShieldCheck className="w-4 h-4" style={{ color: "#056cf2" }} />
+              <ShieldCheck className="w-4 h-4" style={{ color: "var(--blue)" }} />
               <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
                 {isOwner
                   ? "Vue propriétaire — accès complet"
@@ -669,12 +690,11 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
   const { myTasksInAgency } = useAppData();
   const myT = myTasksInAgency(agencyId);
 
-  const today = new Date().toISOString().slice(0, 10);
   const memberTasks = [
-    { label: "À faire", value: myT.filter((t) => t.status === "a_faire").length, icon: CalendarClock, color: "#6ea8ff" },
-    { label: "En cours", value: myT.filter((t) => t.status === "en_cours").length, icon: Clock, color: "#589bff" },
+    { label: "À faire", value: myT.filter((t) => t.status === "a_faire").length, icon: CalendarClock, color: "var(--blue-mid)" },
+    { label: "En cours", value: myT.filter((t) => t.status === "en_cours").length, icon: Clock, color: "var(--blue)" },
     { label: "Terminées", value: myT.filter((t) => t.status === "terminee").length, icon: CheckCircle2, color: "var(--color-success)" },
-    { label: "En retard", value: myT.filter((t) => t.status !== "terminee" && t.deadline !== null && t.deadline < today).length, icon: AlertTriangle, color: "var(--color-error)" },
+    { label: "En retard", value: myT.filter((t) => t.status !== "terminee" && t.deadlineStatus === "en_retard").length, icon: AlertTriangle, color: "var(--color-error)" },
   ];
 
   return (
@@ -697,7 +717,7 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
           >
             <motion.div
               className="absolute inset-0"
-              style={{ background: "linear-gradient(135deg, #E8F2FF 0%, #C9DEFF 100%)", opacity: 0.4 }}
+              style={{ background: "linear-gradient(135deg, rgba(var(--blue-rgb),0.12) 0%, rgba(var(--blue-mid-rgb),0.28) 100%)", opacity: 0.4 }}
               animate={{ opacity: [0.3, 0.5, 0.3] }}
               transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
             />
@@ -708,9 +728,9 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
                 transition={{ type: "spring", stiffness: 240, damping: 15 }}
                 whileHover={{ rotate: 8, scale: 1.1 }}
                 className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: "linear-gradient(135deg, #E8F2FF 0%, #C9DEFF 100%)", border: `1px solid ${s.color}66` }}
+                style={{ background: `linear-gradient(135deg, rgba(var(--blue-rgb),0.12) 0%, rgba(var(--blue-mid-rgb),0.28) 100%)`, border: `1px solid rgba(var(--blue-rgb),0.35)` }}
               >
-                <s.icon className="w-5 h-5" style={{ color: "#2e70d0" }} />
+                <s.icon className="w-5 h-5" style={{ color: "var(--blue)" }} />
               </motion.div>
               <div className="min-w-0">
                 <motion.div
@@ -814,8 +834,8 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
 
       <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
         <div className="flex items-center gap-2 mb-3">
-          <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(5,108,242,0.12)" }}>
-            <FolderKanban size={16} style={{ color: "#056cf2" }} />
+          <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(var(--blue-rgb),0.12)" }}>
+            <FolderKanban size={16} style={{ color: "var(--blue)" }} />
           </div>
           <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Vos projets</h2>
         </div>

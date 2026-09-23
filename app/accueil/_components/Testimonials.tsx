@@ -5,7 +5,7 @@ const testimonials = [
     name: "Amina Benali",
     role: "Directrice · Agence Créative",
     initials: "AB",
-    color: "#056cf2",
+    color: "var(--blue)",
   },
   {
     quote:
@@ -13,7 +13,7 @@ const testimonials = [
     name: "Karim Haddad",
     role: "Chef de projet · Studio Digital",
     initials: "KH",
-    color: "#0c79f2",
+    color: "var(--blue-accent)",
   },
   {
     quote:
@@ -21,7 +21,7 @@ const testimonials = [
     name: "Leila Mansouri",
     role: "Fondatrice · Web Studio",
     initials: "LM",
-    color: "#589bff",
+    color: "var(--blue-mid)",
   },
   {
     quote:
@@ -29,7 +29,7 @@ const testimonials = [
     name: "Youssef Amrani",
     role: "Directeur technique · Agence Web",
     initials: "YA",
-    color: "#9dc7ff",
+    color: "var(--blue-light)",
   },
 ];
 
@@ -77,13 +77,13 @@ export default function Testimonials() {
 
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <span className="inline-block rounded-full bg-[#056cf21a] px-4 py-1.5 text-xs font-bold uppercase tracking-widest" style={{ color: "#056cf2" }}>
+          <span className="inline-block rounded-full bg-[color:rgba(var(--blue-rgb),0.10)] px-4 py-1.5 text-xs font-bold uppercase tracking-widest" style={{ color: "var(--blue)" }}>
             Témoignages
           </span>
           <h2 className="mt-4 text-4xl font-extrabold tracking-tight md:text-5xl" style={{ color: "#0b1521", letterSpacing: "-0.02em" }}>
             Ils utilisent MVP Manager au quotidien
           </h2>
-          <div className="mx-auto mt-4 h-1 w-16 rounded-full bg-[#056cf2]" />
+          <div className="mx-auto mt-4 h-1 w-16 rounded-full bg-[color:var(--blue)]" />
           <p className="mt-4 text-lg font-medium" style={{ color: "#4B5767" }}>
             Nos clients gèrent leurs agences, projets et équipes avec succès.
           </p>
@@ -99,9 +99,9 @@ export default function Testimonials() {
           {items.map((item, index) => (
             <div
               key={`${item.name}-${index}`}
-              className="flex w-[320px] shrink-0 flex-col gap-3.5 rounded-[20px] border bg-white p-7 transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_30px_#056cf21f]"
+              className="flex w-[320px] shrink-0 flex-col gap-3.5 rounded-[20px] border bg-white p-7 transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(var(--blue-rgb),0.12)]"
               style={{
-                borderColor: "#056cf2",
+                borderColor: "var(--blue)",
               }}
             >
               <div className="flex items-center justify-between">

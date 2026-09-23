@@ -11,14 +11,10 @@ import {
 } from "react";
 import { useAuthStore } from "@/app/store/authStore";
 import {
-  fetchAgencies,
-  fetchNotifications,
-  fetchProjects,
-  fetchTasks,
-  loadAgencyMembers,
+  fetchBootstrap,
   getApiErrorMessage,
 } from "./services";
-import type { Agency, AppNotification, MyTask, Project, Task } from "./types";
+import type { Agency, AgencyMember, AppNotification, MyTask, Project, Task } from "./types";
 import {
   buildMyTask,
   getProjectById,
@@ -42,8 +38,6 @@ type AppDataContextValue = {
   data: AppDataState;
   reload: () => Promise<void>;
   agencyById: (id: number | string) => Agency | undefined;
-  projectById: (id: number | string) => Project | undefined;
-  taskById: (id: number | string) => Task | undefined;
   getProject: (id: number | string) => Project | undefined;
   getTask: (id: number | string) => Task | undefined;
   projectsByAgency: (agencyId: number | string) => Project[];
@@ -52,6 +46,7 @@ type AppDataContextValue = {
   myTasks: () => MyTask[];
   myTasksInAgency: (agencyId: number | string) => MyTask[];
   unreadCount: number;
+  setAgencyMembers: (agencyId: number | string, members: AgencyMember[]) => void;
 };
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -80,32 +75,15 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         : { ...prev, loading: true, error: null },
     );
     try {
-      const agencies = await fetchAgencies();
-      const withMembers: Agency[] = [];
-      for (const agency of agencies) {
-        const members = await loadAgencyMembers(agency.id);
-        withMembers.push({ ...agency, members });
-      }
-
-      const projects: Project[] = [];
-      for (const agency of withMembers) {
-        const agencyProjects = await fetchProjects(agency.id);
-        projects.push(...agencyProjects);
-      }
-
-      const tasks: Task[] = [];
-      for (const project of projects) {
-        const projectTasks = await fetchTasks(project.id);
-        tasks.push(...projectTasks);
-      }
-
-      const notifications = await fetchNotifications();
+      // Chargement en UNE seule requête : agences (avec membres, projets et tâches)
+      // + notifications, au lieu du fan-out multiplicatif d'appels unitaires.
+      const boot = await fetchBootstrap();
 
       setData({
-        agencies: withMembers,
-        projects,
-        tasks,
-        notifications,
+        agencies: boot.agencies,
+        projects: boot.projects,
+        tasks: boot.tasks,
+        notifications: boot.notifications,
         loading: false,
         error: null,
         lastLoadedAt: Date.now(),
@@ -144,8 +122,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       data,
       reload: load,
       agencyById: (id) => byId(data.agencies, id),
-      projectById: (id) => byId(data.projects, id),
-      taskById: (id) => byId(data.tasks, id),
       getProject: (id) => getProjectById(data.projects, id),
       getTask: (id) => getTaskById(data.tasks, id),
       projectsByAgency: (agencyId) => getProjectsByAgency(data.projects, agencyId),
@@ -155,6 +131,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       myTasks,
       myTasksInAgency,
       unreadCount,
+      setAgencyMembers: (agencyId, members) =>
+        setData((prev) => ({
+          ...prev,
+          agencies: prev.agencies.map((a) =>
+            Number(a.id) === Number(agencyId) ? { ...a, members } : a,
+          ),
+        })),
     };
   }, [data, user, load]);
 

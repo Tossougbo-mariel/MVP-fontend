@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Menu, Bell, LogOut, User, ImageIcon } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
+import { useActiveAgencyId } from "@/lib/useActiveAgencyId";
 import AvatarViewer from "./AvatarViewer";
 
 export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
@@ -20,14 +21,22 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   // ✅ Si on consulte le détail d'une tâche, on affiche son titre réel
   // dans le header (et non l'id présent dans l'URL).
   const taskMatch = pathname.match(/\/taches\/([^/]+)$/);
+  const projectMatch = pathname.match(/\/projets\/([^/]+)$/);
   const headerTitle =
-    taskMatch && getTask(taskMatch[1]) ? getTask(taskMatch[1])!.title : title;
+    projectMatch
+      ? "Détail"
+      : taskMatch && getTask(taskMatch[1])
+        ? getTask(taskMatch[1])!.title
+        : title;
 
   // ✅ Contexte d'agence active pour le lien "Mon profil" : le badge de rôle
-  // sur la page profil dépend de l'agence dans laquelle on navigue.
-  const agencyMatch = pathname.match(/^\/agences\/([^/]+)/);
-  const contextAgencyId = agencyMatch ? agencyMatch[1] : null;
+  // sur la page profil dépend de l'agence dans laquelle on navigue. On le lit
+  // depuis le pathname (/agences/{id}/...) ou depuis ?agency= sur /profil.
+  const contextAgencyId = useActiveAgencyId();
   const profileHref = contextAgencyId ? `/profil?agency=${contextAgencyId}` : "/profil";
+  const notificationsHref = contextAgencyId
+    ? `/agences/${contextAgencyId}/notifications`
+    : "/notifications";
 
   const [open, setOpen] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -71,7 +80,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
 
       <div className="ml-auto flex items-center gap-2">
         <Link
-          href="/notifications"
+          href={notificationsHref}
           className="relative p-2 rounded-lg transition-colors hover:bg-[var(--header-hover)]"
           aria-label="Notifications"
         >
@@ -79,7 +88,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
           {notificationCount > 0 && (
             <span
               className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold text-white flex items-center justify-center"
-              style={{ background: "#0c79f2" }}
+              style={{ background: "var(--blue-accent)" }}
             >
               {notificationCount > 9 ? "9+" : notificationCount}
             </span>

@@ -10,13 +10,7 @@ import {
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
 import { userAgencies, userRoleInAgency } from "@/lib/types";
-
-const ADMIN_GLOBAL_ITEMS = [
-  { href: "/mes-agences", label: "Mes agences", icon: Building2 },
-  { href: "/agences/nouvelle", label: "Créer une agence", icon: Plus },
-  { href: "/notifications", label: "Notifications", icon: Bell },
-  { href: "/profil", label: "Mon profil", icon: User },
-];
+import { useActiveAgencyId } from "@/lib/useActiveAgencyId";
 
 const MEMBER_GLOBAL_ITEMS = [
   { href: "/mes-agences", label: "Mes agences", icon: Building2 },
@@ -56,8 +50,8 @@ export default function Sidebar({
   const logout = useAuthStore((s) => s.logout);
   const { data, agencyById } = useAppData();
 
-  const agencyMatch = pathname.match(/^\/agences\/([^/]+)/);
-  const agencyId = agencyMatch ? agencyMatch[1] : null;
+  // ✅ Contexte d'agence : pathname (/agences/{id}/...) ou ?agency= sur /profil
+  const agencyId = useActiveAgencyId();
   const isInAgency = agencyId !== null;
 
   const currentAgency = agencyId ? agencyById(agencyId) : undefined;
@@ -170,7 +164,7 @@ export default function Sidebar({
             style={{ borderColor: "var(--sidebar-border)" }}
           >
             <Link
-              href="/notifications"
+              href={`/agences/${agencyId}/notifications`}
               onClick={mobile ? onClose : undefined}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
                 pathname.startsWith("/notifications") ? "" : "hover:bg-[var(--sidebar-hover)]"
@@ -251,7 +245,7 @@ export default function Sidebar({
         >
           <LogOut className="w-4 h-4" />
         </div>
-        <span className="font-semibold text-sm transition-colors group-hover:text-[var(--blue-accent)]">
+        <span className="font-semibold text-sm transition-colors group-hover:text-[color:var(--blue-accent)]">
           Se déconnecter
         </span>
         <LogOut

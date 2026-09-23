@@ -19,6 +19,7 @@ export type User = {
   city?: string;
   bio?: string;
   jobTitle?: string;
+  themeColor?: string;
   createdAt: string;
 };
 
@@ -45,6 +46,7 @@ type AuthState = {
   fetchMe: () => Promise<void>;
   clearAuth: () => void;
   updateUser: (patch: Partial<User>) => Promise<void>;
+  setThemeColorLocal: (color: string) => void;
 };
 
 export const useAuthStore = create<AuthState>()(
@@ -138,20 +140,35 @@ export const useAuthStore = create<AuthState>()(
             email: merged.email,
             phone: merged.phone ?? null,
             city: merged.city ?? null,
-            bio: merged.bio ?? null,
-            job_title: merged.jobTitle ?? null,
-            ...(patch.avatar !== undefined ? { avatar: patch.avatar } : {}),
-          });
-          set({ user: apiUserToLocalUser(data) });
+bio: merged.bio ?? null,
+          job_title: merged.jobTitle ?? null,
+          theme_color: merged.themeColor ?? null,
+          ...(patch.avatar !== undefined ? { avatar: patch.avatar } : {}),
+        });
+        const local = apiUserToLocalUser(data);
+        // Shim front-end uniquement : tant que le backend ne renvoie pas theme_color,
+        // on le réinjecte depuis le payload pour que l'accent persiste visuellement.
+        if (local.themeColor === undefined && merged.themeColor !== undefined) {
+          local.themeColor = merged.themeColor;
+        }
+set({ user: local });
         } catch (error) {
           set({ user: prev });
           throw error;
         }
       },
+
+      // Mise à jour locale uniquement (persistée dans localStorage par le middleware).
+      // Aucun appel API : la persistance backend sera branchée après validation du visuel.
+      setThemeColorLocal: (themeColor) => {
+        const prev = get().user;
+        if (!prev) return;
+        set({ user: { ...prev, themeColor } });
+      },
     }),
     {
       name: "mvp-auth",
-      version: 1,
+      version: 2,
       partialize: (state) => ({ user: state.user, token: state.token, status: state.status }),
       migrate: (persisted) => {
         const state = persisted as { user?: User | null };

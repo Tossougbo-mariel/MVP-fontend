@@ -25,7 +25,7 @@ export default function Footer() {
           <div>
             <span className="text-xl font-extrabold tracking-tight text-white">
               MVP{" "}
-              <span style={{ color: "#9dc7ff" }}>Manager</span>
+              <span style={{ color: "var(--blue-light)" }}>Manager</span>
             </span>
             <p className="mt-4 max-w-xs text-sm font-medium leading-6" style={{ color: "#ffffff99" }}>
               La plateforme tout-en-un pour gérer vos agences, vos projets et
@@ -42,7 +42,7 @@ export default function Footer() {
                 <li key={link.label}>
                   <a
                     href={link.href}
-                    className="text-sm font-medium text-[#ffffffB3] transition-colors duration-200 hover:text-[#9dc7ff]"
+                    className="text-sm font-medium text-[#ffffffB3] transition-colors duration-200 hover:text-[color:var(--blue-light)]"
                   >
                     {link.label}
                   </a>
@@ -60,7 +60,7 @@ export default function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
-                    className="text-sm font-medium text-[#ffffffB3] transition-colors duration-200 hover:text-[#9dc7ff]"
+                    className="text-sm font-medium text-[#ffffffB3] transition-colors duration-200 hover:text-[color:var(--blue-light)]"
                   >
                     {link.label}
                   </Link>
@@ -84,7 +84,7 @@ export default function Footer() {
                   <button
                     onClick={() => setLang(l)}
                     className={`text-sm transition-colors duration-200 ${
-                      lang === l ? "text-[#9dc7ff]" : "text-[#ffffff99] hover:text-[#9dc7ff]"
+                      lang === l ? "text-[color:var(--blue-light)]" : "text-[#ffffff99] hover:text-[color:var(--blue-light)]"
                     }`}
                   >
                     {l}

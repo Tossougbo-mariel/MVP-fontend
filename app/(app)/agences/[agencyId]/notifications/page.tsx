@@ -73,6 +73,18 @@ const getNotificationMeta = (
       color: "var(--color-success)",
       bg: "rgba(16,185,129,0.12)",
     },
+    echeance_proche: {
+      label: "Échéance proche",
+      icon: Clock,
+      color: "#d97706",
+      bg: "rgba(217,119,6,0.14)",
+    },
+    tache_en_retard: {
+      label: "Tâche en retard",
+      icon: AlertTriangle,
+      color: "#D85A30",
+      bg: "rgba(216,90,48,0.14)",
+    },
   };
   return known[type] ?? {
     label: type,
@@ -104,6 +116,8 @@ const ALL_FILTERS = [
   { key: "comment_added", label: "Commentaires" },
   { key: "deadline_approaching", label: "Échéances" },
   { key: "task_overdue", label: "En retard" },
+  { key: "echeance_proche", label: "Échéances" },
+  { key: "tache_en_retard", label: "En retard" },
 ] as const;
 
 export default function AgencyNotificationsPage() {
