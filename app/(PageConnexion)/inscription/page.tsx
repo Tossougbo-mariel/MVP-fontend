@@ -203,6 +203,7 @@ function InscriptionContent() {
           src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1600&auto=format&fit=crop"
           alt="Travail d'équipe"
           fill
+          sizes="(min-width: 1024px) 60vw, 0px"
           style={{ objectFit: "cover" }}
         />
         <div
@@ -317,7 +318,7 @@ function InscriptionContent() {
                   title={lastRaw ? "Cliquer pour recadrer la photo" : undefined}
                 >
                   {avatar ? (
-                    <NextImage src={avatar} alt="Photo de profil" fill style={{ objectFit: "cover" }} />
+                    <NextImage src={avatar} alt="Photo de profil" fill sizes="96px" style={{ objectFit: "cover" }} />
                   ) : (
                     <User className="w-6 h-6 text-white/80" />
                   )}

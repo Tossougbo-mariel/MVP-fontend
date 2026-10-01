@@ -17,6 +17,7 @@ import {
 import { useAuthStore } from "@/app/store/authStore";
 import { getApiErrorMessage } from "@/lib/api";
 import { fetchAgencies, fetchProjects, fetchTasks } from "@/lib/services";
+import { fetchAllTerminalKeys } from "@/lib/taskStatuses";
 import type { Task } from "@/lib/types";
 
 export default function ProfilPage() {
@@ -25,9 +26,6 @@ export default function ProfilPage() {
   const updateUser = useAuthStore((s) => s.updateUser);
   const logout = useAuthStore((s) => s.logout);
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -38,13 +36,26 @@ export default function ProfilPage() {
   const [tasksDone, setTasksDone] = useState(0);
   const [tasksLate, setTasksLate] = useState(0);
 
-  useEffect(() => {
-    if (user) {
-      setFirstName(user.firstName);
-      setLastName(user.lastName);
-      setEmail(user.email);
-    }
-  }, [user]);
+  // Le formulaire est réinitialisé quand l'utilisateur connecté change
+  // (connexion à un autre compte). On ajuste l'état pendant le rendu, le
+  // pattern documenté par React : écrire dans un effet ici provoquerait un
+  // rendu en cascade.
+  const [draft, setDraft] = useState({
+    firstName: user?.firstName ?? "",
+    lastName: user?.lastName ?? "",
+    email: user?.email ?? "",
+  });
+  const [draftUserId, setDraftUserId] = useState<number | null>(user?.id ?? null);
+
+  if (user && user.id !== draftUserId) {
+    setDraftUserId(user.id);
+    setDraft({ firstName: user.firstName, lastName: user.lastName, email: user.email });
+  }
+
+  const setFirstName = (v: string) => setDraft((d) => ({ ...d, firstName: v }));
+  const setLastName = (v: string) => setDraft((d) => ({ ...d, lastName: v }));
+  const setEmail = (v: string) => setDraft((d) => ({ ...d, email: v }));
+  const { firstName, lastName, email } = draft;
 
   useEffect(() => {
     let alive = true;
@@ -60,14 +71,17 @@ export default function ProfilPage() {
             allTasks.push(...(await fetchTasks(project.id)));
           }
         }
+        // Ces tâches viennent de plusieurs agences : on prend l'union des
+        // statuts terminaux plutôt que la liste d'une seule agence.
+        const terminalKeys = await fetchAllTerminalKeys(agencies.map((a) => a.id));
+        const isDone = (t: Task) => terminalKeys.includes(t.status);
+
         const mine = allTasks.filter(
           (t) => (t.assigneeEmail ?? "").toLowerCase() === user.email.toLowerCase(),
         );
         const today = new Date().toISOString().slice(0, 10);
-        const done = mine.filter((t) => t.status === "terminee").length;
-        const late = mine.filter(
-          (t) => t.status !== "terminee" && !!t.dueDate && t.dueDate < today,
-        ).length;
+        const done = mine.filter(isDone).length;
+        const late = mine.filter((t) => !isDone(t) && !!t.dueDate && t.dueDate < today).length;
         if (alive) {
           setTasksAssigned(mine.length);
           setTasksDone(done);

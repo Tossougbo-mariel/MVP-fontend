@@ -13,7 +13,7 @@ import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
 import CustomSelectField from "@/app/(app)/components/CustomSelectField";
 import CustomSlider from "@/app/(app)/components/CustomSlider";
-import { userAgencies, userRoleInAgency, DEFAULT_NOTIFICATION_PREFERENCES, LABEL_NOTIFICATION_PREFERENCE, type MyTask, type NotificationPreferences } from "@/lib/types";
+import { userAgencies, userRoleInAgency, DEFAULT_NOTIFICATION_PREFERENCES, LABEL_NOTIFICATION_PREFERENCE, isTaskDone, type MyTask, type NotificationPreferences } from "@/lib/types";
 import { fetchNotificationPreferences, updateNotificationPreferences, getApiErrorMessage } from "@/lib/services";
 import AvatarViewer from "@/app/(app)/components/AvatarViewer";
 
@@ -58,7 +58,7 @@ const statusIcon = (status: TacheStatus) => {
 };
 
 const displayStatus = (t: MyTask): TacheStatus => {
-  if (t.status === "terminee") return "Terminée";
+  if (isTaskDone(t)) return "Terminée";
   const today = new Date().toISOString().slice(0, 10);
   if (t.deadline && t.deadline < today) return "En retard";
   return "Assignée";
@@ -209,6 +209,58 @@ export default function ProfilPage() {
   const [language, setLanguage] = useState("fr");
   const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
   const [notifPrefsError, setNotifPrefsError] = useState<string | null>(null);
+
+  // ---------- Double authentification ----------
+  const fetchTwoFactor = useAuthStore((s) => s.fetchTwoFactor);
+  const toggleTwoFactor = useAuthStore((s) => s.toggleTwoFactor);
+  const [twoFactor, setTwoFactor] = useState(false);
+  const [twoFactorBusy, setTwoFactorBusy] = useState(false);
+  const [twoFactorError, setTwoFactorError] = useState<string | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [askPassword, setAskPassword] = useState(false);
+
+  // Un compte créé via Google n'a pas de mot de passe à confirmer.
+  const hasPassword = user?.hasPassword ?? true;
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(async () => {
+      const enabled = await fetchTwoFactor();
+      if (active) setTwoFactor(enabled);
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchTwoFactor]);
+
+  /**
+   * Activer la double authentification demande le mot de passe : sans cette
+   * confirmation, un accès volé au compte suffirait à le verrouiller.
+   */
+  const handleTwoFactor = async () => {
+    const enabling = !twoFactor;
+
+    if (enabling && hasPassword && !confirmPassword) {
+      setAskPassword(true);
+      return;
+    }
+
+    setTwoFactorBusy(true);
+    setTwoFactorError(null);
+
+    const result = await toggleTwoFactor(enabling, confirmPassword || undefined);
+
+    setTwoFactorBusy(false);
+
+    if (!result.ok) {
+      setTwoFactorError(result.error);
+      return;
+    }
+
+    setTwoFactor(!twoFactor);
+    setConfirmPassword("");
+    setAskPassword(false);
+  };
 
   useEffect(() => {
     let active = true;
@@ -672,6 +724,80 @@ export default function ProfilPage() {
                     {notifPrefsError}
                   </p>
                 )}
+              </div>
+
+              {/* ---------- Sécurité : double authentification ---------- */}
+              <div className="space-y-2">
+                <span className="text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                  <ShieldCheck size={15} style={{ color: "var(--text-secondary)" }} /> Sécurité
+                </span>
+
+                <div className="rounded-xl px-4 py-3 space-y-3" style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                        Double authentification
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                        {twoFactor
+                          ? "Un code est envoyé par email après votre mot de passe."
+                          : "Ajoutez un code par email pour sécuriser votre connexion."}
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleTwoFactor}
+                      disabled={twoFactorBusy}
+                      aria-pressed={twoFactor}
+                      className="w-10 h-6 rounded-full relative transition-colors shrink-0 disabled:opacity-50"
+                      style={{ background: twoFactor ? "var(--gradient-button)" : "var(--border-subtle)" }}
+                    >
+                      <span
+                        className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all"
+                        style={{ left: twoFactor ? "19px" : "2px", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }}
+                      />
+                    </button>
+                  </div>
+
+                  {twoFactor && (
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                      La connexion par code email reste disponible et n&apos;est pas concernée.
+                    </p>
+                  )}
+
+                  {askPassword && (
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") void handleTwoFactor();
+                        }}
+                        placeholder="Votre mot de passe"
+                        className="flex-1 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                        style={{
+                          background: "var(--input-bg)",
+                          border: "1px solid var(--input-border)",
+                          color: "var(--text-primary)",
+                        }}
+                      />
+                      <button
+                        onClick={handleTwoFactor}
+                        disabled={twoFactorBusy || confirmPassword.length === 0}
+                        className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50"
+                        style={{ background: "var(--gradient-button)", color: "#fff" }}
+                      >
+                        {twoFactorBusy ? "Activation..." : "Confirmer"}
+                      </button>
+                    </div>
+                  )}
+
+                  {twoFactorError && (
+                    <p className="text-xs font-semibold" style={{ color: "var(--color-error)" }}>
+                      {twoFactorError}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>

@@ -20,6 +20,9 @@
   --bg: #ffffff;
   --bg-light: #f4f6fa;
   --nav-h: 88px;
+  /* Hauteur du header : le rail d'icônes la partage, le panneau d'agence
+     commence exactement en dessous. */
+  --header-h: 72px;
   --ease: cubic-bezier(.4, 0, .2, 1);
   --t: .25s;
 }
@@ -67,6 +70,19 @@
   --sidebar-card: #FFFFFF;
   --sidebar-accent-soft: rgba(10, 99, 242, 0.14);
   --sidebar-accent-text: #0a63f2;
+  /* Rail d'icônes : volontairement sombre pour se détacher du panneau clair. */
+  --rail-bg: linear-gradient(180deg, #0C2E6B 0%, #061B40 100%);
+  --rail-border: rgba(4, 16, 38, 0.5);
+  --rail-text: #EAF2FF;
+  --rail-text-secondary: #B9D0F5;
+  --rail-text-muted: #7C9BD0;
+  --rail-hover: rgba(255, 255, 255, 0.12);
+  --rail-card: rgba(255, 255, 255, 0.1);
+  --rail-accent-soft: rgba(157, 199, 255, 0.22);
+  --rail-accent-text: #FFFFFF;
+  /* Panneau d'agence : surface claire, distincte du rail. */
+  --panel-bg: linear-gradient(180deg, #FFFFFF 0%, #F4F8FF 100%);
+  --panel-border: #DCE7F8;
   --header-bar: linear-gradient(90deg, #FFFFFF 0%, #F2F6FD 100%);
   --header-text: #0A2E6E;
   --header-text-secondary: #3E5E93;
@@ -121,6 +137,19 @@
   --sidebar-card: rgba(20, 40, 80, 0.6);
   --sidebar-accent-soft: rgba(88, 155, 255, 0.2);
   --sidebar-accent-text: #9dc7ff;
+  /* Rail d'icônes : plus profond que le panneau, pour lire la séparation. */
+  --rail-bg: linear-gradient(180deg, #050F26 0%, #01071A 100%);
+  --rail-border: rgba(0, 0, 0, 0.6);
+  --rail-text: #F4F7FF;
+  --rail-text-secondary: #B7C9EA;
+  --rail-text-muted: #7A93BF;
+  --rail-hover: rgba(156, 199, 255, 0.14);
+  --rail-card: rgba(156, 199, 255, 0.12);
+  --rail-accent-soft: rgba(88, 155, 255, 0.3);
+  --rail-accent-text: #9dc7ff;
+  /* Panneau d'agence : bleu nuit plus clair que le rail. */
+  --panel-bg: linear-gradient(180deg, #0C1B39 0%, #08132B 100%);
+  --panel-border: rgba(156, 199, 255, 0.18);
   --header-bar: linear-gradient(90deg, rgba(10, 30, 80, 0.94) 0%, rgba(10, 55, 120, 0.94) 100%);
   --header-text: #F4F7FF;
   --header-text-secondary: #BFD2F5;

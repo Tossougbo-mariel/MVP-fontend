@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
 import {
-  Bell, Check, CheckCheck, Clock, ListPlus,
+  Bell, Check, CheckCheck, Clock, ListPlus, AlertTriangle,
   UserMinus, MessageSquare, UserPlus, CheckCircle2, AtSign, Eye, Info, ExternalLink,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
@@ -68,6 +68,18 @@ const getNotificationMeta = (
       color: "#d97706",
       bg: "rgba(217,119,6,0.14)",
     },
+    echeance_proche: {
+      label: "Échéance proche",
+      icon: Clock,
+      color: "#d97706",
+      bg: "rgba(217,119,6,0.14)",
+    },
+    tache_en_retard: {
+      label: "Tâche en retard",
+      icon: AlertTriangle,
+      color: "#dc2626",
+      bg: "rgba(220,38,38,0.12)",
+    },
     tache_terminee: {
       label: "Tâche terminée",
       icon: CheckCircle2,
@@ -99,12 +111,18 @@ const relativeTime = (dateStr: string): string => {
 };
 
 const ALL_FILTERS = [
-  { key: "toutes", label: "Toutes" },
-  { key: "invitation", label: "Invitations" },
-  { key: "tache_assignee", label: "Tâches assignées" },
-  { key: "nouveau_commentaire", label: "Commentaires" },
-  { key: "mention", label: "Mentions" },
-  { key: "rappel_echeance", label: "Échéances" },
+  { key: "toutes", label: "Toutes", types: null },
+  { key: "invitation", label: "Invitations", types: ["invitation"] },
+  { key: "tache_assignee", label: "Tâches assignées", types: ["tache_assignee"] },
+  { key: "nouveau_commentaire", label: "Commentaires", types: ["nouveau_commentaire"] },
+  { key: "mention", label: "Mentions", types: ["mention"] },
+  // Les trois types d'échéance partagent un onglet : ils relèvent du même
+  // réglage dans les préférences de notification.
+  {
+    key: "echeance",
+    label: "Échéances",
+    types: ["rappel_echeance", "echeance_proche", "tache_en_retard"],
+  },
 ] as const;
 
 const formatFullDate = (iso: string) => {
@@ -208,7 +226,9 @@ export default function AgencyNotificationsPage() {
 
   const filteredNotifications = useMemo(() => {
     if (filter === "toutes") return notifications;
-    return notifications.filter((n) => n.type === filter);
+    const group = ALL_FILTERS.find((f) => f.key === filter);
+    const types = (group?.types ?? []) as readonly string[];
+    return notifications.filter((n) => types.includes(n.type));
   }, [notifications, filter]);
 
   const unreadCount = useMemo(
@@ -219,7 +239,7 @@ export default function AgencyNotificationsPage() {
   const availableTypes = useMemo(() => {
     const types = new Set(notifications.map((n) => n.type));
     return ALL_FILTERS.filter(
-      (f) => f.key === "toutes" || types.has(f.key),
+      (f) => f.key === "toutes" || f.types?.some((t) => types.has(t)),
     );
   }, [notifications]);
 

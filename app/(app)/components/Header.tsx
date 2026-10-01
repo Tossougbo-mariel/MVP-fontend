@@ -8,6 +8,7 @@ import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
 import { markAllNotificationsRead } from "@/lib/services";
 import AvatarViewer from "./AvatarViewer";
+import GlobalSearch from "./GlobalSearch";
 
 export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const pathname = usePathname();
@@ -75,7 +76,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   return (
     <>
     <header
-      className="sticky top-0 z-20 flex items-center gap-4 px-6 lg:px-8 py-4"
+      className="sticky top-0 z-20 flex items-center gap-4 px-6 lg:px-8 h-[var(--header-h)] shrink-0"
       style={{
         background: "var(--header-bar)",
         backdropFilter: "blur(14px)",
@@ -88,9 +89,13 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
         <Menu className="w-6 h-6" style={{ color: "var(--header-text)" }} />
       </button>
 
-      <h1 className="text-lg font-semibold capitalize" style={{ color: "var(--header-text)" }}>
+      <h1 className="text-lg font-semibold capitalize hidden md:block" style={{ color: "var(--header-text)" }}>
         {headerTitle}
       </h1>
+
+      <div className="flex-1 flex justify-center px-2 md:px-6">
+        <GlobalSearch />
+      </div>
 
       <div className="ml-auto flex items-center gap-2">
         <div className="relative" ref={bellRef}>

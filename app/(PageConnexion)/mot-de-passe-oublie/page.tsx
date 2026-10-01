@@ -56,6 +56,7 @@ export default function MotDePasseOubliePage() {
           src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1600&auto=format&fit=crop"
           alt="Sécurité"
           fill
+          sizes="(min-width: 1024px) 60vw, 0px"
           style={{ objectFit: "cover" }}
         />
         <div

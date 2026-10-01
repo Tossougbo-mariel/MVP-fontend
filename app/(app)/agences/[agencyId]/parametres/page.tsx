@@ -7,8 +7,10 @@ import { motion, type Variants } from "framer-motion";
 import {
   ShieldCheck, ArrowLeft, Settings, Users, Users2, Trash2, CheckCircle2, Save,
   AlertTriangle, Globe, Mail, X, Clock, LayoutGrid, List, Kanban, Bell, RefreshCw,
-  Pencil, Lock, Check, UserRoundPlus, Plus,
+  Pencil, Lock, Check, UserRoundPlus, Plus, Palette,
 } from "lucide-react";
+import { ThemeToggleRow } from "@/app/(PageConnexion)/components/ThemeToggle";
+import TaskStatusSettings from "@/app/(app)/components/TaskStatusSettings";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
 import {
@@ -178,6 +180,17 @@ export default function ParametresPage() {
   const [invitations, setInvitations] = useState<AgencyInvitation[]>([]);
   const [teams, setTeams] = useState<AgencyTeam[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Horloge partagée pour les compteurs d'expiration : `Date.now()` est impur
+  // et n'a pas sa place directement dans le rendu.
+  const [now, setNow] = useState<number | null>(null);
+
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    const id = window.setInterval(tick, 30_000);
+    tick();
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -553,7 +566,8 @@ export default function ParametresPage() {
           <div className="space-y-3">
             {pendingInvitations.map((inv) => {
               const expired = isInvitationExpired(inv);
-              const msLeft = inv.expiresAt ? new Date(inv.expiresAt).getTime() - Date.now() : 0;
+              const msLeft =
+                inv.expiresAt && now !== null ? new Date(inv.expiresAt).getTime() - now : 0;
               const daysLeft = msLeft > 0 ? Math.ceil(msLeft / 86400000) : 0;
               return (
                 <div
@@ -758,7 +772,28 @@ export default function ParametresPage() {
         </div>
       </Section>
 
-      {/* SECTION 5 : Notifications */}
+      {/* SECTION 4c : Colonnes de tâches */}
+      <Section
+        icon={<LayoutGrid size={18} style={{ color: "#056cf2" }} />}
+        title="Colonnes de tâches"
+      >
+        <TaskStatusSettings agencyId={agencyId} />
+      </Section>
+
+      {/* SECTION 5 : Apparence */}
+      <Section icon={<Palette size={18} style={{ color: "#056cf2" }} />} title="Apparence">
+        <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
+          Ce réglage est propre à votre navigateur : il n&apos;affecte que votre écran.
+        </p>
+        <div
+          className="w-full flex flex-wrap items-center justify-between gap-4 px-5 py-4 rounded-2xl"
+          style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
+        >
+          <ThemeToggleRow />
+        </div>
+      </Section>
+
+      {/* SECTION 6 : Notifications */}
       <Section icon={<Bell size={18} style={{ color: "#056cf2" }} />} title="Notifications">
         <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
           Choisissez la façon dont cette agence vous notifie les activités importantes.

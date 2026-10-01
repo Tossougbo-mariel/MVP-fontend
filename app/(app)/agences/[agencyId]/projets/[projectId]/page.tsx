@@ -414,6 +414,23 @@ export default function ProjectDetailPage() {
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
             {project.description || "Aucune description."}
           </p>
+
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <Link
+              href={`/agences/${agencyId}/projets/${projectId}/kanban`}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-[1.02]"
+              style={{ background: "var(--gradient-button)" }}
+            >
+              <FolderKanban size={15} /> Kanban
+            </Link>
+            <Link
+              href={`/agences/${agencyId}/projets/${projectId}/planning`}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
+              style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
+            >
+              <CalendarClock size={15} /> Planning
+            </Link>
+          </div>
         </div>
       </motion.div>
 

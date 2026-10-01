@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
@@ -54,6 +54,13 @@ import {
   type TaskStatus,
   type ProjectMember,
 } from "@/lib/types";
+import {
+  buildStatusStyleIndex,
+  darken,
+  statusStyleOf as statusStyleOfStyle,
+  type StatusStyle,
+} from "@/lib/taskStatusStyle";
+import { useTaskStatuses } from "@/lib/useTaskStatuses";
 import { useAuthStore } from "@/app/store/authStore";
 import {
   fetchTask,
@@ -91,13 +98,6 @@ const container: Variants = {
 const item: Variants = {
   hidden: { y: 16, opacity: 0 },
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
-};
-
-const statusConfig: Record<TaskStatus, { label: string; color: string; bg: string; border?: string }> = {
-  a_faire: { label: "À faire", color: "#FF6B6B", bg: "rgba(255,107,107,0.16)", border: "1px solid rgba(255,107,107,0.4)" },
-  en_cours: { label: "En cours", color: "#fbbf24", bg: "rgba(251,191,36,0.18)", border: "1px solid rgba(251,191,36,0.4)" },
-  en_revision: { label: "En révision", color: "#7db5ff", bg: "rgba(125,181,255,0.16)", border: "1px solid rgba(125,181,255,0.4)" },
-  terminee: { label: "Terminée", color: "#34d399", bg: "rgba(52,211,153,0.16)", border: "1px solid rgba(52,211,153,0.4)" },
 };
 
 const priorityConfig: Record<TaskPriority, { label: string; color: string; bg: string; border?: string }> = {
@@ -180,6 +180,11 @@ export default function TaskDetailPage() {
 
   const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
   const isAdmin = role === "owner" || role === "admin";
+
+  const { statuses, isTerminal, labelOf } = useTaskStatuses();
+  const statusConfig = useMemo(() => buildStatusStyleIndex(statuses), [statuses]);
+  const statusStyleOf = (status: TaskStatus): StatusStyle =>
+    statusStyleOfStyle(status, statusConfig, labelOf(status));
 
   // Données via API
   const taskResult = useAsync(() => fetchTask(taskId), [taskId]);
@@ -368,7 +373,10 @@ export default function TaskDetailPage() {
 
   const handleStatusChange = async (status: TaskStatus) => {
     if (!task) return;
-    if (status === "terminee") {
+    // C'est le statut terminal de l'agence qui « clôt » la tâche, pas la clé
+    // 'terminee' : une colonne personnalisée comme « Livré » déclenche le même
+    // contrôle de sous-tâches.
+    if (isTerminal(status)) {
       const openSubtasks = subtasks.filter((s) => !s.done).length;
       if (openSubtasks > 0) {
         const message = `Impossible de terminer : ${openSubtasks} sous-tâche${openSubtasks > 1 ? "s" : ""} encore non cochée${openSubtasks > 1 ? "s" : ""}.`;
@@ -748,17 +756,20 @@ export default function TaskDetailPage() {
     (t) => t.id !== task.id && !dependencies.some((d) => d.id === t.id),
   );
 
-  const statusBadge = statusConfig[task.status];
+  const statusBadge = statusStyleOf(task.status);
   const prio = priorityConfig[task.priority];
 
-  // En-tête : teinte PLUS PROFONDE que le statut (couleur pure, opaque)
+  // En-tête : teinte PLUS PROFONDE que le statut (couleur pure, opaque).
+  // On garde des teintes choisies à la main pour les quatre statuts
+  // historiques, et on assombrit la couleur de l'agence pour les colonnes
+  // personnalisées.
   const STATUS_HEADER_SHADE: Record<string, string> = {
     a_faire: "#E0463E",
     en_cours: "#D08C0D",
     en_revision: "#3F82E8",
     terminee: "#0FA37A",
   };
-  const hdrBg = STATUS_HEADER_SHADE[task.status] ?? statusBadge.color;
+  const hdrBg = STATUS_HEADER_SHADE[task.status] ?? darken(statusBadge.color, 0.72);
   const hdrBorder = "1px solid rgba(255,255,255,0.28)";
 
   const historyVisible = historyExpanded ? history : history.slice(0, HISTORY_VISIBLE);
@@ -977,13 +988,13 @@ export default function TaskDetailPage() {
                 Avancement de la tâche
               </span>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {(Object.keys(statusConfig) as TaskStatus[]).map((s) => {
-                  const cfg = statusConfig[s];
-                  const active = task.status === s;
+                {statuses.map((s) => {
+                  const cfg = statusStyleOf(s.key);
+                  const active = task.status === s.key;
                   return (
                     <button
-                      key={s}
-                      onClick={() => handleStatusChange(s)}
+                      key={s.key}
+                      onClick={() => handleStatusChange(s.key)}
                       disabled={statusBusy}
                       className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all hover:scale-[1.02] disabled:opacity-60 disabled:pointer-events-none"
                       style={
@@ -992,9 +1003,9 @@ export default function TaskDetailPage() {
                           : { color: "var(--text-secondary)", background: "var(--input-bg)", border: "1px solid var(--input-border)" }
                       }
                     >
-                      {s === "terminee" && <CheckCircle2 size={14} />}
-                      {s === "a_faire" && <Clock size={14} />}
-                      {s === "en_cours" || s === "en_revision" ? <CalendarClock size={14} /> : null}
+                      {s.is_terminal && <CheckCircle2 size={14} />}
+                      {s.key === "a_faire" && <Clock size={14} />}
+                      {!s.is_terminal && s.key !== "a_faire" ? <CalendarClock size={14} /> : null}
                       {cfg.label}
                     </button>
                   );
@@ -1450,7 +1461,7 @@ export default function TaskDetailPage() {
                   >
                     <span
                       className="w-2 h-2 rounded-full shrink-0"
-                      style={{ background: dep.status === "terminee" ? "var(--color-success)" : "var(--color-error)" }}
+                      style={{ background: isTerminal(dep.status) ? "var(--color-success)" : "var(--color-error)" }}
                     />
                     <Link
                       href={`/agences/${agencyId}/projets/${projectId}/taches/${dep.id}`}
@@ -1460,7 +1471,7 @@ export default function TaskDetailPage() {
                       {dep.title}
                     </Link>
                     <span className="text-[10px] font-semibold shrink-0" style={{ color: "var(--text-muted)" }}>
-                      {statusConfig[dep.status].label}
+                      {labelOf(dep.status)}
                     </span>
                     {canManageSubtasks && (
                       <button
@@ -1518,7 +1529,7 @@ export default function TaskDetailPage() {
                   >
                     <span
                       className="w-2 h-2 rounded-full shrink-0"
-                      style={{ background: dep.status === "terminee" ? "var(--color-success)" : "var(--color-error)" }}
+                      style={{ background: isTerminal(dep.status) ? "var(--color-success)" : "var(--color-error)" }}
                     />
                     <Link
                       href={`/agences/${agencyId}/projets/${projectId}/taches/${dep.id}`}
@@ -1528,7 +1539,7 @@ export default function TaskDetailPage() {
                       {dep.title}
                     </Link>
                     <span className="text-[10px] font-semibold shrink-0" style={{ color: "var(--text-muted)" }}>
-                      {statusConfig[dep.status].label}
+                      {labelOf(dep.status)}
                     </span>
                   </li>
                 ))}
@@ -1983,8 +1994,13 @@ export default function TaskDetailPage() {
         }
         confirmLabel="Terminer quand même"
         onConfirm={async () => {
+          // On reforce vers le statut terminal courant de l'agence, qui peut
+          // ne pas s'appeler « terminee ».
           if (task && forceConfirm) {
-            await doUpdateStatus("terminee", true);
+            const terminal = statuses.find((s) => s.is_terminal);
+            if (terminal) {
+              await doUpdateStatus(terminal.key, true);
+            }
           }
           setForceConfirm(null);
         }}

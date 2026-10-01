@@ -19,7 +19,8 @@ const item: Variants = {
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
 };
 
-const MotionLink = motion(Link);
+// motion() est deprecie depuis framer-motion 12 au profit de motion.create().
+const MotionLink = motion.create(Link);
 
 // createdAt est un timestamp ISO complet (ex: 2026-09-17T08:00:00.000000Z)
 const formatCreatedAt = (date: string) => {

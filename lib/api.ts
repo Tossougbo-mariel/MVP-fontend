@@ -32,12 +32,16 @@ api.interceptors.response.use(
   (error) => {
     const status = error?.response?.status;
     const url = error?.config?.url ?? "";
-    if (
-      status === 401 &&
-      typeof window !== "undefined" &&
-      !url.includes("/login") &&
-      !url.includes("/register")
-    ) {
+    // Un code erroné ou un ticket 2FA expiré renvoie 401 sans que la session
+    // soit pour autant invalide : il ne faut pas effacer le token dans ces cas.
+    const isAuthAttempt =
+      url.includes("/login") ||
+      url.includes("/register") ||
+      url.includes("/auth/otp/verify") ||
+      url.includes("/auth/two-factor/verify") ||
+      url.includes("/auth/two-factor/resend");
+
+    if (status === 401 && typeof window !== "undefined" && !isAuthAttempt) {
       window.localStorage.removeItem(AUTH_STORAGE_KEY);
       if (window.location.pathname !== "/connexion") {
         window.location.assign(window.location.origin + "/connexion");

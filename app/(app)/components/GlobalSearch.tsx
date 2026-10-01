@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { Search, X, CheckSquare, FolderKanban, Building2 } from "lucide-react";
+import { Building2, CheckSquare, CornerDownLeft, FolderKanban, Search } from "lucide-react";
 import { useAppData } from "@/lib/appData";
 import { useAuthStore } from "@/app/store/authStore";
 import { userAgencies } from "@/lib/types";
@@ -16,28 +15,36 @@ type Result = {
   kind: "task" | "project" | "agency";
 };
 
+const GROUP_LABEL: Record<Result["kind"], string> = {
+  task: "Tâches",
+  project: "Projets",
+  agency: "Agences",
+};
+
+const ICON: Record<Result["kind"], typeof CheckSquare> = {
+  task: CheckSquare,
+  project: FolderKanban,
+  agency: Building2,
+};
+
+/**
+ * Barre de recherche globale, ancrée dans le header.
+ *
+ * Le champ est toujours visible : taper ouvre la liste des résultats sous
+ * le header, comme dans Monday. Ctrl/Cmd+K y place le focus depuis
+ * n'importe quelle page.
+ */
 export default function GlobalSearch() {
   const router = useRouter();
   const { data, agencyById } = useAppData();
   const user = useAuthStore((s) => s.user);
-  const [open, setOpen] = useState(false);
+
   const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(0);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setOpen((o) => !o);
-      }
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  useEffect(() => {
-    if (!open) setQuery("");
-  }, [open]);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const results = useMemo<Result[]>(() => {
     const q = query.trim().toLowerCase();
@@ -89,102 +96,184 @@ export default function GlobalSearch() {
     return [...taskResults, ...projectResults, ...agencyResults];
   }, [query, data, user, agencyById]);
 
-  const go = (href: string) => {
+  const close = useCallback(() => {
     setOpen(false);
-    router.push(href);
+    setHighlight(0);
+  }, []);
+
+  const go = useCallback(
+    (href: string) => {
+      close();
+      setQuery("");
+      router.push(href);
+    },
+    [close, router],
+  );
+
+  // Ctrl/Cmd+K : la barre de recherche est atteignable au clavier partout.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        inputRef.current?.focus();
+        setOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Fermeture au clic extérieur.
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) close();
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [open, close]);
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape") {
+      close();
+      inputRef.current?.blur();
+      return;
+    }
+    if (!open || results.length === 0) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setHighlight((i) => (i + 1) % results.length);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setHighlight((i) => (i - 1 + results.length) % results.length);
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      const target = results[highlight];
+      if (target) go(target.href);
+    }
   };
 
-  const iconFor = (kind: Result["kind"]) => {
-    if (kind === "task") return <CheckSquare size={15} />;
-    if (kind === "project") return <FolderKanban size={15} />;
-    return <Building2 size={15} />;
-  };
+  const showPanel = open && query.trim().length >= 2;
+
+  // Regroupement par type, en conservant l'ordre des résultats.
+  const groups = useMemo(() => {
+    const map = new Map<Result["kind"], Result[]>();
+    for (const result of results) {
+      const list = map.get(result.kind) ?? [];
+      list.push(result);
+      map.set(result.kind, list);
+    }
+    return [...map.entries()];
+  }, [results]);
+
+  let flatIndex = -1;
 
   return (
-    <>
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-30 hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold text-white shadow-lg transition-transform hover:scale-105"
-        style={{ background: "var(--gradient-button)" }}
-        title="Rechercher (Ctrl+K)"
-      >
-        <Search size={15} /> Rechercher
-        <kbd className="text-[10px] px-1.5 py-0.5 rounded bg-white/20">Ctrl K</kbd>
-      </button>
+    <div ref={containerRef} className="relative flex-1 max-w-xl">
+      <Search
+        size={16}
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+        style={{ color: "var(--header-text-muted)" }}
+      />
+      <input
+        ref={inputRef}
+        value={query}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setOpen(true);
+          setHighlight(0);
+        }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={onKeyDown}
+        placeholder="Rechercher une tâche, un projet, une agence…"
+        aria-label="Recherche globale"
+        role="combobox"
+        aria-expanded={showPanel}
+        aria-controls="global-search-results"
+        className="w-full rounded-xl py-2 pl-9 pr-16 text-sm outline-none transition-colors"
+        style={{
+          background: "var(--header-hover)",
+          border: "1px solid var(--header-border)",
+          color: "var(--header-text)",
+        }}
+      />
+      {!query && (
+        <kbd
+          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold px-1.5 py-0.5 rounded"
+          style={{ background: "var(--card-bg)", color: "var(--text-muted)", border: "1px solid var(--border-subtle)" }}
+        >
+          Ctrl K
+        </kbd>
+      )}
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 pt-[12vh]"
-            onClick={() => setOpen(false)}
-          >
-            <motion.div
-              initial={{ opacity: 0, y: -12, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -12, scale: 0.98 }}
-              className="w-full max-w-xl rounded-2xl overflow-hidden"
-              style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)", boxShadow: "var(--shadow-card)" }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                <Search size={17} style={{ color: "var(--text-muted)" }} />
-                <input
-                  autoFocus
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && results.length > 0) go(results[0].href);
-                  }}
-                  placeholder="Rechercher une tâche, un projet, une agence…"
-                  className="flex-1 bg-transparent outline-none text-sm"
-                  style={{ color: "var(--text-primary)" }}
-                />
-                <button onClick={() => setOpen(false)} aria-label="Fermer">
-                  <X size={17} style={{ color: "var(--text-muted)" }} />
-                </button>
-              </div>
-
-              <div className="max-h-[50vh] overflow-y-auto">
-                {query.trim().length < 2 ? (
-                  <p className="px-4 py-6 text-sm text-center" style={{ color: "var(--text-muted)" }}>
-                    Tapez au moins 2 caractères…
-                  </p>
-                ) : results.length === 0 ? (
-                  <p className="px-4 py-6 text-sm text-center" style={{ color: "var(--text-muted)" }}>
-                    Aucun résultat.
-                  </p>
-                ) : (
-                  results.map((r) => (
+      {showPanel && (
+        <div
+          id="global-search-results"
+          role="listbox"
+          className="absolute left-0 right-0 top-full mt-2 max-h-[60vh] overflow-y-auto rounded-2xl z-50 p-1.5"
+          style={{
+            background: "var(--chrome-card)",
+            border: "1px solid var(--chrome-border)",
+            boxShadow: "0 20px 50px -15px rgba(0,0,0,0.6)",
+          }}
+        >
+          {results.length === 0 ? (
+            <p className="px-4 py-6 text-sm text-center" style={{ color: "var(--text-muted)" }}>
+              Aucun résultat pour «&nbsp;{query.trim()}&nbsp;».
+            </p>
+          ) : (
+            groups.map(([kind, items]) => (
+              <div key={kind} className="mb-1 last:mb-0">
+                <p
+                  className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {GROUP_LABEL[kind]}
+                </p>
+                {items.map((result) => {
+                  flatIndex += 1;
+                  const index = flatIndex;
+                  const Icon = ICON[result.kind];
+                  const active = index === highlight;
+                  return (
                     <button
-                      key={r.id}
-                      onClick={() => go(r.href)}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--hover-soft)]"
+                      key={result.id}
+                      role="option"
+                      aria-selected={active}
+                      onMouseEnter={() => setHighlight(index)}
+                      onClick={() => go(result.href)}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-colors"
+                      style={{ background: active ? "var(--hover-soft)" : "transparent" }}
                     >
                       <span
-                        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                        className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
                         style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}
                       >
-                        {iconFor(r.kind)}
+                        <Icon size={14} />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>
-                          {r.label}
+                        <span
+                          className="block text-sm font-semibold truncate"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          {result.label}
                         </span>
                         <span className="block text-xs truncate" style={{ color: "var(--text-muted)" }}>
-                          {r.sub}
+                          {result.sub}
                         </span>
                       </span>
+                      {active && (
+                        <CornerDownLeft size={13} className="shrink-0" style={{ color: "var(--text-muted)" }} />
+                      )}
                     </button>
-                  ))
-                )}
+                  );
+                })}
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
+            ))
+          )}
+        </div>
+      )}
+    </div>
   );
 }

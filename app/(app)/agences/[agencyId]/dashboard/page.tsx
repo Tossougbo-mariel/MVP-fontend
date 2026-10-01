@@ -15,6 +15,7 @@ import { useAuthStore } from "@/app/store/authStore";
 import { useAppData, useAsync } from "@/lib/appData";
 import { fetchActivity } from "@/lib/services";
 import { userRoleInAgency, type AgencyRole, overdueTasks, ACTIVITY_LABELS, getProjectProgress } from "@/lib/types";
+import { useTaskStatuses } from "@/lib/useTaskStatuses";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -198,6 +199,7 @@ function AdminDashboard({
 }) {
   const isOwner = role === "owner";
   const { agencyById, tasksByAgency, projectsByAgency } = useAppData();
+  const { statuses, isTerminal } = useTaskStatuses();
   const agency = agencyById(agencyId);
 
   const { data: activity, loading: activityLoading } = useAsync(
@@ -218,6 +220,7 @@ function AdminDashboard({
   const totalProjects = agencyProjects.length;
   const overdueCount = overdueTasks(
     agencyTasks.map((t) => ({ deadline: t.dueDate, status: t.status })),
+    statuses,
   ).length;
 
   const WEEK_DAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
@@ -238,7 +241,7 @@ function AdminDashboard({
   const countDone = (from: Date, to: Date): number[] => {
     const counts = Array(7).fill(0) as number[];
     for (const t of agencyTasks) {
-      if (t.status !== "terminee" || !t.completedAt) continue;
+      if (!isTerminal(t.status) || !t.completedAt) continue;
       const completed = new Date(t.completedAt);
       if (completed >= from && completed < to) {
         counts[(completed.getDay() + 6) % 7]++;
@@ -264,7 +267,7 @@ function AdminDashboard({
     { label: "À faire", value: agencyTasks.filter((t) => t.status === "a_faire").length, color: "#0c79f2" },
     { label: "En cours", value: agencyTasks.filter((t) => t.status === "en_cours").length, color: "#056cf2" },
     { label: "En révision", value: agencyTasks.filter((t) => t.status === "en_revision").length, color: "#589bff" },
-    { label: "Terminées", value: agencyTasks.filter((t) => t.status === "terminee").length, color: "var(--color-success)" },
+    { label: "Terminées", value: agencyTasks.filter((t) => isTerminal(t.status)).length, color: "var(--color-success)" },
     { label: "En retard", value: overdueCount, color: "var(--color-error)" },
   ];
 
@@ -739,14 +742,20 @@ const badPractices = [
 
 function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: string }) {
   const { myTasksInAgency, projectsByAgency, tasksByProject } = useAppData();
+  const { statuses, isTerminal } = useTaskStatuses();
   const myT = myTasksInAgency(agencyId);
 
   const today = new Date().toISOString().slice(0, 10);
+  // Une tuile par statut réel de l'agence, plus le compteur de retards.
+  const statusTiles = statuses.map((s) => ({
+    label: s.label,
+    value: myT.filter((t) => t.status === s.key).length,
+    icon: s.is_terminal ? CheckCircle2 : s.key === "a_faire" ? CalendarClock : Clock,
+    color: s.color,
+  }));
   const memberTasks = [
-    { label: "À faire", value: myT.filter((t) => t.status === "a_faire").length, icon: CalendarClock, color: "#6ea8ff" },
-    { label: "En cours", value: myT.filter((t) => t.status === "en_cours").length, icon: Clock, color: "#589bff" },
-    { label: "Terminées", value: myT.filter((t) => t.status === "terminee").length, icon: CheckCircle2, color: "var(--color-success)" },
-    { label: "En retard", value: myT.filter((t) => t.status !== "terminee" && t.deadline !== null && t.deadline < today).length, icon: AlertTriangle, color: "var(--color-error)" },
+    ...statusTiles,
+    { label: "En retard", value: myT.filter((t) => !isTerminal(t.status) && t.deadline !== null && t.deadline < today).length, icon: AlertTriangle, color: "var(--color-error)" },
   ];
 
   // Projets dans lesquels le membre participe (au moins une tâche), non archivés

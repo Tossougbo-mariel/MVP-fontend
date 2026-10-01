@@ -12,6 +12,8 @@ export type ApiUser = {
   bio: string | null;
   job_title: string | null;
   status: string;
+  /** Présent quand l'API le renvoie : un compte Google n'a pas de mot de passe. */
+  has_password?: boolean;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -37,6 +39,9 @@ export const apiUserToLocalUser = (u: ApiUser): User => {
     city: u.city ?? undefined,
     bio: u.bio ?? undefined,
     jobTitle: u.job_title ?? undefined,
+    // Par défaut `true` : si l'API ne le dit pas (anciennes réponses), on ne
+    // doit pas faire croire à l'utilisateur qu'il n'a pas de mot de passe.
+    hasPassword: u.has_password ?? true,
     createdAt: u.created_at?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
   };
 };

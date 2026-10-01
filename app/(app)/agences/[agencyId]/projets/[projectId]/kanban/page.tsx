@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
@@ -32,7 +32,9 @@ import {
   type Task,
   type TaskPriority,
   type TaskStatus,
+  type TaskStatusMeta,
 } from "@/lib/types";
+import { useTaskStatuses } from "@/lib/useTaskStatuses";
 import { useAuthStore } from "@/app/store/authStore";
 import {
   fetchProjectMembers,
@@ -72,13 +74,34 @@ const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: st
   },
 };
 
-// ✅ Colonnes FIXES du Kanban dans cet ordre exact
-const KANBAN_COLUMNS: { status: TaskStatus; label: string; color: string; bg: string; border?: string }[] = [
-  { status: "a_faire", label: "À faire", color: "var(--color-error)", bg: "rgba(239,68,68,0.12)" },
-  { status: "en_cours", label: "En cours", color: "#f59e0b", bg: "rgba(245,158,11,0.15)" },
-  { status: "en_revision", label: "En révision", color: "#589bff", bg: "rgba(88,155,255,0.15)" },
-  { status: "terminee", label: "Terminée", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
-];
+/**
+ * Colonnes du Kanban : elles suivent les statuts réels de l'agence, donc une
+ * agence qui a ajouté « Bloqué » ou renommé « En cours » voit ses colonnes
+ * s'adapter sans toucher au code. La couleur de fond est dérivée de la couleur
+ * du statut (14 % d'opacité).
+ */
+type KanbanColumn = {
+  status: TaskStatus;
+  label: string;
+  color: string;
+  bg: string;
+  border?: string;
+};
+
+const withAlpha = (hex: string, alpha: number): string => {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!m) return "transparent";
+  const [r, g, b] = [m[1], m[2], m[3]].map((c) => parseInt(c, 16));
+  return `rgba(${r},${g},${b},${alpha})`;
+};
+
+const buildKanbanColumns = (statuses: TaskStatusMeta[]): KanbanColumn[] =>
+  statuses.map((s) => ({
+    status: s.key,
+    label: s.label,
+    color: s.color,
+    bg: withAlpha(s.color, 0.14),
+  }));
 
 const priorityConfig: Record<TaskPriority, { label: string; color: string; bg: string; border?: string }> = {
   basse: {
@@ -104,6 +127,8 @@ export default function ProjectKanbanPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const { refresh, agencyById, getProject, tasksByProject, data } = useAppData();
+  const { statuses } = useTaskStatuses();
+  const KANBAN_COLUMNS = useMemo(() => buildKanbanColumns(statuses), [statuses]);
 
   const agency = agencyById(agencyId);
   const project = getProject(projectId);
@@ -266,7 +291,9 @@ export default function ProjectKanbanPage() {
     ...t,
     status: localStatuses[String(t.id)] ?? t.status,
   })) as Task[];
-  const badge = statusConfig[getProjectStatusFromTasks(project.status, effectiveProjectTasks)];
+  const badge = statusConfig[
+    getProjectStatusFromTasks(project.status, effectiveProjectTasks, statuses)
+  ];
   const wallpaperSrc = getWallpaperBg(project.wallpaper);
 
   // Map email→membre pour afficher l'assigné sur les cartes
@@ -652,7 +679,7 @@ export default function ProjectKanbanPage() {
                           </span>
                         </div>
 
-                        {isTaskBlocked(task) && (
+                        {isTaskBlocked(task, statuses) && (
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="inline-flex items-center gap-1 text-[9px] font-bold" style={{ color: "var(--color-error)" }}>
                               <Lock size={10} /> Bloquée

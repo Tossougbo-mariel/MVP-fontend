@@ -222,7 +222,63 @@ export type ProjectMember = {
 };
 
 // ---------- Tâches ----------
-export type TaskStatus = "a_faire" | "en_cours" | "en_revision" | "terminee";
+
+/**
+ * Une clé de statut. Volontairement un `string` et non une union : chaque
+ * agence définit ses propres colonnes, et `tasks.status` peut déjà contenir
+ * les quatre clés historiques. Ce qui décide qu'une tâche est close, c'est
+ * `is_terminal` du statut — jamais la clé elle-même.
+ *
+ * `DEFAULT_TASK_STATUSES` sert de repli tant que l'API n'a pas répondu, ce qui
+ * rend le comportement identique à l'existant pour une agence sans
+ * personnalisation.
+ */
+export type TaskStatus = string;
+
+export type TaskStatusMeta = {
+  key: string;
+  label: string;
+  color: string;
+  is_terminal: boolean;
+  /**
+   * Identifiant de la ligne en base, `null` pour un statut historique non
+   * personnalisé : ces colonnes existent par défaut mais n'ont pas de ligne,
+   * donc on ne peut pas les modifier ni les supprimer directement — il faut les
+   * personnaliser, ce qui crée la ligne.
+   */
+  id?: number | null;
+};
+
+export const DEFAULT_TASK_STATUSES: TaskStatusMeta[] = [
+  { key: "a_faire", label: "À faire", color: "#ef4444", is_terminal: false },
+  { key: "en_cours", label: "En cours", color: "#f59e0b", is_terminal: false },
+  { key: "en_revision", label: "En révision", color: "#589bff", is_terminal: false },
+  { key: "terminee", label: "Terminée", color: "#10b981", is_terminal: true },
+];
+
+/**
+ * Statut terminal ? Sans liste fournie, on retombe sur le vocabulaire
+ * historique plutôt que de considérer la tâche comme close : une donnée
+ * inconnue ne doit pas disparaître des listes « en cours ».
+ */
+export const isTerminalStatus = (status: TaskStatus, statuses?: TaskStatusMeta[]): boolean => {
+  const list = statuses ?? DEFAULT_TASK_STATUSES;
+  const match = list.find((s) => s.key === status);
+  return match
+    ? match.is_terminal
+    : ["terminee", "termine", "done"].includes(status);
+};
+
+export const taskStatusLabel = (status: TaskStatus, statuses?: TaskStatusMeta[]): string =>
+  (statuses ?? DEFAULT_TASK_STATUSES).find((s) => s.key === status)?.label ??
+  LABEL_STATUS[status] ??
+  status;
+
+export const taskStatusColor = (status: TaskStatus, statuses?: TaskStatusMeta[]): string =>
+  (statuses ?? DEFAULT_TASK_STATUSES).find((s) => s.key === status)?.color ??
+  DEFAULT_TASK_STATUSES.find((s) => s.key === status)?.color ??
+  "#94a3b8";
+
 export type TaskPriority = "basse" | "moyenne" | "haute" | "urgente";
 
 export type TaskDepRef = {
@@ -308,37 +364,52 @@ export const myTasksFor = (
     .map((t) => buildMyTask(t, projectById.get(t.projectId)));
 };
 
-export const overdueTasks = (list: { deadline: string | null; status: TaskStatus }[]): typeof list => {
+export const overdueTasks = (
+  list: { deadline: string | null; status: TaskStatus }[],
+  statuses?: TaskStatusMeta[],
+): typeof list => {
   const today = new Date().toISOString().slice(0, 10);
   return list.filter(
-    (t) => t.status !== "terminee" && t.deadline !== null && t.deadline < today,
+    (t) => !isTerminalStatus(t.status, statuses) && t.deadline !== null && t.deadline < today,
   );
 };
 
 export const getProjectStatusFromTasks = (
   currentStatus: ProjectStatus,
   projectTasks: Task[],
+  statuses?: TaskStatusMeta[],
 ): ProjectStatus => {
   if (currentStatus === "archive") return "archive";
   if (projectTasks.length === 0) return "a_venir";
-  if (projectTasks.every((t) => t.status === "terminee")) return "termine";
+  if (projectTasks.every((t) => isTerminalStatus(t.status, statuses))) return "termine";
   return "en_cours";
 };
 
-const TASK_PROGRESS_CREDITS: Record<TaskStatus, number> = {
-  a_faire: 0,
-  en_cours: 25,
-  en_revision: 70,
-  terminee: 100,
+/**
+ * Poids de chaque statut : sa position dans la liste (la dernière colonne vaut
+ * 100), les terminaux valant toujours 100. Reproduit exactement les anciens
+ * crédits fixes 0/25/70/100 sur la liste par défaut.
+ */
+const progressCredits = (statuses?: TaskStatusMeta[]): Record<string, number> => {
+  const list = statuses ?? DEFAULT_TASK_STATUSES;
+  const lastIndex = Math.max(0, list.length - 1);
+  const credits: Record<string, number> = {};
+
+  list.forEach((s, i) => {
+    credits[s.key] = s.is_terminal || lastIndex === 0 ? 100 : Math.round((i / lastIndex) * 100);
+  });
+
+  return credits;
 };
 
-export const getProjectProgress = (projectTasks: Task[]): number => {
+export const getProjectProgress = (
+  projectTasks: Task[],
+  statuses?: TaskStatusMeta[],
+): number => {
   const total = projectTasks.length;
   if (total === 0) return 0;
-  const sum = projectTasks.reduce(
-    (acc, t) => acc + (TASK_PROGRESS_CREDITS[t.status] ?? 0),
-    0,
-  );
+  const credits = progressCredits(statuses);
+  const sum = projectTasks.reduce((acc, t) => acc + (credits[t.status] ?? 0), 0);
   return Math.round(sum / total);
 };
 
@@ -355,7 +426,12 @@ export const getProjectById = (
 export const getTaskById = (tasks: Task[], taskId: number | string): Task | undefined =>
   tasks.find((t) => Number(t.id) === Number(taskId));
 
-export const LABEL_STATUS: Record<TaskStatus, string> = {
+/**
+ * Libellés des statuts historiques. `Record<string, string>` car les clés sont
+ * désormais dynamiques ; à indexer de préférence via `taskStatusLabel()`,
+ * qui tient compte de la personnalisation de l'agence.
+ */
+export const LABEL_STATUS: Record<string, string> = {
   a_faire: "À faire",
   en_cours: "En cours",
   en_revision: "En révision",
@@ -501,9 +577,25 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   commentaire: "Commentaire ajouté",
 };
 
+/**
+ * Tâche close, vu depuis un écran qui mélange plusieurs agences.
+ *
+ * `completedAt` est la source la plus fiable : le backend le renseigne
+ * d'après le `is_terminal` du statut, quel que soit son nom. On complète avec
+ * le vocabulaire historique pour les tâches closes avant que cette colonne ne
+ * soit gérée.
+ */
+export const isTaskDone = (t: {
+  status: TaskStatus;
+  completedAt?: string | null;
+}): boolean =>
+  t.completedAt != null || ["terminee", "termine", "done"].includes(t.status);
+
 // Une tâche est bloquée si une de ses dépendances n'est pas terminée
-export const isTaskBlocked = (task: Pick<Task, "dependencies">): boolean =>
-  (task.dependencies ?? []).some((d) => d.status !== "terminee");
+export const isTaskBlocked = (
+  task: Pick<Task, "dependencies">,
+  statuses?: TaskStatusMeta[],
+): boolean => (task.dependencies ?? []).some((d) => !isTerminalStatus(d.status, statuses));
 
 // ---------- Notifications ----------
 export type AppNotification = {
