@@ -5,24 +5,26 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Building2, LogOut, X, Sparkles, Bell, User, Plus, Bot,
-  LayoutDashboard, CheckSquare, FolderKanban, Users, Settings, Hash,
+  LayoutDashboard, CheckSquare, FolderKanban, Users, Settings, Wrench, Hash,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
 import {
   userAgencies, userRoleInAgency, type AgencyRole,
 } from "@/lib/types";
-import { useActiveAgencyId } from "@/lib/useActiveAgencyId";
+import { useActiveAgencyId, profileHrefFor } from "@/lib/useActiveAgencyId";
 
 /** Rail principal : 80px, sous le header. Doit rester égal à --rail-w (globals.css). */
 export const MAIN_RAIL_WIDTH = 80;
 
-/** Navigation globale, hors agence : les mêmes accès depuis n'importe quel écran. */
+/** Navigation globale, hors agence : les mêmes accès depuis n'importe quel écran.
+ *  « Mon profil » est résolu plus bas : son href dépend de l'agence courante. */
 const GLOBAL_ITEMS = [
   { href: "/mes-agences", label: "Mes agences", icon: Building2 },
   { href: "/agences/nouvelle", label: "Créer une agence", icon: Plus },
   { href: "/notifications", label: "Notifications", icon: Bell },
-  { href: "/profil", label: "Mon profil", icon: User },
+  { key: "profil", label: "Mon profil", icon: User },
+  { href: "/reglages", label: "Réglages", icon: Wrench },
 ];
 
 const AGENCY_ITEMS = [
@@ -32,6 +34,9 @@ const AGENCY_ITEMS = [
   { suffix: "equipe", label: "Équipe", icon: Users },
 ];
 
+// Sur desktop, les réglages d'agence sont dans le second sidebar
+// (cf. AgencyPanel). Le tiroir mobile ci-dessous n'a pas de second sidebar :
+// il conserve donc l'entrée pour que la page reste atteignable sur mobile.
 const OWNER_AGENCY_ITEMS = [
   ...AGENCY_ITEMS,
   { suffix: "parametres", label: "Paramètres", icon: Settings },
@@ -75,6 +80,10 @@ export default function Sidebar({
   const agencyRole: AgencyRole =
     currentAgency && user ? userRoleInAgency(currentAgency, user.email) : "membre";
   const agencyItems = agencyRole === "owner" ? OWNER_AGENCY_ITEMS : AGENCY_ITEMS;
+
+  // Même cible que le lien « Mon profil » du header : l'agence courante est
+  // conservée en query string pour que la page profil garde son contexte.
+  const profileHref = profileHrefFor(agencyId);
 
   const handleLogout = () => {
     logout();
@@ -213,21 +222,20 @@ export default function Sidebar({
           {railItem({
             label: "Mon profil",
             short: "Profil",
-            href: "/profil",
+            href: profileHref,
             active: pathname.startsWith("/profil"),
             children: <User size={18} />,
           })}
-          {/* Réglages d'agence : ils n'existent que dans une agence, donc
-              l'entrée n'apparaît que dans ce contexte et pointe vers la page
-              de l'agence courante plutôt que vers une route globale absente. */}
-          {isInAgency &&
-            railItem({
-              label: "Paramètres",
-              short: "Paramètres",
-              href: `/agences/${agencyId}/parametres`,
-              active: pathname.includes("/parametres"),
-              children: <Settings size={18} />,
-            })}
+          {/* Réglages de la plateforme : ils sont globaux, donc ils restent sur
+              le rail. Les réglages d'agence, eux, vivent dans le second
+              sidebar (cf. AgencyPanel) car ils dépendent de l'agence courante. */}
+          {railItem({
+            label: "Réglages",
+            short: "Réglages",
+            href: "/reglages",
+            active: pathname.startsWith("/reglages"),
+            children: <Wrench size={18} />,
+          })}
         </div>
 
         {railItem({
@@ -353,22 +361,26 @@ export default function Sidebar({
           </div>
         )}
 
-        {GLOBAL_ITEMS.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onClose}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
-            style={
-              pathname === item.href
-                ? { background: "var(--rail-accent-soft)", color: "var(--rail-text)" }
-                : { color: "var(--rail-text-secondary)" }
-            }
-          >
-            <item.icon className="w-[18px] h-[18px]" />
-            {item.label}
-          </Link>
-        ))}
+        {GLOBAL_ITEMS.map((item) => {
+          // « Mon profil » n'a pas d'href statique : il dépend de l'agence courante.
+          const href = "key" in item ? profileHref : item.href;
+          return (
+            <Link
+              key={href}
+              href={href}
+              onClick={onClose}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
+              style={
+                pathname === href.split("?")[0]
+                  ? { background: "var(--rail-accent-soft)", color: "var(--rail-text)" }
+                  : { color: "var(--rail-text-secondary)" }
+              }
+            >
+              <item.icon className="w-[18px] h-[18px]" />
+              {item.label}
+            </Link>
+          );
+        })}
 
         {!isInAgency && myAgencies.length === 0 && (
           <p className="px-1 text-xs" style={{ color: "var(--rail-text-muted)" }}>

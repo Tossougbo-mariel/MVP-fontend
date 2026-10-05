@@ -6,8 +6,8 @@ import { motion, type Variants } from "framer-motion";
 import Cropper from "react-easy-crop";
 import {
   User, Mail, Briefcase, Pencil, Save, CheckCircle2, ShieldCheck,
-  Globe, Camera, Calendar, ClipboardList, Building2, ChevronRight, X, ZoomIn,
-  CheckSquare, AlertTriangle, Eye, Plus, Palette, ChevronDown, Check,
+  Camera, Calendar, ClipboardList, Building2, ChevronRight, X, ZoomIn,
+  CheckSquare, AlertTriangle, Eye, Plus,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
@@ -18,9 +18,6 @@ import {
 } from "@/lib/types";
 import { useActiveAgencyId } from "@/lib/useActiveAgencyId";
 import AvatarViewer from "@/app/(app)/components/AvatarViewer";
-import Select from "@/app/(app)/components/Select";
-import { DEFAULT_ACCENT, PRESET_COLORS, toAccentHex } from "@/lib/accentTheme";
-import { applyAccent, storeAccent } from "@/lib/applyAccent";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -209,9 +206,6 @@ export default function ProfilPage() {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropperArea | null>(null);
   const [cropping, setCropping] = useState(false);
 
-  const [language, setLanguage] = useState("fr");
-  const [showThemes, setShowThemes] = useState(false);
-
   // ---------- Double authentification ----------
   const fetchTwoFactor = useAuthStore((s) => s.fetchTwoFactor);
   const toggleTwoFactor = useAuthStore((s) => s.toggleTwoFactor);
@@ -287,22 +281,6 @@ export default function ProfilPage() {
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Impossible d'enregistrer les modifications.");
-    }
-  };
-
-  const userAccent = toAccentHex(user?.themeColor);
-
-  const handleAccentSelect = async (hex: string) => {
-    if (!user) return;
-    if (hex.toLowerCase() === userAccent.toLowerCase()) return;
-    applyAccent(hex);
-    // Conservé hors session : c'est ce qui permet de retrouver cette couleur
-    // sur les pages de connexion et d'inscription, puis après une déconnexion.
-    storeAccent(hex);
-    try {
-      await updateUser({ themeColor: hex });
-    } catch {
-      setSaveError("Impossible d'enregistrer la couleur d'accent.");
     }
   };
 
@@ -666,25 +644,9 @@ export default function ProfilPage() {
 
           <div className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
             <h2 className="text-lg font-bold flex items-center gap-2 mb-4" style={{ color: "var(--text-primary)" }}>
-              <Globe size={18} /> Préférences
+              <ShieldCheck size={18} /> Sécurité
             </h2>
             <div className="space-y-4">
-              <div>
-                <label className="text-xs uppercase tracking-wide block mb-1" style={{ color: "var(--text-secondary)" }}>
-                  Langue
-                </label>
-                <Select
-                  value={language}
-                  onChange={setLanguage}
-                  options={[
-                    { value: "fr", label: "Français" },
-                    { value: "en", label: "English" },
-                  ]}
-                  className="w-full"
-                  ariaLabel="Langue"
-                />
-              </div>
-
               {/* ---------- Sécurité : double authentification ---------- */}
               <div className="space-y-2">
                 <span className="text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
@@ -755,62 +717,6 @@ export default function ProfilPage() {
                     <p className="text-xs font-semibold" style={{ color: "var(--color-error)" }}>
                       {twoFactorError}
                     </p>
-                  )}
-                </div>
-
-                <div>
-                  <button
-                    onClick={() => setShowThemes((s) => !s)}
-                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl"
-                    style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
-                  >
-                    <span className="text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-                      <Palette size={15} style={{ color: "var(--text-secondary)" }} /> Thème
-                    </span>
-                    <ChevronDown
-                      size={16}
-                      style={{ color: "var(--text-secondary)", transform: showThemes ? "rotate(180deg)" : "none" }}
-                    />
-                  </button>
-                  {showThemes && (
-                    <>
-                      <div className="mt-3 grid grid-cols-6 gap-x-1.5 gap-y-2">
-                        {[{ label: `Défaut (${DEFAULT_ACCENT})`, hex: DEFAULT_ACCENT }, ...PRESET_COLORS].map((item) => {
-                          const active = userAccent.toLowerCase() === item.hex.toLowerCase();
-                          return (
-                            <button
-                              key={item.label}
-                              onClick={() => handleAccentSelect(item.hex)}
-                              title={item.label}
-                              aria-label={`Couleur d'accent ${item.label}`}
-                              className="h-9 w-9 justify-self-center rounded-full flex items-center justify-center transition-transform hover:scale-110"
-                              style={{
-                                background: item.hex,
-                                border: active ? "2px solid var(--accent-text)" : "2px solid transparent",
-                                boxShadow: active ? "0 0 0 2px var(--surface), 0 0 0 4px var(--accent-text)" : "none",
-                              }}
-                            >
-                              {active && <Check size={13} style={{ color: "#fff", strokeWidth: 3 }} />}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <label
-                        className="mt-4 flex items-center gap-3 rounded-xl px-4 py-3 cursor-pointer"
-                        style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
-                      >
-                        <span className="text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-                          <Palette size={15} style={{ color: "var(--text-secondary)" }} /> Couleur personnalisée
-                        </span>
-                        <input
-                          type="color"
-                          value={userAccent}
-                          onChange={(e) => handleAccentSelect(e.target.value)}
-                          aria-label="Couleur personnalisée"
-                          className="ml-auto h-9 w-12 cursor-pointer rounded-lg border-none bg-transparent p-0"
-                        />
-                      </label>
-                    </>
                   )}
                 </div>
               </div>

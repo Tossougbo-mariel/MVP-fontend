@@ -5,19 +5,27 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard, CheckSquare, FolderKanban, Users, Hash, CalendarDays,
-  ChevronDown, Plus,
+  ChevronDown, Plus, Settings,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
 import { userAgencies, userRoleInAgency, type AgencyRole } from "@/lib/types";
 
-// Les réglages d'agence ont été retirés de cette colonne : ils restent
-// accessibles depuis le lien de la page Équipe et depuis le tiroir mobile.
+// Les réglages d'agence vivent dans ce panneau : ils ne concernent que
+// l'agence affichée, donc ils ne figurent pas sur le rail principal, qui est
+// commun à toutes les agences.
 const AGENCY_ITEMS = [
   { suffix: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { suffix: "mes-taches", label: "Mes tâches", icon: CheckSquare },
   { suffix: "projets", label: "Projets", icon: FolderKanban },
   { suffix: "equipe", label: "Équipe", icon: Users },
+];
+
+// La page des réglages d'agence n'est accessible qu'au propriétaire : l'entrée
+// n'apparaît donc que pour ce rôle, comme le faisait le rail principal.
+const OWNER_AGENCY_ITEMS = [
+  ...AGENCY_ITEMS,
+  { suffix: "parametres", label: "Paramètres", icon: Settings },
 ];
 
 const ROLE_LABEL: Record<AgencyRole, string> = {
@@ -48,7 +56,7 @@ export default function AgencyPanel({ agencyId }: { agencyId: string }) {
   const agency = agencyById(agencyId);
   const agencyName = agency?.name ?? "Agence";
   const role: AgencyRole = agency && user ? userRoleInAgency(agency, user.email) : "membre";
-  const items = AGENCY_ITEMS;
+  const items = role === "owner" ? OWNER_AGENCY_ITEMS : AGENCY_ITEMS;
   const projects = projectsByAgency(agencyId);
   const myAgencies = user ? userAgencies(data.agencies, user.email) : [];
 

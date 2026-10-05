@@ -23,7 +23,6 @@ ChevronDown,
   Eye,
   Flag,
   FolderKanban,
-  GitBranch,
   History,
   ListChecks,
   Lock,
@@ -50,7 +49,6 @@ subtaskProgress,
   type Attachment,
   type Subtask,
   type Tag,
-  type TaskDepRef,
   DEADLINE_META,
   type TaskPriority,
   type TaskStatus,
@@ -77,9 +75,6 @@ import {
   uploadAttachment as apiUploadAttachment,
   deleteAttachment as apiDeleteAttachment,
   downloadAttachment as apiDownloadAttachment,
-  fetchTaskDependencies,
-  addTaskDependency as apiAddDependency,
-  removeTaskDependency as apiRemoveDependency,
   createTag as apiCreateTag,
   setTaskTags as apiSetTaskTags,
   createSubtask as apiCreateSubtask,
@@ -206,9 +201,6 @@ const history = getHistoryByTask(historyResult.data ?? [], taskId);
   const agencyTags: Tag[] = agencyTagsResult.data ?? [];
   const attachmentsResult = useAsync(() => fetchAttachments(taskId), [taskId]);
   const attachments: Attachment[] = attachmentsResult.data ?? [];
-  const depsResult = useAsync(() => fetchTaskDependencies(taskId), [taskId]);
-  const dependencies: TaskDepRef[] = depsResult.data?.dependencies ?? [];
-  const dependents: TaskDepRef[] = depsResult.data?.dependents ?? [];
 
   const [editing, setEditing] = useState(false);
   const [historyExpanded, setHistoryExpanded] = useState(false);
@@ -268,10 +260,6 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadBusy, setUploadBusy] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
-
-  // ====== Dépendances ======
-  const [depToAdd, setDepToAdd] = useState("");
-  const [depsBusy, setDepsBusy] = useState(false);
 
   useEffect(() => {
     document.title = task ? `${task.title} — Détail de la tâche` : "Détail de la tâche";
@@ -608,36 +596,6 @@ const handleStatusChange = async (status: TaskStatus) => {
     }
   };
 
-  const handleAddDependency = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!task || !depToAdd) return;
-    setDepsBusy(true);
-    try {
-      await apiAddDependency(task.id, Number(depToAdd));
-      setDepToAdd("");
-      depsResult.reload();
-      taskResult.reload();
-    } catch (err) {
-      alert(getApiErrorMessage(err));
-    } finally {
-      setDepsBusy(false);
-    }
-  };
-
-  const handleRemoveDependency = async (dep: TaskDepRef) => {
-    if (!task) return;
-    setDepsBusy(true);
-    try {
-      await apiRemoveDependency(task.id, dep.id);
-      depsResult.reload();
-      taskResult.reload();
-    } catch (err) {
-      alert(getApiErrorMessage(err));
-    } finally {
-      setDepsBusy(false);
-    }
-  };
-
   if (data.loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -772,9 +730,6 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
   const canChangeStatus = isAdmin || isAssigned;
   const canManageSubtasks = isAdmin || projectMembers.some((pm) => pm.user.id === user.id);
   const progress = subtaskProgress(subtasks);
-  const dependencyOptions = tasksByProject(projectId).filter(
-    (t) => t.id !== task.id && !dependencies.some((d) => d.id === t.id),
-  );
 
   const statusBadge = statusStyleOf(task.status);
   const prio = priorityConfig[task.priority];
@@ -1460,125 +1415,6 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
             {attachmentError}
           </p>
         )}
-      </motion.div>
-
-      {/* Dépendances entre tâches */}
-      <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
-        <h2 className="font-bold flex items-center gap-2.5 mb-4" style={{ color: "var(--text-primary)" }}>
-          <span
-            className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: "var(--accent-soft)" }}
-          >
-            <GitBranch size={16} style={{ color: "var(--accent-text)" }} />
-          </span>
-          Dépendances
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div>
-            <h3 className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>
-              Dépend de (prérequis)
-            </h3>
-            {dependencies.length === 0 ? (
-              <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>
-                Aucun prérequis.
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-2 mb-3">
-                {dependencies.map((dep) => (
-                  <li
-                    key={dep.id}
-                    className="group flex items-center gap-2 rounded-xl px-3 py-2"
-                    style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
-                  >
-                    <span
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ background: isTerminal(dep.status) ? "var(--color-success)" : "var(--color-error)" }}
-                    />
-                    <Link
-                      href={`/agences/${agencyId}/projets/${projectId}/taches/${dep.id}`}
-                      className="flex-1 text-sm truncate hover:underline"
-                      style={{ color: "var(--text-primary)" }}
-                    >
-                      {dep.title}
-                    </Link>
-                    <span className="text-[10px] font-semibold shrink-0" style={{ color: "var(--text-muted)" }}>
-                      {labelOf(dep.status)}
-                    </span>
-                    {canManageSubtasks && (
-                      <button
-                        type="button"
-                        disabled={depsBusy}
-                        onClick={() => handleRemoveDependency(dep)}
-                        className="shrink-0 p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                        style={{ color: "var(--color-error)" }}
-                        title="Retirer ce prérequis"
-                      >
-                        <X size={13} />
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {canManageSubtasks && (
-              <form onSubmit={handleAddDependency} className="flex gap-2">
-                <CustomSelectField
-                  value={depToAdd}
-                  onChange={(v) => setDepToAdd(v)}
-                  placeholder="Ajouter un prérequis…"
-                  options={dependencyOptions.map((t) => ({ value: String(t.id), label: t.title }))}
-                  className="flex-1"
-                  ariaLabel="Ajouter un prérequis"
-                />
-                <button
-                  type="submit"
-                  disabled={depsBusy || !depToAdd}
-                  className="inline-flex items-center justify-center px-3 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-60"
-                  style={{ background: "var(--gradient-button)" }}
-                >
-                  <Plus size={14} />
-                </button>
-              </form>
-            )}
-          </div>
-
-          <div>
-            <h3 className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>
-              Bloque (dépend de cette tâche)
-            </h3>
-            {dependents.length === 0 ? (
-              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                Aucune tâche dépendante.
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {dependents.map((dep) => (
-                  <li
-                    key={dep.id}
-                    className="flex items-center gap-2 rounded-xl px-3 py-2"
-                    style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
-                  >
-                    <span
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ background: isTerminal(dep.status) ? "var(--color-success)" : "var(--color-error)" }}
-                    />
-                    <Link
-                      href={`/agences/${agencyId}/projets/${projectId}/taches/${dep.id}`}
-                      className="flex-1 text-sm truncate hover:underline"
-                      style={{ color: "var(--text-primary)" }}
-                    >
-                      {dep.title}
-                    </Link>
-                    <span className="text-[10px] font-semibold shrink-0" style={{ color: "var(--text-muted)" }}>
-                      {labelOf(dep.status)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
       </motion.div>
 
       {/* Commentaires */}

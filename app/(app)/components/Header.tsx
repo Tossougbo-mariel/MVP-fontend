@@ -7,7 +7,7 @@ import { Menu, Bell, LogOut, User, ImageIcon, CheckCheck, AtSign, Sparkles } fro
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
 import { markAllNotificationsRead } from "@/lib/services";
-import { useActiveAgencyId } from "@/lib/useActiveAgencyId";
+import { useActiveAgencyId, profileHrefFor } from "@/lib/useActiveAgencyId";
 import AvatarViewer from "./AvatarViewer";
 import GlobalSearch from "./GlobalSearch";
 
@@ -20,8 +20,10 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   // ✅ Contexte d'agence active pour le lien "Mon profil" : le badge de rôle
   // sur la page profil dépend de l'agence dans laquelle on navigue. On le lit
   // depuis le pathname (/agences/{id}/...) ou depuis ?agency= sur /profil.
+  // profileHrefFor est la définition partagée avec le rail principal : les deux
+  // mènent donc au même écran avec le même contexte.
   const contextAgencyId = useActiveAgencyId();
-  const profileHref = contextAgencyId ? `/profil?agency=${contextAgencyId}` : "/profil";
+  const profileHref = profileHrefFor(contextAgencyId);
   const notificationsHref = contextAgencyId
     ? `/agences/${contextAgencyId}/notifications`
     : "/notifications";

@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { motion, type Variants } from "framer-motion";
 import {
 ShieldCheck, ArrowLeft, Settings, Users, Users2, Trash2, CheckCircle2, Save,
-  AlertTriangle, Globe, Mail, X, Clock, LayoutGrid, List, Kanban, Bell, RefreshCw,
+  AlertTriangle, Globe, Mail, X, Clock, LayoutGrid, List, Kanban, RefreshCw,
   Pencil, Lock, Check, UserRoundPlus, Plus, Palette,
 } from "lucide-react";
 import { ThemeToggleRow } from "@/app/(PageConnexion)/components/ThemeToggle";
@@ -794,54 +794,6 @@ disabled={busyInvitationId === inv.id || expired}
         >
           <ThemeToggleRow />
         </div>
-      </Section>
-
-      {/* SECTION 6 : Notifications */}
-      <Section icon={<Bell size={18} style={{ color: "var(--blue)" }} />} title="Notifications">
-        <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
-          Choisissez la façon dont cette agence vous notifie les activités importantes.
-        </p>
-        <button
-          onClick={() => saveSettings({ emailNotifications: !settings.emailNotifications })}
-          disabled={settingsSaving}
-          className="w-full flex items-center justify-between gap-4 px-5 py-4 rounded-2xl text-left transition-opacity hover:opacity-90 disabled:opacity-60"
-          style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: settings.emailNotifications ? "rgba(16,185,129,0.12)" : "var(--hover-soft)" }}
-            >
-              <Mail size={18} style={{ color: settings.emailNotifications ? "var(--color-success)" : "var(--text-muted)" }} />
-            </div>
-            <div className="min-w-0 text-left">
-              <div className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-                Notifications par e-mail
-                <span
-                  className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide"
-                  style={{
-                    background: settings.emailNotifications ? "rgba(16,185,129,0.12)" : "rgba(239,68,68,0.12)",
-                    color: settings.emailNotifications ? "var(--color-success)" : "var(--color-error)",
-                  }}
-                >
-                  {settings.emailNotifications ? "Activées" : "Désactivées"}
-                </span>
-              </div>
-              <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                Affectations de tâches, invitations et changements de statut par e-mail.
-              </div>
-            </div>
-          </div>
-          <span
-            className="relative inline-flex h-7 w-12 shrink-0 rounded-full transition-colors"
-            style={{ background: settings.emailNotifications ? "var(--gradient-button)" : "var(--border-subtle)" }}
-          >
-            <span
-              className="absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all"
-              style={{ left: settings.emailNotifications ? 24 : 4 }}
-            />
-          </span>
-        </button>
       </Section>
 
       {/* SECTION 6 : Zone de danger */}
