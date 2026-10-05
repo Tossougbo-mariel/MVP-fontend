@@ -16,10 +16,11 @@ import {
   CalendarPlus,
   Check,
   CheckCircle2,
-  ChevronDown,
+ChevronDown,
   ChevronUp,
   Clock,
   Download,
+  Eye,
   Flag,
   FolderKanban,
   GitBranch,
@@ -43,13 +44,14 @@ import {
   userRoleInAgency,
   getHistoryByTask,
   ACTIVITY_LABELS,
-  subtaskProgress,
+subtaskProgress,
   formatFileSize,
   isTaskBlocked,
   type Attachment,
   type Subtask,
   type Tag,
   type TaskDepRef,
+  DEADLINE_META,
   type TaskPriority,
   type TaskStatus,
   type ProjectMember,
@@ -84,7 +86,7 @@ import {
   updateSubtask as apiUpdateSubtask,
   deleteSubtask as apiDeleteSubtask,
   updateTask as apiUpdateTask,
-  updateTaskStatus as apiUpdateTaskStatus,
+updateTaskStatus as apiUpdateTaskStatus,
   archiveTask as apiArchiveTask,
   restoreTask as apiRestoreTask,
   deleteTask as apiDeleteTask,
@@ -118,14 +120,16 @@ const readableOnWhite = (hex: string) => {
 
 const formatDate = (date: string | null) => {
   if (!date) return "—";
-  const d = new Date(date + "T00:00:00");
+  const hasTime = date.includes("T") || date.includes(":");
+  const d = hasTime ? new Date(date) : new Date(date + "T00:00:00");
   if (Number.isNaN(d.getTime())) return date;
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 };
 
 const historyConfig: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
   creation: { label: ACTIVITY_LABELS["creation"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CalendarPlus },
-  changement_statut: { label: ACTIVITY_LABELS["changement_statut"], color: "#056cf2", bg: "var(--accent-soft)", icon: Flag },
+  changement_statut: { label: ACTIVITY_LABELS["changement_statut"], color: "var(--blue)", bg: "var(--accent-soft)", icon: Flag },
+  tache_terminee: { label: ACTIVITY_LABELS["tache_terminee"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CheckCircle2 },
   changement_responsable: { label: ACTIVITY_LABELS["changement_responsable"], color: "#7c3aed", bg: "rgba(139,92,246,0.12)", icon: UserRound },
   changement_priorite: { label: ACTIVITY_LABELS["changement_priorite"], color: "#d97706", bg: "rgba(245,158,11,0.15)", icon: Flag },
   changement_echeance: { label: ACTIVITY_LABELS["changement_echeance"], color: "#db2777", bg: "rgba(219,39,119,0.12)", icon: CalendarClock },
@@ -195,7 +199,7 @@ export default function TaskDetailPage() {
   const commentsResult = useAsync(() => fetchComments(taskId), [taskId]);
   const comments = commentsResult.data ?? [];
   const historyResult = useAsync(() => fetchActivity({ taskId }), [taskId]);
-  const history = getHistoryByTask(historyResult.data ?? [], taskId);
+const history = getHistoryByTask(historyResult.data ?? [], taskId);
   const subtasksResult = useAsync(() => fetchSubtasks(taskId), [taskId]);
   const subtasks: Subtask[] = subtasksResult.data ?? [];
   const agencyTagsResult = useAsync(() => fetchAgencyTags(agencyId), [agencyId]);
@@ -215,8 +219,24 @@ export default function TaskDetailPage() {
   const [commentOpen, setCommentOpen] = useState(false);
   const [commentContent, setCommentContent] = useState("");
   const [commentError, setCommentError] = useState<string | null>(null);
-  const [commentMentions, setCommentMentions] = useState<number[]>([]);
+const [commentMentions, setCommentMentions] = useState<number[]>([]);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [draftLong, setDraftLong] = useState(false);
+  const [showCommentPreview, setShowCommentPreview] = useState(false);
+  const [expandedCommentIds, setExpandedCommentIds] = useState<Set<number>>(() => new Set());
+  const [longCommentIds, setLongCommentIds] = useState<Set<number>>(() => new Set());
+
+  const measureComment = (id: number, expanded: boolean) => (el: HTMLParagraphElement | null) => {
+    if (!el || expanded) return;
+    const overflows = el.scrollHeight > el.clientHeight + 1;
+    setLongCommentIds((prev) => {
+      if (overflows === prev.has(id)) return prev;
+      const next = new Set(prev);
+      if (overflows) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
 
   // ====== État du formulaire d'édition ======
   const [editTitle, setEditTitle] = useState("");
@@ -371,7 +391,7 @@ export default function TaskDetailPage() {
     }
   };
 
-  const handleStatusChange = async (status: TaskStatus) => {
+const handleStatusChange = async (status: TaskStatus) => {
     if (!task) return;
     // C'est le statut terminal de l'agence qui « clôt » la tâche, pas la clé
     // 'terminee' : une colonne personnalisée comme « Livré » déclenche le même
@@ -748,7 +768,7 @@ export default function TaskDetailPage() {
 
   const assignee = memberById(task.assignedTo);
   const creator = memberById(task.createdBy);
-  const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
+const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
   const canChangeStatus = isAdmin || isAssigned;
   const canManageSubtasks = isAdmin || projectMembers.some((pm) => pm.user.id === user.id);
   const progress = subtaskProgress(subtasks);
@@ -758,6 +778,10 @@ export default function TaskDetailPage() {
 
   const statusBadge = statusStyleOf(task.status);
   const prio = priorityConfig[task.priority];
+  const deadlineMeta =
+    task.deadlineStatus && task.deadlineStatus !== "a_venir"
+      ? DEADLINE_META[task.deadlineStatus]
+      : null;
 
   // En-tête : teinte PLUS PROFONDE que le statut (couleur pure, opaque).
   // On garde des teintes choisies à la main pour les quatre statuts
@@ -915,7 +939,7 @@ export default function TaskDetailPage() {
                   >
                     Priorité {prio.label.toLowerCase()}
                   </span>
-                  {isTaskBlocked(task) && (
+{isTaskBlocked(task) && (
                       <span
                         className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full"
                         style={{ color: "#fff", background: "rgba(0,0,0,0.28)", border: "1px solid rgba(255,255,255,0.4)" }}
@@ -923,6 +947,14 @@ export default function TaskDetailPage() {
                         <Lock size={12} /> Bloquée
                       </span>
                     )}
+                  {deadlineMeta && (
+                    <span
+                      className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                      style={{ color: readableOnWhite(deadlineMeta.color), background: "#fff", border: `1px solid ${deadlineMeta.color}` }}
+                    >
+                      {deadlineMeta.label}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -932,7 +964,7 @@ export default function TaskDetailPage() {
                   <button
                     onClick={openEdit}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5"
-                    style={{ background: "#fff", color: "var(--accent-text)", boxShadow: "0 2px 6px -2px rgba(37,99,235,0.35)" }}
+                    style={{ background: "#fff", color: "var(--accent-text)", boxShadow: "0 2px 6px -2px rgba(var(--blue-rgb),0.35)" }}
                   >
                     <Pencil size={13} /> Modifier
                   </button>
@@ -981,7 +1013,7 @@ export default function TaskDetailPage() {
             </p>
           </div>
 
-          {/* Changement de statut */}
+{/* Changement de statut */}
           {canChangeStatus && !task.archivedAt && (
             <div className="flex flex-col gap-2 pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.25)" }}>
               <span className="text-xs font-bold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.92)" }}>
@@ -1575,6 +1607,8 @@ export default function TaskDetailPage() {
               {comments.map((c) => {
                 const author = memberByEmail(c.authorEmail) ?? projectMembers.find((pm) => pm.user.email.toLowerCase() === c.authorEmail.toLowerCase());
                 const isOwn = c.authorEmail.toLowerCase() === user.email.toLowerCase();
+                const isExpanded = expandedCommentIds.has(c.id);
+                const isLong = longCommentIds.has(c.id);
                 const dateStr = new Date(c.createdAt).toLocaleString("fr-FR", {
                   day: "numeric",
                   month: "short",
@@ -1619,9 +1653,45 @@ export default function TaskDetailPage() {
                           )}
                         </div>
                       </div>
-                      <p className="text-sm whitespace-pre-wrap mt-1" style={{ color: "var(--text-secondary)" }}>
+<p
+                        ref={measureComment(c.id, isExpanded)}
+                        className={`text-sm whitespace-pre-wrap break-words mt-1 ${isExpanded ? "" : "line-clamp-2"}`}
+                        style={{ color: "var(--text-secondary)" }}
+                      >
                         {renderWithMentions(c.content, mentionNames)}
                       </p>
+                      {!isExpanded && isLong && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedCommentIds((prev) => {
+                              const next = new Set(prev);
+                              next.add(c.id);
+                              return next;
+                            })
+                          }
+                          className="text-xs font-semibold mt-1 transition-opacity hover:opacity-70"
+                          style={{ color: "var(--accent-text)" }}
+                        >
+                          <Eye size={12} style={{ display: "inline", verticalAlign: "-1px" }} /> Voir le commentaire
+                        </button>
+                      )}
+                      {isExpanded && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedCommentIds((prev) => {
+                              const next = new Set(prev);
+                              next.delete(c.id);
+                              return next;
+                            })
+                          }
+                          className="text-xs font-semibold mt-1 transition-opacity hover:opacity-70"
+                          style={{ color: "var(--accent-text)" }}
+                        >
+                          Réduire
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -1632,15 +1702,19 @@ export default function TaskDetailPage() {
           {/* Ajout d'un commentaire — en bas, bouton bleu à droite */}
           <div className="mt-5 flex flex-col items-end gap-3">
             {commentOpen ? (
-              <form onSubmit={handleCommentSubmit} className="w-full">
+<form id="comment-form" onSubmit={handleCommentSubmit} className="w-full">
                 <div className="relative">
                   <textarea
                     autoFocus
                     value={commentContent}
                     onChange={handleCommentChange}
-                    rows={2}
+                    onInput={(e) => {
+                      const el = e.currentTarget;
+                      setDraftLong(el.scrollHeight > el.clientHeight + 1);
+                    }}
+                    rows={5}
                     placeholder="Écrire un commentaire… Tapez @ pour mentionner quelqu'un"
-                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none transition-shadow"
+                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-y break-words max-h-52 overflow-y-auto transition-shadow"
                     style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                   />
                   {mentionSuggestions.length > 0 && (
@@ -1668,6 +1742,16 @@ export default function TaskDetailPage() {
                   </p>
                 )}
                 <div className="flex flex-col sm:flex-row gap-2 mt-2 justify-end">
+                  {draftLong && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCommentPreview(true)}
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold transition-opacity hover:opacity-70"
+                      style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--accent-text)" }}
+                    >
+                      <Eye size={14} /> Voir le commentaire
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -1685,7 +1769,7 @@ export default function TaskDetailPage() {
                   <button
                     type="submit"
                     className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white transition-all hover:scale-105"
-                    style={{ background: "var(--gradient-button)", boxShadow: "0 6px 14px -6px rgba(37,99,235,0.4)" }}
+                    style={{ background: "var(--gradient-button)", boxShadow: "0 6px 14px -6px rgba(var(--blue-rgb),0.4)" }}
                   >
                     <Send size={14} /> Envoyer
                   </button>
@@ -1699,7 +1783,7 @@ export default function TaskDetailPage() {
                   setCommentOpen(true);
                 }}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-transform hover:scale-105"
-                style={{ background: "var(--gradient-button)", boxShadow: "0 6px 14px -6px rgba(37,99,235,0.4)" }}
+                style={{ background: "var(--gradient-button)", boxShadow: "0 6px 14px -6px rgba(var(--blue-rgb),0.4)" }}
               >
                 <MessageSquare size={13} /> Envoyer un commentaire
               </button>
@@ -1708,7 +1792,7 @@ export default function TaskDetailPage() {
         </motion.div>
         </div>
 
-        {/* Historique — en haut à droite (voir plus) */}
+{/* Historique — en haut à droite (voir plus) */}
         <div className="lg:col-span-1 space-y-6">
           {historyPanel}
         </div>
@@ -1778,7 +1862,7 @@ export default function TaskDetailPage() {
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Date de début *
                 </label>
-                <DatePickerField
+<DatePickerField
                   min={project.startDate || undefined}
                   max={project.dueDate || undefined}
                   value={editStartDate}
@@ -1800,7 +1884,7 @@ export default function TaskDetailPage() {
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Date d&apos;échéance *
                 </label>
-                <DatePickerField
+<DatePickerField
                   min={editStartDate || project.startDate || undefined}
                   max={project.dueDate || undefined}
                   value={editDueDate}
@@ -1809,7 +1893,7 @@ export default function TaskDetailPage() {
                     clearEditFieldError("dueDate");
                   }}
                   className="w-full"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 />
                 {editFieldErrors.dueDate && (
                   <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
@@ -1824,7 +1908,7 @@ export default function TaskDetailPage() {
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Priorité
                 </label>
-                <CustomSelectField
+<CustomSelectField
                   value={editPriority}
                   onChange={(v) => setEditPriority(v as TaskPriority)}
                   options={(Object.keys(priorityConfig) as TaskPriority[]).map((p) => ({ value: p, label: priorityConfig[p].label }))}
@@ -1836,7 +1920,7 @@ export default function TaskDetailPage() {
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Assignée à
                 </label>
-                <CustomSelectField
+<CustomSelectField
                   value={editAssignee}
                   onChange={(v) => setEditAssignee(v)}
                   placeholder="Non assignée"
@@ -1872,7 +1956,7 @@ export default function TaskDetailPage() {
                 type="submit"
                 disabled={actionLoading}
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
-                style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+                style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
               >
                 <Save size={16} /> {actionLoading ? "Enregistrement…" : "Enregistrer"}
               </button>
@@ -1984,7 +2068,7 @@ export default function TaskDetailPage() {
           </motion.div>
         </motion.div>
       )}
-      <ConfirmDialog
+<ConfirmDialog
         open={forceConfirm !== null}
         title="Terminer malgré tout ?"
         message={
@@ -2006,6 +2090,60 @@ export default function TaskDetailPage() {
         }}
         onCancel={() => setForceConfirm(null)}
       />
+
+      {/* Modal d'aperçu du commentaire saisi */}
+      {showCommentPreview && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        >
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setShowCommentPreview(false)}
+          />
+          <motion.div
+            initial={{ scale: 0.96, y: 10 }}
+            animate={{ scale: 1, y: 0 }}
+            className="relative w-full max-w-lg glass rounded-2xl p-5 space-y-4"
+            style={{ boxShadow: "var(--shadow-card)" }}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                <Eye size={18} /> Aperçu du commentaire
+              </h2>
+              <button type="button" onClick={() => setShowCommentPreview(false)} aria-label="Fermer">
+                <X className="w-5 h-5" style={{ color: "var(--text-secondary)" }} />
+              </button>
+            </div>
+            <div
+              className="whitespace-pre-wrap break-words max-h-80 overflow-y-auto rounded-xl p-4 text-sm"
+              style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
+            >
+              {renderWithMentions(commentContent, mentionNames)}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCommentPreview(false)}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold"
+                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
+              >
+                Fermer
+              </button>
+              <button
+                type="submit"
+                form="comment-form"
+                onClick={() => setShowCommentPreview(false)}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white transition-all hover:scale-105"
+                style={{ background: "var(--gradient-button)", boxShadow: "0 6px 14px -6px rgba(var(--blue-rgb),0.4)" }}
+              >
+                <Send size={14} /> Envoyer
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
     </motion.div>
   );
 }

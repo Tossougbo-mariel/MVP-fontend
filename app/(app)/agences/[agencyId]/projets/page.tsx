@@ -9,11 +9,11 @@ import {
   UserRound,
   ArrowLeft,
   LayoutGrid,
-  MoreHorizontal,
-  Download,
+Download,
   Archive,
   ArchiveRestore,
   Trash2,
+  Eye,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -41,7 +41,7 @@ const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: st
     bg: "transparent",
     border: "1px solid var(--border-subtle)",
   },
-  en_cours: { label: "En cours", color: "#056cf2", bg: "var(--accent-soft)" },
+  en_cours: { label: "En cours", color: "var(--blue)", bg: "var(--accent-soft)" },
   termine: { label: "Terminé", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
   archive: {
     label: "Archivé",
@@ -174,28 +174,41 @@ export default function ProjetsPage() {
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
       {/* En-tête */}
       <motion.div variants={item} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-            <FolderKanban className="w-6 h-6" style={{ color: "#056cf2" }} /> Projets
-          </h1>
-          <p className="flex items-center gap-1.5 mt-1" style={{ color: "var(--text-secondary)" }}>
-            {visibleProjects.length} projet{visibleProjects.length > 1 ? "s" : ""} dans {agency.name}
-          </p>
-          {archivedCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowArchivedOnly((v) => !v)}
-              className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-              style={
-                showArchivedOnly
-                  ? { background: "#b45309", color: "#fff" }
-                  : { background: "var(--hover-soft)", color: "var(--text-secondary)" }
-              }
-            >
-              <Archive size={13} />
-              {showArchivedOnly ? "Tous les projets" : `Archivés (${archivedCount})`}
-            </button>
-          )}
+        <div className="flex items-center gap-4">
+          <div
+            className="w-13 h-13 rounded-2xl flex items-center justify-center shrink-0"
+            style={{
+              width: 52,
+              height: 52,
+              background: "var(--gradient-primary)",
+              boxShadow: "0 10px 26px -8px rgba(var(--blue-rgb),0.55)",
+            }}
+          >
+            <FolderKanban className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
+              Projets
+            </h1>
+            <p className="mt-0.5 text-sm flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
+              {visibleProjects.length} projet{visibleProjects.length > 1 ? "s" : ""} dans {agency.name}
+            </p>
+            {archivedCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowArchivedOnly((v) => !v)}
+                className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                style={
+                  showArchivedOnly
+                    ? { background: "#b45309", color: "#fff" }
+                    : { background: "var(--hover-soft)", color: "var(--text-secondary)" }
+                }
+              >
+                <Archive size={13} />
+                {showArchivedOnly ? "Tous les projets" : `Archivés (${archivedCount})`}
+              </button>
+            )}
+          </div>
         </div>
 
         {canCreateProjects && (
@@ -216,7 +229,7 @@ export default function ProjetsPage() {
             <Link
               href={`/agences/${agencyId}/projets/nouveauProjet`}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
-              style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+              style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
             >
               <Plus size={16} /> Nouveau projet
             </Link>
@@ -363,45 +376,40 @@ export default function ProjetsPage() {
                         {owner ? memberDisplayName(owner) : p.ownerId ? `Utilisateur #${p.ownerId}` : "Responsable inconnu"}
                       </span>
                     </div>
-                    {isAdmin ? (
-                      p.status === "archive" ? (
-                        <div className="relative z-10 flex items-center gap-2 shrink-0">
-                          <button
-                            onClick={() => handleRestoreProject(p)}
-                            disabled={projectBusyId === p.id}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors disabled:opacity-60"
-                            style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}
-                          >
-                            <ArchiveRestore size={12} />
-                            {projectBusyId === p.id ? "…" : "Restaurer"}
-                          </button>
-                          <button
-                            onClick={() => setConfirmDeleteProjectId(p.id)}
-                            disabled={projectBusyId === p.id}
-                            title="Supprimer définitivement"
-                            className="p-1.5 rounded-lg transition-colors disabled:opacity-60"
-                            style={{ background: "var(--color-danger-soft)", color: "var(--color-error)" }}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                          <Link
-                            href={`/agences/${agencyId}/projets/${p.id}`}
-                            title="Gérer le projet (admin)"
-                            className="p-2 rounded-lg transition-all hover:bg-[var(--hover-soft)]"
-                          >
-                            <MoreHorizontal size={18} style={{ color: "var(--text-secondary)" }} />
-                          </Link>
-                        </div>
-                      ) : (
+{isAdmin && (
+                      <div className="relative z-10 flex items-center gap-2 shrink-0">
+                        {p.status === "archive" && (
+                          <>
+                            <button
+                              onClick={() => handleRestoreProject(p)}
+                              disabled={projectBusyId === p.id}
+                              className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors disabled:opacity-60"
+                              style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}
+                            >
+                              <ArchiveRestore size={12} />
+                              {projectBusyId === p.id ? "…" : "Restaurer"}
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteProjectId(p.id)}
+                              disabled={projectBusyId === p.id}
+                              title="Supprimer définitivement"
+                              className="p-1.5 rounded-lg transition-colors disabled:opacity-60"
+                              style={{ background: "var(--color-danger-soft)", color: "var(--color-error)" }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        )}
                         <Link
                           href={`/agences/${agencyId}/projets/${p.id}`}
                           title="Gérer le projet (admin)"
-                          className="relative p-2 rounded-lg transition-all hover:bg-[var(--hover-soft)] shrink-0"
+                          className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105 shrink-0"
+                          style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}
                         >
-                          <MoreHorizontal size={18} style={{ color: "var(--text-secondary)" }} />
+                          <Eye size={13} /> Voir plus
                         </Link>
-                      )
-                    ) : null}
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>

@@ -214,6 +214,7 @@ export type Project = {
   progress: number | null;
   createdAt: string;
   wallpaper?: string | null;
+  tasks?: Task[];
 };
 
 export type ProjectMember = {
@@ -280,6 +281,12 @@ export const taskStatusColor = (status: TaskStatus, statuses?: TaskStatusMeta[])
   "#94a3b8";
 
 export type TaskPriority = "basse" | "moyenne" | "haute" | "urgente";
+export type TaskDeadlineStatus = "a_venir" | "a_echeance" | "en_retard" | null;
+
+export const DEADLINE_META: Record<"a_echeance" | "en_retard", { label: string; color: string; bg: string }> = {
+  a_echeance: { label: "À échéance", color: "#d97706", bg: "rgba(217,119,6,0.14)" },
+  en_retard: { label: "En retard", color: "#D85A30", bg: "rgba(216,90,48,0.14)" },
+};
 
 export type TaskDepRef = {
   id: number;
@@ -308,6 +315,7 @@ export type Task = {
   tags: Tag[];
   dependencies?: TaskDepRef[];
   dependents?: TaskDepRef[];
+  deadlineStatus: TaskDeadlineStatus;
 };
 
 export type MyTask = {
@@ -323,6 +331,7 @@ export type MyTask = {
   deadline: string | null;
   createdAt: string;
   completedAt: string | null;
+  deadlineStatus: TaskDeadlineStatus;
 };
 
 export const getTasksByProject = (tasks: Task[], projectId: number | string): Task[] =>
@@ -351,6 +360,7 @@ export const buildMyTask = (t: Task, project?: Project): MyTask => ({
   deadline: t.dueDate ?? t.startDate ?? null,
   createdAt: t.createdAt,
   completedAt: t.completedAt,
+  deadlineStatus: t.deadlineStatus,
 });
 
 export const myTasksFor = (
@@ -571,10 +581,13 @@ export const getHistoryByTask = (
 export const ACTIVITY_LABELS: Record<string, string> = {
   creation: "Tâche créée",
   changement_statut: "Statut modifié",
+  tache_terminee: "Tâche terminée",
   changement_responsable: "Responsable modifié",
   changement_priorite: "Priorité modifiée",
   changement_echeance: "Échéance modifiée",
   commentaire: "Commentaire ajouté",
+  creation_projet: "Projet créé",
+  membre_ajoute: "Membre ajouté",
 };
 
 /**

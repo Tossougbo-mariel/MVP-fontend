@@ -36,7 +36,7 @@ export default function Navbar() {
         <Link href="/" className="flex items-center gap-2">
           <span className="text-[22px] font-extrabold tracking-[-0.5px] text-white whitespace-nowrap">
             MVP{" "}
-            <span style={{ color: "#9dc7ff" }}>Manager</span>
+            <span style={{ color: "var(--blue-light)" }}>Manager</span>
           </span>
         </Link>
 
@@ -47,7 +47,7 @@ export default function Navbar() {
               href={link.href}
               className="inline-flex items-center rounded-lg px-3 py-2 text-[15px] font-semibold text-[#ffffffe0] transition-all hover:bg-[#ffffff1a]"
               style={{ transitionDuration: "0.25s" }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "#9dc7ff")}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--blue-light)")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "#ffffffe0")}
             >
               {link.label}
@@ -58,7 +58,7 @@ export default function Navbar() {
         <div className="hidden items-center gap-2 md:flex">
           <Link
             href="/inscription"
-            className="rounded-[100px] bg-[#056cf2] px-5 py-2.5 text-[15px] font-bold text-white transition-all hover:brightness-110"
+            className="rounded-[100px] bg-[color:var(--blue)] px-5 py-2.5 text-[15px] font-bold text-white transition-all hover:brightness-110"
             style={{ transitionDuration: "0.25s" }}
           >
             S&apos;inscrire
@@ -67,7 +67,7 @@ export default function Navbar() {
             href="/connexion"
             className="rounded-lg px-4 py-2 text-[15px] font-semibold text-[#ffffffe0] transition-all hover:bg-[#ffffff1a]"
             style={{ transitionDuration: "0.25s" }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "#9dc7ff")}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--blue-light)")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "#ffffffe0")}
           >
             Se connecter
@@ -104,7 +104,7 @@ export default function Navbar() {
             key={link.href}
             href={link.href}
             onClick={() => setOpen(false)}
-            className="border-b border-[#dfe5ed] py-3 text-[18px] font-bold text-[#0b1521] transition-colors hover:text-[#056cf2]"
+            className="border-b border-[#dfe5ed] py-3 text-[18px] font-bold text-[#0b1521] transition-colors hover:text-[color:var(--blue)]"
           >
             {link.label}
           </a>
@@ -113,7 +113,7 @@ export default function Navbar() {
           <Link
             href="/inscription"
             onClick={() => setOpen(false)}
-            className="rounded-[100px] bg-[#056cf2] px-6 py-3 text-center text-[14px] font-bold text-white"
+            className="rounded-[100px] bg-[color:var(--blue)] px-6 py-3 text-center text-[14px] font-bold text-white"
           >
             S&apos;inscrire
           </Link>

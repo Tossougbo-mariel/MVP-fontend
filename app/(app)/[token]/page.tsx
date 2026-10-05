@@ -30,7 +30,7 @@ export default function TokenPage() {
         <h1
           className="text-3xl font-black"
           style={{
-            backgroundImage: "linear-gradient(135deg, #8B5CF6, #3B82F6 55%, #101725)",
+            backgroundImage: "linear-gradient(135deg, var(--blue), var(--blue-light))",
             backgroundClip: "text",
             WebkitBackgroundClip: "text",
             color: "transparent",

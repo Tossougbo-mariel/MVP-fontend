@@ -12,8 +12,8 @@ function Avatar({ initials, gradient }: { initials: string; gradient: string }) 
 }
 
 const GRAD = {
-  blue: "linear-gradient(135deg,#056cf2,#9dc7ff)",
-  lightBlue: "linear-gradient(135deg,#9dc7ff,#589bff)",
+  blue: "linear-gradient(135deg,var(--blue),var(--blue-light))",
+  lightBlue: "linear-gradient(135deg,var(--blue-light),var(--blue-mid))",
   dark: "linear-gradient(135deg,#011648,#002989)",
 };
 
@@ -39,7 +39,7 @@ function TaskCard({
   active?: boolean;
 }) {
   const tagStyle = {
-    blue: { bg: "#e8f0fe", color: "#056cf2" },
+    blue: { bg: "#e8f0fe", color: "var(--blue)" },
     coral: { bg: "#fef1e6", color: "#e05d2b" },
     neutral: { bg: "#ebeae4", color: "#6B6F6A" },
   }[tagVariant];
@@ -49,7 +49,7 @@ function TaskCard({
       className="mb-1.5 rounded-lg bg-white p-1.5"
       style={{
         border: "1px solid #dfe5ed",
-        borderLeft: active ? "3px solid #056cf2" : "1px solid #dfe5ed",
+        borderLeft: active ? "3px solid var(--blue)" : "1px solid #dfe5ed",
       }}
     >
       <div className="flex items-center gap-1">
@@ -87,7 +87,7 @@ function TaskCard({
             className="h-full rounded-full"
             style={{
               width: `${progress}%`,
-              backgroundColor: done ? "#22c55e" : "#056cf2",
+              backgroundColor: done ? "#22c55e" : "var(--blue)",
             }}
           />
         </div>
@@ -153,7 +153,7 @@ export default function PhoneMockup() {
       >
         <p className="text-[8.5px] font-extrabold text-white">
           MVP{" "}
-          <span style={{ color: "#9dc7ff" }}>Manager</span>
+          <span style={{ color: "var(--blue-light)" }}>Manager</span>
         </p>
         <Avatar initials="AK" gradient={GRAD.blue} />
       </div>
@@ -169,7 +169,7 @@ export default function PhoneMockup() {
               Site web ABC Immobilier
             </p>
             <div className="mt-1 h-[2.5px] w-24 overflow-hidden rounded-full bg-[#EBEAE4]">
-              <div className="h-full w-3/4 rounded-full bg-[#056cf2]" />
+              <div className="h-full w-3/4 rounded-full bg-[color:var(--blue)]" />
             </div>
           </div>
 
@@ -183,7 +183,7 @@ export default function PhoneMockup() {
                 due="20/09"
               />
             </Column>
-            <Column label="EN COURS" count={2} dot="#056cf2">
+            <Column label="EN COURS" count={2} dot="var(--blue)">
               <TaskCard
                 title="API utilisateurs"
                 tag="Haute"
@@ -200,7 +200,7 @@ export default function PhoneMockup() {
                 due="18/09"
               />
             </Column>
-            <Column label="EN RÉVISION" count={1} dot="#589bff">
+            <Column label="EN RÉVISION" count={1} dot="var(--blue-mid)">
               <TaskCard
                 title="Page d'accueil"
                 tag="Haute"

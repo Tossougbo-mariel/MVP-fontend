@@ -5,12 +5,11 @@ import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { motion, type Variants } from "framer-motion";
 import {
-  ShieldCheck, ArrowLeft, Settings, Users, Users2, Trash2, CheckCircle2, Save,
+ShieldCheck, ArrowLeft, Settings, Users, Users2, Trash2, CheckCircle2, Save,
   AlertTriangle, Globe, Mail, X, Clock, LayoutGrid, List, Kanban, Bell, RefreshCw,
   Pencil, Lock, Check, UserRoundPlus, Plus, Palette,
 } from "lucide-react";
 import { ThemeToggleRow } from "@/app/(PageConnexion)/components/ThemeToggle";
-import TaskStatusSettings from "@/app/(app)/components/TaskStatusSettings";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
 import {
@@ -126,7 +125,7 @@ function PermissionRow({
               className="px-3 py-2 rounded-xl text-xs font-semibold transition-transform hover:scale-105 disabled:opacity-60 disabled:hover:scale-100"
               style={
                 value === opt.value
-                  ? { background: "var(--gradient-button)", color: "#fff", boxShadow: "0 6px 14px -6px rgba(37,99,235,0.45)" }
+                  ? { background: "var(--gradient-button)", color: "#fff", boxShadow: "0 6px 14px -6px rgba(var(--blue-rgb),0.45)" }
                   : { background: "var(--hover-soft)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }
               }
             >
@@ -171,10 +170,11 @@ export default function ParametresPage() {
   // ====== États (toujours déclarés AVANT tout retour anticipé) ======
   const [agencyNameDraft, setAgencyNameDraft] = useState(agency?.name ?? "");
   const [descriptionDraft, setDescriptionDraft] = useState(agency?.description ?? "");
+  const [editingInfo, setEditingInfo] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editingInfo, setEditingInfo] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [busyInvitationId, setBusyInvitationId] = useState<number | null>(null);
   const [invitations, setInvitations] = useState<AgencyInvitation[]>([]);
@@ -281,8 +281,8 @@ export default function ParametresPage() {
         description: descriptionDraft.trim() || null,
       });
       await reload();
-      flashSaved();
       setEditingInfo(false);
+      flashSaved();
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
@@ -305,19 +305,16 @@ export default function ParametresPage() {
   };
 
   const handleDeleteAgency = async () => {
-    if (window.confirm(`Supprimer définitivement "${agency.name}" ? Tous les membres, projets et données seront perdus.`)) {
-      if (window.confirm("Dernière chance : êtes-vous sûr ?")) {
-        setDeleting(true);
-        setError(null);
-        try {
-          await deleteAgency(agencyId);
-          await reload();
-          router.push("/mes-agences");
-        } catch (err) {
-          setError(getApiErrorMessage(err));
-          setDeleting(false);
-        }
-      }
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteAgency(agencyId);
+      await reload();
+      router.push("/mes-agences");
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+      setDeleting(false);
+      setConfirmDeleteOpen(false);
     }
   };
 
@@ -352,16 +349,30 @@ export default function ParametresPage() {
   };
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+    <>
+      <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={item} className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-black flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-            <Settings className="w-6 h-6" style={{ color: "#056cf2" }} /> Paramètres
-          </h1>
-          <p className="mt-1 flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
-            <ShieldCheck className="w-4 h-4" style={{ color: "#056cf2" }} />
-            Propriétaire de {agency.name} — accès complet
-          </p>
+        <div className="flex items-center gap-4">
+          <div
+            className="w-13 h-13 rounded-2xl flex items-center justify-center shrink-0"
+            style={{
+              width: 52,
+              height: 52,
+              background: "var(--gradient-primary)",
+              boxShadow: "0 10px 26px -8px rgba(var(--blue-rgb),0.55)",
+            }}
+          >
+            <Settings className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
+              Paramètres
+            </h1>
+            <p className="mt-0.5 flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
+              <ShieldCheck className="w-4 h-4" style={{ color: "var(--blue)" }} />
+              Propriétaire de {agency.name} — accès complet
+            </p>
+          </div>
         </div>
         <Link
           href={`/agences/${agencyId}/equipe`}
@@ -395,8 +406,8 @@ export default function ParametresPage() {
       )}
 
       {/* SECTION 1 : Informations */}
-      <Section
-        icon={<Globe size={18} style={{ color: "#056cf2" }} />}
+<Section
+        icon={<Globe size={18} style={{ color: "var(--blue)" }} />}
         title="Informations de l'agence"
         actions={
           editingInfo ? (
@@ -410,7 +421,7 @@ export default function ParametresPage() {
             <button
               onClick={startEditInfo}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-transform hover:scale-105"
-              style={{ background: "rgba(5,108,242,0.08)", border: "1px solid rgba(5,108,242,0.25)", color: "#056cf2" }}
+              style={{ background: "rgba(var(--blue-rgb),0.08)", border: "1px solid rgba(var(--blue-rgb),0.25)", color: "var(--blue)" }}
             >
               <Pencil size={14} /> Modifier
             </button>
@@ -462,7 +473,7 @@ export default function ParametresPage() {
                 onClick={handleSave}
                 disabled={saving}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
-                style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+                style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
               >
                 <Save size={16} /> {saving ? "Enregistrement..." : "Enregistrer les modifications"}
               </button>
@@ -484,14 +495,14 @@ export default function ParametresPage() {
       </Section>
 
       {/* SECTION 2 : Invitations & permissions */}
-      <Section icon={<UserRoundPlus size={18} style={{ color: "#056cf2" }} />} title="Invitations & permissions">
+      <Section icon={<UserRoundPlus size={18} style={{ color: "var(--blue)" }} />} title="Invitations & permissions">
         <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
           Choisissez qui, parmi les membres de l&apos;agence, est autorisé à inviter de nouveaux membres.
         </p>
 
         <div className="space-y-3">
           <PermissionRow
-            icon={<UserRoundPlus size={18} style={{ color: "#056cf2" }} />}
+            icon={<UserRoundPlus size={18} style={{ color: "var(--blue)" }} />}
             title="Inviter des membres"
             value={settings.whoCanInvite}
             onChange={(v) => saveSettings({ whoCanInvite: v })}
@@ -505,7 +516,7 @@ export default function ParametresPage() {
           </label>
           <div className="flex flex-col sm:flex-row gap-2">
             {([
-              { value: "membre" as const, label: "Membre", desc: "Aucun droit d'administration", icon: <Users size={15} style={{ color: "#056cf2" }} /> },
+              { value: "membre" as const, label: "Membre", desc: "Aucun droit d'administration", icon: <Users size={15} style={{ color: "var(--blue)" }} /> },
               { value: "admin" as const, label: "Admin", desc: "Peut gérer utilisateurs, projets et tâches", icon: <ShieldCheck size={15} style={{ color: "#C7961A" }} /> },
             ]).map((opt) => (
               <button
@@ -515,7 +526,7 @@ export default function ParametresPage() {
                 className="flex-1 flex items-start gap-3 px-4 py-3 rounded-xl text-left transition-opacity hover:opacity-80 disabled:opacity-60"
                 style={
                   settings.defaultMemberRole === opt.value
-                    ? { background: "rgba(5,108,242,0.08)", border: "2px solid #056cf2" }
+                    ? { background: "rgba(var(--blue-rgb),0.08)", border: "2px solid var(--blue)" }
                     : { background: "var(--surface)", border: "1px solid var(--border-subtle)" }
                 }
               >
@@ -534,8 +545,8 @@ export default function ParametresPage() {
       </Section>
 
       {/* SECTION 3 : Invitations en attente */}
-      <Section
-        icon={<Clock size={18} style={{ color: "#056cf2" }} />}
+<Section
+        icon={<Clock size={18} style={{ color: "var(--blue)" }} />}
         title="Invitations en attente"
         actions={
           <span
@@ -587,8 +598,8 @@ export default function ParametresPage() {
                         <span
                           className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
                           style={{
-                            background: inv.role === "admin" ? "rgba(199,150,26,0.12)" : "rgba(5,108,242,0.08)",
-                            color: inv.role === "admin" ? "#C7961A" : "#056cf2",
+                            background: inv.role === "admin" ? "rgba(199,150,26,0.12)" : "rgba(var(--blue-rgb),0.08)",
+                            color: inv.role === "admin" ? "#C7961A" : "var(--blue)",
                           }}
                         >
                           {inv.role === "admin" ? <ShieldCheck size={10} /> : <Users size={10} />}
@@ -616,9 +627,9 @@ export default function ParametresPage() {
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={() => handleResendInvitation(inv)}
-                      disabled={busyInvitationId === inv.id || expired}
+disabled={busyInvitationId === inv.id || expired}
                       className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold disabled:opacity-50"
-                      style={{ background: "rgba(5,108,242,0.08)", border: "1px solid rgba(5,108,242,0.25)", color: "#056cf2" }}
+                      style={{ background: "rgba(var(--blue-rgb),0.08)", border: "1px solid rgba(var(--blue-rgb),0.25)", color: "var(--blue)" }}
                     >
                       <RefreshCw size={13} /> Relancer
                     </button>
@@ -639,13 +650,13 @@ export default function ParametresPage() {
       </Section>
 
       {/* SECTION 4 : Projets et tâches */}
-      <Section icon={<LayoutGrid size={18} style={{ color: "#056cf2" }} />} title="Projets et tâches">
+      <Section icon={<LayoutGrid size={18} style={{ color: "var(--blue)" }} />} title="Projets et tâches">
         <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
           Contrôlez qui peut créer des projets et la vue dans laquelle ils s&apos;ouvrent par défaut.
         </p>
 
-        <PermissionRow
-          icon={<Plus size={18} style={{ color: "#056cf2" }} />}
+<PermissionRow
+          icon={<Plus size={18} style={{ color: "var(--blue)" }} />}
           title="Créer des projets"
           value={settings.whoCanCreateProjects}
           onChange={(v) => saveSettings({ whoCanCreateProjects: v })}
@@ -669,7 +680,7 @@ export default function ParametresPage() {
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-60"
                 style={
                   settings.defaultTaskView === opt.value
-                    ? { background: "var(--gradient-button)", color: "#fff", boxShadow: "0 6px 14px -6px rgba(37,99,235,0.45)" }
+                    ? { background: "var(--gradient-button)", color: "#fff", boxShadow: "0 6px 14px -6px rgba(var(--blue-rgb),0.45)" }
                     : { background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }
                 }
               >
@@ -684,13 +695,13 @@ export default function ParametresPage() {
       </Section>
 
       {/* SECTION 4b : Équipes & adhésions */}
-      <Section icon={<Users2 size={18} style={{ color: "#056cf2" }} />} title="Équipes & adhésions">
+      <Section icon={<Users2 size={18} style={{ color: "var(--blue)" }} />} title="Équipes & adhésions">
         <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
           Regroupez vos collaborateurs en équipes et contrôlez qui peut les créer et les gérer.
         </p>
 
         <PermissionRow
-          icon={<Users2 size={18} style={{ color: "#056cf2" }} />}
+          icon={<Users2 size={18} style={{ color: "var(--blue)" }} />}
           title="Créer et gérer les équipes"
           value={settings.whoCanManageTeams}
           onChange={(v) => saveSettings({ whoCanManageTeams: v })}
@@ -713,7 +724,7 @@ export default function ParametresPage() {
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-60"
                 style={
                   settings.defaultTeamMembership === opt.value
-                    ? { background: "var(--gradient-button)", color: "#fff", boxShadow: "0 6px 14px -6px rgba(37,99,235,0.45)" }
+                    ? { background: "var(--gradient-button)", color: "#fff", boxShadow: "0 6px 14px -6px rgba(var(--blue-rgb),0.45)" }
                     : { background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }
                 }
               >
@@ -731,7 +742,7 @@ export default function ParametresPage() {
             <span className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
               Équipes de l&apos;agence
             </span>
-            <Link href={`/agences/${agencyId}/equipe`} className="text-xs font-semibold hover:opacity-80" style={{ color: "#056cf2" }}>
+            <Link href={`/agences/${agencyId}/equipe`} className="text-xs font-semibold hover:opacity-80" style={{ color: "var(--blue)" }}>
               Gérer sur la page Équipe
             </Link>
           </div>
@@ -747,7 +758,7 @@ export default function ParametresPage() {
                   className="flex items-center gap-3 px-4 py-3 rounded-xl"
                   style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
                 >
-                  <Users2 size={16} style={{ color: "#056cf2" }} />
+                  <Users2 size={16} style={{ color: "var(--blue)" }} />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>
                       {t.name}
@@ -756,8 +767,8 @@ export default function ParametresPage() {
                   <span
                     className="text-[11px] font-semibold px-2.5 py-1 rounded-full shrink-0"
                     style={{
-                      background: t.membership === "ouverte" ? "rgba(245,158,11,0.12)" : "rgba(5,108,242,0.08)",
-                      color: t.membership === "ouverte" ? "#f59e0b" : "#056cf2",
+                      background: t.membership === "ouverte" ? "rgba(245,158,11,0.12)" : "rgba(var(--blue-rgb),0.08)",
+                      color: t.membership === "ouverte" ? "#f59e0b" : "var(--blue)",
                     }}
                   >
                     {t.membership === "ouverte" ? "Ouverte" : "Fermée"}
@@ -772,16 +783,8 @@ export default function ParametresPage() {
         </div>
       </Section>
 
-      {/* SECTION 4c : Colonnes de tâches */}
-      <Section
-        icon={<LayoutGrid size={18} style={{ color: "#056cf2" }} />}
-        title="Colonnes de tâches"
-      >
-        <TaskStatusSettings agencyId={agencyId} />
-      </Section>
-
       {/* SECTION 5 : Apparence */}
-      <Section icon={<Palette size={18} style={{ color: "#056cf2" }} />} title="Apparence">
+      <Section icon={<Palette size={18} style={{ color: "var(--blue)" }} />} title="Apparence">
         <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
           Ce réglage est propre à votre navigateur : il n&apos;affecte que votre écran.
         </p>
@@ -794,7 +797,7 @@ export default function ParametresPage() {
       </Section>
 
       {/* SECTION 6 : Notifications */}
-      <Section icon={<Bell size={18} style={{ color: "#056cf2" }} />} title="Notifications">
+      <Section icon={<Bell size={18} style={{ color: "var(--blue)" }} />} title="Notifications">
         <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
           Choisissez la façon dont cette agence vous notifie les activités importantes.
         </p>
@@ -862,7 +865,7 @@ export default function ParametresPage() {
           La suppression de l&apos;agence est <strong>irréversible</strong>. Tous les membres, projets, tâches et données associées seront définitivement perdus.
         </p>
         <button
-          onClick={handleDeleteAgency}
+          onClick={() => setConfirmDeleteOpen(true)}
           disabled={deleting}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
           style={{ background: "var(--color-error)", boxShadow: "0 8px 18px -8px rgba(239,68,68,0.4)" }}
@@ -871,5 +874,73 @@ export default function ParametresPage() {
         </button>
       </motion.div>
     </motion.div>
+
+    {confirmDeleteOpen && (
+      <DeleteAgencyModal
+        agencyName={agency.name}
+        deleting={deleting}
+        onConfirm={handleDeleteAgency}
+        onCancel={() => setConfirmDeleteOpen(false)}
+      />
+    )}
+    </>
+  );
+}
+
+function DeleteAgencyModal({
+  agencyName,
+  deleting,
+  onConfirm,
+  onCancel,
+}: {
+  agencyName: string;
+  deleting: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0"
+        style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+        onClick={onCancel}
+      />
+      <div
+        className="relative w-full max-w-sm rounded-2xl p-6 space-y-5"
+        style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)", boxShadow: "var(--shadow-card)" }}
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(239,68,68,0.12)", color: "var(--color-error)" }}>
+            <AlertTriangle size={20} />
+          </div>
+          <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+            Supprimer l&apos;agence ?
+          </h2>
+        </div>
+
+        <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+          Vous êtes sur le point de supprimer définitivement <strong>{agencyName}</strong>. Cette action ne peut pas être annulée.
+        </p>
+
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            disabled={deleting}
+            className="px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-60"
+            style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+          >
+            Annuler
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={deleting}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
+            style={{ background: "var(--color-error)", boxShadow: "0 8px 18px -8px rgba(239,68,68,0.4)" }}
+          >
+            <Trash2 size={15} /> {deleting ? "Suppression..." : "Supprimer définitivement"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

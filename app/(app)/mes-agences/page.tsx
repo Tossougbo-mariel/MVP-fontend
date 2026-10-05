@@ -5,18 +5,24 @@ import { motion, type Variants } from "framer-motion";
 import { Plus, Building2, ChevronRight } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
-import { userAgencies, userRoleInAgency } from "@/lib/types";
+import {
+  userAgencies,
+  userRoleInAgency,
+  colorizeMembers,
+  memberInitials,
+  type DisplayMember,
+} from "@/lib/types";
 import { getApiErrorMessage } from "@/lib/services";
 import { agencyGradientOf, agencyDarkGradientOf } from "@/app/lib/agencyDecor";
 import { useIsDarkMode } from "@/app/lib/useIsDarkMode";
 
 const container: Variants = {
   hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.05 } },
+  show: { opacity: 1, transition: { staggerChildren: 0.07, delayChildren: 0.04 } },
 };
 const item: Variants = {
-  hidden: { y: 20, opacity: 0 },
-  show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
+  hidden: { y: 18, opacity: 0 },
+  show: { y: 0, opacity: 1, transition: { duration: 0.45, ease: "easeOut" } },
 };
 
 // motion() est deprecie depuis framer-motion 12 au profit de motion.create().
@@ -29,12 +35,96 @@ const formatCreatedAt = (date: string) => {
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 };
 
+function Avatar({
+  src,
+  initials,
+  color,
+  size = 32,
+}: {
+  src?: string | null;
+  initials: string;
+  color: string;
+  size?: number;
+}) {
+  return (
+    <span
+      className="inline-flex items-center justify-center rounded-full font-bold text-white shrink-0 overflow-hidden"
+      style={{ width: size, height: size, background: color, fontSize: Math.max(10, Math.round(size * 0.36)) }}
+      aria-hidden="true"
+    >
+      {src ? (
+        // Même rendu que les listes d'agents : fond en background-image plutôt
+        // que <img>, pour ne dépendre d'aucun domaine autorisé côté images.
+        <span className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(${src})` }} />
+      ) : (
+        initials
+      )}
+    </span>
+  );
+}
+
+// Pastilles empilées : la façon lisible de montrer l'effectif d'une agence.
+function AvatarStack({ members, max = 5 }: { members: DisplayMember[]; max?: number }) {
+  const shown = members.slice(0, max);
+  const rest = members.length - shown.length;
+  if (shown.length === 0) {
+    return (
+      <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+        Aucun membre
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center">
+      {shown.map((m, i) => (
+        <span
+          key={`${m.user.id}-${i}`}
+          className="rounded-full"
+          style={{ marginLeft: i === 0 ? 0 : -8, border: "2px solid var(--surface)", zIndex: shown.length - i }}
+        >
+          <Avatar src={m.user.avatar} initials={memberInitials(m)} color={m.color} size={28} />
+        </span>
+      ))}
+      {rest > 0 && (
+        <span
+          className="inline-flex items-center justify-center rounded-full text-[11px] font-bold ml-[-8px]"
+          style={{
+            width: 28,
+            height: 28,
+            background: "var(--surface)",
+            color: "var(--text-secondary)",
+            border: "2px solid var(--surface)",
+            boxShadow: "inset 0 0 0 1px var(--border-subtle)",
+          }}
+        >
+          +{rest}
+        </span>
+      )}
+    </span>
+  );
+}
+
 export default function MesAgencesPage() {
   const user = useAuthStore((s) => s.user);
-  const { data } = useAppData();
+  const { data, projectsByAgency, tasksByProject } = useAppData();
   const allAgencies = data.agencies;
   const isDark = useIsDarkMode();
+
   const agencies = userAgencies(allAgencies, user?.email ?? "");
+
+  // Une entrée par agence, avec son effectif coloré et ses compteurs.
+  const enriched = agencies.map((a) => {
+    const projects = projectsByAgency(a.id);
+    const tasks = projects.flatMap((p) => tasksByProject(p.id));
+    const members = colorizeMembers(a.members ?? [], a.ownerId);
+    return {
+      agency: a,
+      members,
+      projectCount: projects.length,
+      runningCount: projects.filter((p) => p.status === "en_cours").length,
+      taskCount: tasks.length,
+    };
+  });
 
   if (data.loading) {
     return (
@@ -58,15 +148,28 @@ export default function MesAgencesPage() {
   }
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+    <motion.div variants={container} initial="hidden" animate="show" className="space-y-8">
       {agencies.length > 0 && (
-        <motion.div variants={item}>
-          <h1 className="text-2xl lg:text-3xl font-black" style={{ color: "var(--text-primary)" }}>
-            Mes agences
-          </h1>
-          <p style={{ color: "var(--text-secondary)" }}>
-            Les espaces de travail auxquels vous appartenez.
-          </p>
+        <motion.div variants={item} className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-black" style={{ color: "var(--text-primary)" }}>
+              Mes agences
+            </h1>
+            <p style={{ color: "var(--text-secondary)" }}>
+              Les espaces de travail auxquels vous appartenez.
+            </p>
+          </div>
+          <Link
+            href="/agences/nouvelle"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-white"
+            style={{
+              background: "var(--gradient-button)",
+              boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)",
+            }}
+          >
+            <Plus className="w-4 h-4" />
+            Créer une agence
+          </Link>
         </motion.div>
       )}
 
@@ -88,7 +191,7 @@ export default function MesAgencesPage() {
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white"
             style={{
               background: "var(--gradient-button)",
-              boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)",
+              boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)",
             }}
           >
             <Plus className="w-5 h-5" />
@@ -96,73 +199,118 @@ export default function MesAgencesPage() {
           </Link>
         </motion.div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {agencies.map((a) => {
-            const role = userRoleInAgency(a, user?.email ?? "");
-            return (
-            <MotionLink
-              key={a.id}
-              href={`/agences/${a.id}/dashboard`}
-              variants={item}
-              whileHover={{ y: -6 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-              className="glass relative rounded-3xl p-5 pt-7 cursor-pointer overflow-hidden"
-              style={{ boxShadow: "var(--shadow-card)" }}
-            >
-              {/* Couleurs de l'agence : mélange de 2 teintes douces selon la 1re lettre du nom */}
-              <span
-                className="absolute inset-0 rounded-3xl pointer-events-none"
-                style={{ backgroundImage: isDark ? agencyDarkGradientOf(a.name) : agencyGradientOf(a.name) }}
-              />
-              <div className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl" style={{ background: "var(--gradient-primary)" }} />
-              <div className="relative flex flex-col gap-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
-                      style={{ background: "var(--gradient-primary)", boxShadow: "0 6px 16px -6px rgba(37,99,235,0.45)" }}
-                    >
-                      <Building2 className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-bold truncate text-lg" style={{ color: "var(--text-primary)" }}>
-                        {a.name}
-                      </div>
-                      <span
-                        className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
-                        style={
-                          role === "membre"
-                            ? {
-                                background: "var(--surface)",
-                                color: "var(--text-secondary)",
-                                border: "1px solid var(--border-subtle)",
-                              }
-                            : {
-                                background: "var(--gradient-button)",
-                                color: "#fff",
-                                boxShadow: "0 4px 10px -5px rgba(37,99,235,0.45)",
-                              }
-                        }
-                      >
-                        {role === "owner" ? "Propriétaire" : role === "admin" ? "Administrateur" : "Membre"}
-                      </span>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-5 h-5 shrink-0 transition-transform group-hover:translate-x-1" style={{ color: "var(--text-muted)" }} />
-                </div>
+        <>
+          <motion.section variants={item} className="space-y-4">
+            <div className="flex items-baseline justify-between gap-4">
+              <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+                Vos agences
+              </h2>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                {agencies.length} espace{agencies.length > 1 ? "s" : ""} de travail
+              </span>
+            </div>
 
-                <div
-                  className="flex items-center justify-between pt-3 text-xs"
-                  style={{ borderTop: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}
-                >
-                  <span>{(a.members ?? []).length} membre{(a.members ?? []).length > 1 ? "s" : ""}</span>
-                  <span>Créée le {formatCreatedAt(a.createdAt)}</span>
-                </div>
-              </div>
-            </MotionLink>
-            );
-          })}
-        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {enriched.map(({ agency: a, members, projectCount, runningCount, taskCount }) => {
+                const role = userRoleInAgency(a, user?.email ?? "");
+                return (
+                  <MotionLink
+                    key={a.id}
+                    href={`/agences/${a.id}/dashboard`}
+                    variants={item}
+                    whileHover={{ y: -6 }}
+                    transition={{ duration: 0.25, ease: "easeOut" }}
+                    className="glass relative rounded-3xl p-5 pt-7 cursor-pointer overflow-hidden group"
+                    style={{ boxShadow: "var(--shadow-card)" }}
+                  >
+                    {/* Couleurs de l'agence : mélange de 2 teintes douces selon la 1re lettre du nom */}
+                    <span
+                      className="absolute inset-0 rounded-3xl pointer-events-none"
+                      style={{ backgroundImage: isDark ? agencyDarkGradientOf(a.name) : agencyGradientOf(a.name) }}
+                    />
+                    <div
+                      className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl"
+                      style={{ background: "var(--gradient-primary)" }}
+                    />
+                    <div className="relative flex flex-col gap-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+                            style={{
+                              background: "var(--gradient-primary)",
+                              boxShadow: "0 6px 16px -6px rgba(var(--blue-rgb),0.45)",
+                            }}
+                          >
+                            <Building2 className="w-6 h-6 text-white" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-bold truncate text-lg" style={{ color: "var(--text-primary)" }}>
+                              {a.name}
+                            </div>
+                            <span
+                              className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
+                              style={
+                                role === "membre"
+                                  ? {
+                                      background: "var(--surface)",
+                                      color: "var(--text-secondary)",
+                                      border: "1px solid var(--border-subtle)",
+                                    }
+                                  : {
+                                      background: "var(--gradient-button)",
+                                      color: "#fff",
+                                      boxShadow: "0 4px 10px -5px rgba(var(--blue-rgb),0.45)",
+                                    }
+                              }
+                            >
+                              {role === "owner" ? "Propriétaire" : role === "admin" ? "Administrateur" : "Membre"}
+                            </span>
+                          </div>
+                        </div>
+                        <ChevronRight
+                          className="w-5 h-5 shrink-0 mt-1 transition-transform group-hover:translate-x-1"
+                          style={{ color: "var(--text-muted)" }}
+                        />
+                      </div>
+
+                      {a.description && (
+                        <p
+                          className="text-xs leading-relaxed"
+                          style={{
+                            color: "var(--text-secondary)",
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {a.description}
+                        </p>
+                      )}
+
+                      {/* Effectif d'un coup d'œil, sans entrer dans l'agence. */}
+                      <AvatarStack members={members} />
+
+                      <div className="flex items-center justify-between gap-3 pt-3 text-xs" style={{ borderTop: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}>
+                        <span>
+                          {projectCount} projet{projectCount > 1 ? "s" : ""}
+                          {runningCount > 0 && ` · ${runningCount} en cours`}
+                        </span>
+                        <span>
+                          {taskCount} tâche{taskCount > 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                        Créée le {formatCreatedAt(a.createdAt)}
+                      </div>
+                    </div>
+                  </MotionLink>
+                );
+              })}
+            </div>
+          </motion.section>
+        </>
       )}
     </motion.div>
   );

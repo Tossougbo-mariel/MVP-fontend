@@ -77,8 +77,8 @@ const getNotificationMeta = (
     tache_en_retard: {
       label: "Tâche en retard",
       icon: AlertTriangle,
-      color: "#dc2626",
-      bg: "rgba(220,38,38,0.12)",
+      color: "#D85A30",
+      bg: "rgba(216,90,48,0.14)",
     },
     tache_terminee: {
       label: "Tâche terminée",
@@ -113,15 +113,27 @@ const relativeTime = (dateStr: string): string => {
 const ALL_FILTERS = [
   { key: "toutes", label: "Toutes", types: null },
   { key: "invitation", label: "Invitations", types: ["invitation"] },
-  { key: "tache_assignee", label: "Tâches assignées", types: ["tache_assignee"] },
-  { key: "nouveau_commentaire", label: "Commentaires", types: ["nouveau_commentaire"] },
+  // Les deux camps n'utilisent pas les mêmes noms de types : on accepte les
+  // deux vocabulaires pour qu'un onglet ne vide jamais la liste.
+  { key: "tache_assignee", label: "Tâches assignées", types: ["tache_assignee", "task_assigned"] },
+  {
+    key: "nouveau_commentaire",
+    label: "Commentaires",
+    types: ["nouveau_commentaire", "comment_added"],
+  },
   { key: "mention", label: "Mentions", types: ["mention"] },
-  // Les trois types d'échéance partagent un onglet : ils relèvent du même
-  // réglage dans les préférences de notification.
+  // Les rappels et les échéances proches partagent un onglet : ils relèvent du
+  // même réglage dans les préférences de notification. Le retard garde son
+  // propre onglet.
   {
     key: "echeance",
     label: "Échéances",
-    types: ["rappel_echeance", "echeance_proche", "tache_en_retard"],
+    types: ["rappel_echeance", "echeance_proche", "deadline_approaching"],
+  },
+  {
+    key: "en_retard",
+    label: "En retard",
+    types: ["tache_en_retard", "task_overdue"],
   },
 ] as const;
 

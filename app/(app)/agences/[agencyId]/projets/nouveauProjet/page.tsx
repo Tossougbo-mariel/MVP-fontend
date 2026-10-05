@@ -5,10 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
 import {
+  AlertTriangle,
   ArrowLeft,
   Calendar,
   CalendarPlus,
   Check,
+  CheckCircle2,
   FolderKanban,
   Image as ImageIcon,
   ImageOff,
@@ -18,10 +20,10 @@ import {
 } from "lucide-react";
 import { useAppData } from "@/lib/appData";
 import { hasRight } from "@/lib/types";
-import DatePickerField from "@/app/(app)/components/DatePickerField";
 import { useAuthStore } from "@/app/store/authStore";
 import { createProject as apiCreateProject, addProjectMember, getApiErrorMessage } from "@/lib/services";
 import { WALLPAPERS } from "@/app/store/wallpapers";
+import DatePicker from "@/app/(app)/components/DatePicker";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -31,6 +33,9 @@ const item: Variants = {
   hidden: { y: 16, opacity: 0 },
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
 };
+
+const today = new Date();
+const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
 export default function NouveauProjetPage() {
   const { agencyId } = useParams<{ agencyId: string }>();
@@ -52,6 +57,7 @@ export default function NouveauProjetPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [addResult, setAddResult] = useState<{ added: number; failed: string[] } | null>(null);
 
   const activeMembers = (agency?.members ?? []).filter((m) => m.status === "actif");
 
@@ -81,6 +87,8 @@ export default function NouveauProjetPage() {
     if (!name.trim()) fe.name = "Le nom du projet est obligatoire.";
     if (!startDate) {
       fe.startDate = "La date de début est obligatoire.";
+    } else if (startDate < todayISO) {
+      fe.startDate = "La date de début ne peut pas être antérieure à aujourd'hui.";
     } else if (!dueDate) {
       fe.dueDate = "La date d'échéance est obligatoire.";
     } else if (dueDate < startDate) {
@@ -102,18 +110,39 @@ export default function NouveauProjetPage() {
       });
 
       // Ajouter les membres sélectionnés (y compris le user connecté si sélectionné)
+      const failed: string[] = [];
       for (const email of memberEmails) {
         try {
           await addProjectMember(project.id, email);
         } catch {
-          // ignorer les erreurs individuelles (ex: email non membre actif)
+          failed.push(email);
         }
       }
 
       await reload();
-      router.push(`/agences/${agencyId}/projets/${project.id}`);
+      setAddResult({ added: memberEmails.length - failed.length, failed });
+      setTimeout(() => {
+        router.push(`/agences/${agencyId}/projets/${project.id}`);
+      }, 1500);
     } catch (err) {
-      setApiError(getApiErrorMessage(err));
+      const axiosErr = err as {
+        response?: { data?: { errors?: Record<string, string[]> } };
+      };
+      const backendErrors = axiosErr?.response?.data?.errors;
+      if (backendErrors && Object.keys(backendErrors).length > 0) {
+        const fe: Record<string, string> = {};
+        for (const [field, messages] of Object.entries(backendErrors)) {
+          const key =
+            field === "start_date" ? "startDate"
+            : field === "due_date" ? "dueDate"
+            : field === "name" ? "name"
+            : field;
+          fe[key] = messages[0] ?? "Champ invalide.";
+        }
+        setFieldErrors(fe);
+      } else {
+        setApiError(getApiErrorMessage(err));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -199,13 +228,69 @@ export default function NouveauProjetPage() {
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={item}>
-        <h1 className="text-2xl font-black flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-          <FolderKanban className="w-6 h-6" style={{ color: "#056cf2" }} /> Nouveau projet
-        </h1>
-        <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
-          Créer un projet dans {agency.name}. Le statut démarre à « À venir ».
-        </p>
+        <div className="flex items-center gap-4">
+          <div
+            className="w-13 h-13 rounded-2xl flex items-center justify-center shrink-0"
+            style={{
+              width: 52,
+              height: 52,
+              background: "var(--gradient-primary)",
+              boxShadow: "0 10px 26px -8px rgba(var(--blue-rgb),0.55)",
+            }}
+          >
+            <FolderKanban className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
+              Nouveau projet
+            </h1>
+            <p className="mt-0.5 text-sm" style={{ color: "var(--text-secondary)" }}>
+              Créer un projet dans {agency.name}. Le statut démarre à « À venir ».
+            </p>
+          </div>
+        </div>
       </motion.div>
+
+      {addResult && (
+        <motion.div
+          variants={item}
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass rounded-2xl p-4 flex items-start gap-3"
+          style={{
+            boxShadow: "var(--shadow-card)",
+            border:
+              addResult.failed.length > 0
+                ? "1px solid rgba(239,68,68,0.35)"
+                : "1px solid rgba(16,185,129,0.35)",
+          }}
+        >
+          {addResult.failed.length > 0 ? (
+            <AlertTriangle className="w-6 h-6 shrink-0 mt-0.5" style={{ color: "var(--color-error)" }} />
+          ) : (
+            <CheckCircle2 className="w-6 h-6 shrink-0 mt-0.5" style={{ color: "var(--color-success)" }} />
+          )}
+          <div>
+            <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
+              Projet créé avec succès.
+            </p>
+            <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+              {addResult.added} membre{addResult.added > 1 ? "s" : ""} ajouté
+              {addResult.added > 1 ? "s" : ""}.
+              {addResult.failed.length > 0 && (
+                <span style={{ color: "var(--color-error)" }}>
+                  {" "}
+                  {addResult.failed.length} non ajouté{addResult.failed.length > 1 ? "s" : ""} :
+                  {addResult.failed.map((e) => ` ${e}`)}
+                </span>
+              )}
+            </p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+              Redirection vers le projet…
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       <motion.form variants={item} onSubmit={handleSubmit} className="glass rounded-2xl p-6 space-y-5" style={{ boxShadow: "var(--shadow-card)" }}>
         {/* Nom */}
@@ -252,15 +337,15 @@ export default function NouveauProjetPage() {
             <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
               <Calendar size={14} /> Date de début <span style={{ color: "var(--color-error)" }}>*</span>
             </label>
-            <DatePickerField
+            <DatePicker
               value={startDate}
+              min={todayISO}
               onChange={(v) => {
                 setStartDate(v);
                 clearFieldError("startDate");
                 clearFieldError("dueDate");
               }}
               className="w-full"
-              style={inputStyle}
             />
             {fieldErrors.startDate && (
               <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
@@ -272,14 +357,13 @@ export default function NouveauProjetPage() {
             <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
               <CalendarPlus size={14} /> Date d&apos;échéance <span style={{ color: "var(--color-error)" }}>*</span>
             </label>
-            <DatePickerField
+            <DatePicker
               value={dueDate}
               onChange={(v) => {
                 setDueDate(v);
                 clearFieldError("dueDate");
               }}
               className="w-full"
-              style={inputStyle}
             />
             {fieldErrors.dueDate && (
               <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
@@ -365,7 +449,7 @@ export default function NouveauProjetPage() {
                   className="relative rounded-xl overflow-hidden aspect-video transition-all"
                   style={{
                     border: active ? "2px solid var(--accent-text)" : "1px solid var(--input-border)",
-                    boxShadow: active ? "0 6px 16px -6px rgba(5,108,242,0.5)" : undefined,
+                    boxShadow: active ? "0 6px 16px -6px rgba(var(--blue-rgb),0.5)" : undefined,
                   }}
                   title={wp.label}
                 >
@@ -403,7 +487,7 @@ export default function NouveauProjetPage() {
             type="submit"
             disabled={submitting}
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
-            style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+            style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
           >
             <Send size={16} /> {submitting ? "Création…" : "Créer le projet"}
           </button>

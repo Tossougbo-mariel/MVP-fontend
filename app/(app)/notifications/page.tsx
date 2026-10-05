@@ -84,7 +84,7 @@ function NotificationDetailModal({
             <button
               onClick={() => onMarkRead(notification.id)}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
-              style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+              style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
             >
               <Check size={14} /> Marquer comme lu
             </button>
@@ -136,7 +136,7 @@ export default function NotificationsPage() {
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={item}>
         <h1 className="text-2xl lg:text-3xl font-black flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-          <Bell className="w-6 h-6" style={{ color: "#056cf2" }} /> Notifications
+          <Bell className="w-6 h-6" style={{ color: "var(--blue)" }} /> Notifications
         </h1>
         <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
           {notifications.length > 0
@@ -155,7 +155,7 @@ export default function NotificationsPage() {
         >
           Toutes
           {notifications.length > 0 && (
-            <span className="ml-1 text-[11px] font-black px-1.5 py-0.5 rounded-full text-white" style={{ background: "#056cf2" }}>
+            <span className="ml-1 text-[11px] font-black px-1.5 py-0.5 rounded-full text-white" style={{ background: "var(--blue)" }}>
               {notifications.length}
             </span>
           )}
@@ -221,7 +221,7 @@ export default function NotificationsPage() {
                       {formatDateTime(n.createdAt)}
                     </span>
                     {unread && (
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "#056cf2" }} />
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "var(--blue)" }} />
                     )}
                   </div>
                   <div className={`mt-0.5 text-[13px] ${unread ? "font-semibold" : ""}`} style={{ color: "var(--text-primary)" }}>

@@ -170,11 +170,15 @@ export default function GlobalSearch() {
   let flatIndex = -1;
 
   return (
-    <div ref={containerRef} className="relative flex-1 max-w-xl">
+    // Le rail mélange l'accent avec du bleu nuit : selon l'accent choisi, le haut
+    // du dégradé peut être clair. Un texte blanc sur un fond blanc translucide
+    // devient alors illisible. Le champ pose donc son propre fond sombre, qui
+    // découple le contraste du texte de la couleur du rail.
+    <div ref={containerRef} className="relative w-full max-w-[288px]">
       <Search
-        size={16}
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-        style={{ color: "var(--header-text-muted)" }}
+        size={15}
+        className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2"
+        style={{ color: "rgba(255, 255, 255, 0.75)" }}
       />
       <input
         ref={inputRef}
@@ -186,26 +190,25 @@ export default function GlobalSearch() {
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
-        placeholder="Rechercher une tâche, un projet, une agence…"
+        placeholder="Rechercher…"
         aria-label="Recherche globale"
         role="combobox"
         aria-expanded={showPanel}
         aria-controls="global-search-results"
-        className="w-full rounded-xl py-2 pl-9 pr-16 text-sm outline-none transition-colors"
+        className="w-full rounded-full py-2 pl-10 pr-4 text-[15px] font-medium outline-none transition-colors placeholder:font-normal"
         style={{
-          background: "var(--header-hover)",
-          border: "1px solid var(--header-border)",
-          color: "var(--header-text)",
+          background: "rgba(4, 12, 30, 0.55)",
+          border: "1px solid rgba(255, 255, 255, 0.18)",
+          color: "#FFFFFF",
+          caretColor: "#FFFFFF",
         }}
       />
-      {!query && (
-        <kbd
-          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold px-1.5 py-0.5 rounded"
-          style={{ background: "var(--card-bg)", color: "var(--text-muted)", border: "1px solid var(--border-subtle)" }}
-        >
-          Ctrl K
-        </kbd>
-      )}
+      <style jsx>{`
+        input::placeholder {
+          color: rgba(255, 255, 255, 0.8);
+          opacity: 1;
+        }
+      `}</style>
 
       {showPanel && (
         <div

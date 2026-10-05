@@ -1,5 +1,7 @@
 "use client";
 
+import AccentApplier from "../(app)/components/AccentApplier";
+
 // Généré une seule fois au chargement du module (pas pendant le rendu)
 const PARTICLES = Array.from({ length: 18 }).map(() => {
   const size = Math.random() * 2 + 2;
@@ -24,11 +26,16 @@ export default function AuthLayout({
       className="relative min-h-screen overflow-hidden flex items-center justify-center"
       style={{ background: "var(--bg-obsidian)" }}
     >
+      {/* Les pages de connexion et d'inscription adoptent la couleur d'accent de
+          l'utilisateur, même sans session ouverte : les blobs aurora ci-dessous
+          lisent --blue / --blue-accent / --blue-mid. */}
+      <AccentApplier />
+
       {/* Aurora blobs */}
       <div
         className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full opacity-20"
         style={{
-          background: "#056cf2",
+          background: "var(--blue)",
           filter: "blur(120px)",
           animation: "aurora-drift 20s ease-in-out infinite",
         }}
@@ -36,7 +43,7 @@ export default function AuthLayout({
       <div
         className="absolute top-[30%] right-[-15%] w-[700px] h-[700px] rounded-full opacity-20"
         style={{
-          background: "#0c79f2",
+          background: "var(--blue-accent)",
           filter: "blur(120px)",
           animation: "aurora-drift 25s ease-in-out infinite",
           animationDelay: "-5s",
@@ -45,7 +52,7 @@ export default function AuthLayout({
       <div
         className="absolute bottom-[-10%] left-[20%] w-[500px] h-[500px] rounded-full opacity-15"
         style={{
-          background: "#589bff",
+          background: "var(--blue-mid)",
           filter: "blur(120px)",
           animation: "aurora-drift 30s ease-in-out infinite",
           animationDelay: "-10s",

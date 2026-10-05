@@ -51,13 +51,13 @@ export default function Features() {
     <section id="features" className="pt-10 pb-16 md:pt-14 md:pb-20" style={{ background: "#f4f6fa" }}>
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <span className="inline-block rounded-full bg-[#056cf21a] px-4 py-1.5 text-xs font-bold uppercase tracking-widest" style={{ color: "#056cf2" }}>
+          <span className="inline-block rounded-full bg-[color:rgba(var(--blue-rgb),0.10)] px-4 py-1.5 text-xs font-bold uppercase tracking-widest" style={{ color: "var(--blue)" }}>
             Fonctionnalités
           </span>
           <h2 className="mt-4 text-4xl font-extrabold tracking-tight md:text-5xl" style={{ color: "#0b1521", letterSpacing: "-0.02em" }}>
             Tout ce qu&apos;il faut pour piloter vos projets
           </h2>
-          <div className="mx-auto mt-4 h-1 w-16 rounded-full bg-[#056cf2]" />
+          <div className="mx-auto mt-4 h-1 w-16 rounded-full bg-[color:var(--blue)]" />
           <p className="mt-4 text-lg font-medium" style={{ color: "#4B5767" }}>
             Un outil complet, pensé pour les agences et les équipes qui veulent
             avancer vite et bien.
@@ -68,7 +68,7 @@ export default function Features() {
           {features.map(({ icon: Icon, title, description }) => (
             <div
               key={title}
-              className="group rounded-[20px] border bg-white p-6 transition-all hover:-translate-y-1 hover:shadow-[0_8px_30px_#056cf21f]"
+              className="group rounded-[20px] border bg-white p-6 transition-all hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(var(--blue-rgb),0.12)]"
               style={{
                 borderColor: "#dfe5ed",
               }}
@@ -77,7 +77,7 @@ export default function Features() {
                 className="flex h-12 w-12 items-center justify-center rounded-xl transition-colors"
                 style={{ background: "#f0f4ff" }}
               >
-                <Icon size={22} style={{ color: "#056cf2" }} />
+                <Icon size={22} style={{ color: "var(--blue)" }} />
               </div>
               <h3 className="mt-5 text-lg font-bold" style={{ color: "#0b1521" }}>
                 {title}

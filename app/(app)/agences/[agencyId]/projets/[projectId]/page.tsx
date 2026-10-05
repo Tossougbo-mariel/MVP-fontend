@@ -52,7 +52,7 @@ const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: st
     bg: "transparent",
     border: "1px solid var(--border-subtle)",
   },
-  en_cours: { label: "En cours", color: "#056cf2", bg: "var(--accent-soft)" },
+  en_cours: { label: "En cours", color: "var(--blue)", bg: "var(--accent-soft)" },
   termine: { label: "Terminé", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
   archive: {
     label: "Archivé",
@@ -68,6 +68,9 @@ const formatDate = (date: string | null) => {
   if (Number.isNaN(d.getTime())) return date;
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 };
+
+const today = new Date();
+const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
 export default function ProjectDetailPage() {
   const { agencyId, projectId } = useParams<{ agencyId: string; projectId: string }>();
@@ -91,6 +94,11 @@ export default function ProjectDetailPage() {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [confirmingHardDelete, setConfirmingHardDelete] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<{
+    memberId: number;
+    memberName: string;
+    message: string;
+  } | null>(null);
 
   // ====== État du formulaire d'édition ======
   const [editName, setEditName] = useState("");
@@ -132,7 +140,9 @@ export default function ProjectDetailPage() {
 
     const fe: Record<string, string> = {};
     if (!editName.trim()) fe.name = "Le nom du projet est obligatoire.";
-    if (editStartDate && editDueDate && editDueDate < editStartDate) {
+    if (editStartDate && editStartDate < todayISO) {
+      fe.startDate = "La date de début ne peut pas être antérieure à aujourd'hui.";
+    } else if (editStartDate && editDueDate && editDueDate < editStartDate) {
       fe.dueDate = "La date d'échéance doit être postérieure ou égale à la date de début.";
     }
     if (Object.keys(fe).length > 0) {
@@ -153,7 +163,25 @@ export default function ProjectDetailPage() {
       await reload();
       setEditing(false);
     } catch (err) {
-      setEditApiError(getApiErrorMessage(err));
+      const axiosErr = err as {
+        response?: { data?: { errors?: Record<string, string[]> } };
+      };
+      const backendErrors = axiosErr?.response?.data?.errors;
+      if (backendErrors && Object.keys(backendErrors).length > 0) {
+        const fe: Record<string, string> = {};
+        for (const [field, messages] of Object.entries(backendErrors)) {
+          const key =
+            field === "start_date" ? "startDate"
+            : field === "due_date" ? "dueDate"
+            : field === "name" ? "name"
+            : field === "status" ? "status"
+            : field;
+          fe[key] = messages[0] ?? "Champ invalide.";
+        }
+        setEditFieldErrors(fe);
+      } else {
+        setEditApiError(getApiErrorMessage(err));
+      }
     } finally {
       setActionLoading(false);
     }
@@ -228,13 +256,32 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleRemoveMember = async (projectMemberId: number) => {
+  const handleRemoveMember = async (projectMemberId: number, confirm = false) => {
     if (!project) return;
     try {
-      await apiRemoveProjectMember(project.id, projectMemberId);
+      await apiRemoveProjectMember(project.id, projectMemberId, confirm);
+      setPendingRemoval(null);
       membersResult.reload();
     } catch (err) {
-      alert(getApiErrorMessage(err));
+      const axiosErr = err as {
+        response?: { status?: number; data?: { message?: string; requires_confirmation?: boolean } };
+      };
+      if (
+        axiosErr?.response?.status === 409 &&
+        axiosErr?.response?.data?.requires_confirmation
+      ) {
+        const pm = projectMembers.find((m) => m.id === projectMemberId);
+        const memberName = pm
+          ? `${pm.user.firstName} ${pm.user.lastName}`.trim() || pm.user.email
+          : "ce membre";
+        setPendingRemoval({
+          memberId: projectMemberId,
+          memberName,
+          message: axiosErr.response.data.message ?? `Ce membre a des tâches en cours sur ce projet.`,
+        });
+      } else {
+        alert(getApiErrorMessage(err));
+      }
     }
   };
 
@@ -373,7 +420,7 @@ export default function ProjectDetailPage() {
                   <button
                     onClick={openEdit}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5"
-                    style={{ background: "var(--accent-soft)", color: "var(--accent-text)", boxShadow: "0 2px 6px -2px rgba(37,99,235,0.35)" }}
+                    style={{ background: "var(--accent-soft)", color: "var(--accent-text)", boxShadow: "0 2px 6px -2px rgba(var(--blue-rgb),0.35)" }}
                   >
                     <Pencil size={13} /> Modifier
                   </button>
@@ -650,7 +697,7 @@ export default function ProjectDetailPage() {
                     { value: "archive", label: "Archivé" },
                   ]}
                   className="w-full"
-                  ariaLabel="Statut du projet"
+ariaLabel="Statut du projet"
                 />
             </div>
 
@@ -659,15 +706,16 @@ export default function ProjectDetailPage() {
                 <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   <Calendar size={14} /> Date de début
                 </label>
-                <DatePickerField
+<DatePickerField
                   value={editStartDate}
+                  min={todayISO}
                   onChange={(v) => {
                     setEditStartDate(v);
                     clearEditFieldError("startDate");
                     clearEditFieldError("dueDate");
                   }}
                   className="w-full"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 />
                 {editFieldErrors.startDate && (
                   <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
@@ -679,14 +727,14 @@ export default function ProjectDetailPage() {
                 <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   <CalendarClock size={14} /> Date d&apos;échéance
                 </label>
-                <DatePickerField
+<DatePickerField
                   value={editDueDate}
                   onChange={(v) => {
                     setEditDueDate(v);
                     clearEditFieldError("dueDate");
                   }}
                   className="w-full"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 />
                 {editFieldErrors.dueDate && (
                   <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
@@ -725,7 +773,7 @@ export default function ProjectDetailPage() {
                       className="relative rounded-xl overflow-hidden aspect-video transition-all"
                       style={{
                         border: active ? "2px solid var(--accent-text)" : "1px solid var(--input-border)",
-                        boxShadow: active ? "0 6px 16px -6px rgba(5,108,242,0.5)" : undefined,
+                        boxShadow: active ? "0 6px 16px -6px rgba(var(--blue-rgb),0.5)" : undefined,
                       }}
                       title={wp.label}
                     >
@@ -762,7 +810,7 @@ export default function ProjectDetailPage() {
                 type="submit"
                 disabled={actionLoading}
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
-                style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+                style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
               >
                 <Save size={16} /> {actionLoading ? "Enregistrement…" : "Enregistrer"}
               </button>
@@ -869,6 +917,58 @@ export default function ProjectDetailPage() {
                 style={{ background: "var(--color-error)" }}
               >
                 <Trash2 size={15} /> {actionLoading ? "Suppression…" : "Supprimer"}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Modal de retrait forcé d'un membre (tâches en cours) */}
+      {pendingRemoval && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        >
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setPendingRemoval(null)}
+          />
+          <motion.div
+            initial={{ scale: 0.96, y: 10 }}
+            animate={{ scale: 1, y: 0 }}
+            className="relative w-full max-w-xs glass rounded-2xl p-5 text-center space-y-4"
+            style={{ boxShadow: "var(--shadow-card)" }}
+          >
+            <div
+              className="mx-auto w-14 h-14 rounded-2xl flex items-center justify-center"
+              style={{ background: "rgba(239,68,68,0.12)" }}
+            >
+              <X className="w-7 h-7" style={{ color: "var(--color-error)" }} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+                Retirer ce membre&nbsp;?
+              </h2>
+              <p className="text-sm mt-1.5" style={{ color: "var(--text-secondary)" }}>
+                {pendingRemoval.message}
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-1">
+              <button
+                onClick={() => setPendingRemoval(null)}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
+                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => handleRemoveMember(pendingRemoval.memberId, true)}
+                disabled={actionLoading}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
+                style={{ background: "var(--color-error)" }}
+              >
+                <X size={15} /> {actionLoading ? "Retrait…" : "Retirer quand même"}
               </button>
             </div>
           </motion.div>

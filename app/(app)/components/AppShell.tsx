@@ -1,54 +1,80 @@
 "use client";
 
 import { useState } from "react";
-import Sidebar, { useAgencyContext, MAIN_RAIL_WIDTH } from "./Sidebar";
+import Sidebar from "./Sidebar";
 import AgencyPanel from "./AgencyPanel";
 import Header from "./Header";
 import AiAgentPanel from "./AiAgentPanel";
+import { useActiveAgencyId } from "@/lib/useActiveAgencyId";
 
-/** Panneau contextuel d'agence : 260px, raccourci sous le header. */
+/** Second sidebar : 260px, première colonne de la feuille de contenu. */
 export const AGENCY_PANEL_WIDTH = 260;
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
-  const agencyId = useAgencyContext();
+  const agencyId = useActiveAgencyId();
   const isInAgency = agencyId !== null;
 
-  // Classes écrites en littéral : Tailwind ne détecte pas les noms assemblés.
-  const offset = isInAgency ? "lg:pl-[324px]" : "lg:pl-16";
-
   return (
-    <div className="min-h-screen">
+    <div className="app-zone flex min-h-screen flex-col">
+      {/* ---------- Chrome général (arrière-plan) ----------
+          Le rail et le header sont les deux seules parties visibles de cette
+          interface ; tout le reste est recouvert par la feuille ci-dessous. */}
       <Sidebar
         open={open}
         onClose={() => setOpen(false)}
         onOpenAi={() => setAiOpen(true)}
       />
+      <Header onMenuClick={() => setOpen(true)} />
 
-      {/* Le rail principal est lié au header. Le panneau d'agence, lui, ne l'est
-          pas : il démarre sous le header et reste court — il prend seulement la
-          hauteur de son contenu au lieu de s'étirer jusqu'en bas. */}
-      <div className={`flex min-h-screen flex-col ${offset}`}>
-        <Header onMenuClick={() => setOpen(true)} />
-        {isInAgency && (
-          <div
-            className="hidden lg:flex fixed z-30 flex-col p-4 overflow-hidden"
-            style={{
-              top: "var(--header-h)",
-              left: MAIN_RAIL_WIDTH,
-              width: AGENCY_PANEL_WIDTH,
-              maxHeight: "calc(100vh - var(--header-h) - 2rem)",
-              background: "var(--panel-bg)",
-              borderRight: "1px solid var(--panel-border)",
-              borderBottom: "1px solid var(--panel-border)",
-              borderRadius: "0 0 12px 0",
-            }}
-          >
-            <AgencyPanel agencyId={agencyId} />
+      {/* ---------- Feuille de contenu (premier plan) ----------
+          Le second sidebar et la page partagent une seule surface posée sur le
+          chrome. Elle ne laisse que deux gouttières : celle du bas du header
+          et celle de la droite du rail. Elle file jusqu'au bord droit et
+          jusqu'en bas de la fenêtre, donc seul son coin supérieur gauche est
+          arrondi : les deux autres touchent le chrome.
+
+          Sur desktop la feuille est bornée à la hauteur de la fenêtre et c'est
+          le CONTENU seul qui défile : le second sidebar reste aligné en haut,
+          page après page. La hauteur est figée sur le viewport, pas sur 100vh
+          d'élément, pour ne pas dépendre de la taille d'un parent.
+
+          Les gouttières n'existent qu'à partir de lg : en dessous, ce conteneur
+          n'a pas de padding, la feuille n'a pas de hauteur imposée et la page
+          défile normalement.
+
+          background-attachment: fixed sur le fond : sans lui le dégradé serait
+          calé sur la hauteur de ce conteneur et non sur celle de la fenêtre, et
+          la couture avec le rail apparaîtrait. */}
+      <div
+        className="flex flex-1 lg:pt-[var(--sheet-gap)] lg:pl-[var(--rail-w)]"
+        style={{ background: "var(--rail-bg)", backgroundAttachment: "fixed" }}
+      >
+        <div
+          className="flex flex-1 overflow-hidden rounded-tl-2xl lg:h-[calc(100dvh-var(--header-h)-var(--sheet-gap))]"
+          style={{
+            background: "var(--background)",
+            boxShadow: "0 18px 40px -28px rgba(0, 0, 0, 0.55)",
+          }}
+        >
+          {isInAgency && (
+            <aside
+              className="hidden lg:flex w-[260px] shrink-0 min-h-0 border-r"
+              style={{
+                background: "var(--panel-bg)",
+                borderColor: "var(--panel-border)",
+              }}
+            >
+              <AgencyPanel agencyId={agencyId} />
+            </aside>
+          )}
+
+          {/* Seul ce conteneur défile : la colonne de gauche reste immobile. */}
+          <div className="flex-1 min-w-0 min-h-0 overflow-y-auto">
+            {children}
           </div>
-        )}
-        {children}
+        </div>
       </div>
 
       <AiAgentPanel

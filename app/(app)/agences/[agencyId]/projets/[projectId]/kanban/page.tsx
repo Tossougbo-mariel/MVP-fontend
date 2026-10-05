@@ -27,7 +27,8 @@ import ConfirmDialog from "@/app/(app)/components/ConfirmDialog";
 import {
   userRoleInAgency,
   getProjectStatusFromTasks,
-  isTaskBlocked,
+isTaskBlocked,
+  DEADLINE_META,
   type ProjectStatus,
   type Task,
   type TaskPriority,
@@ -47,7 +48,6 @@ import {
   getApiErrorMessage,
 } from "@/lib/services";
 import { getWallpaperBg } from "@/app/store/wallpapers";
-
 const container: Variants = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.08 } },
@@ -64,7 +64,7 @@ const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: st
     bg: "transparent",
     border: "1px solid var(--border-subtle)",
   },
-  en_cours: { label: "En cours", color: "#056cf2", bg: "var(--accent-soft)" },
+  en_cours: { label: "En cours", color: "var(--blue)", bg: "var(--accent-soft)" },
   termine: { label: "Terminé", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
   archive: {
     label: "Archivé",
@@ -110,7 +110,7 @@ const priorityConfig: Record<TaskPriority, { label: string; color: string; bg: s
     bg: "transparent",
     border: "1px solid var(--border-subtle)",
   },
-  moyenne: { label: "Moyenne", color: "#056cf2", bg: "var(--accent-soft)" },
+  moyenne: { label: "Moyenne", color: "var(--blue)", bg: "var(--accent-soft)" },
   haute: { label: "Haute", color: "#d97706", bg: "rgba(245,158,11,0.15)" },
   urgente: { label: "Urgente", color: "var(--color-error)", bg: "rgba(239,68,68,0.12)" },
 };
@@ -318,7 +318,7 @@ export default function ProjectKanbanPage() {
 
     try {
       await apiUpdateTaskStatus(taskId, targetStatus);
-      // Synchronisation lente en arrière-plan (non bloquante) pour les compteurs/badges du projet.
+// Synchronisation lente en arrière-plan (non bloquante) pour les compteurs/badges du projet.
       void refresh();
     } catch (err) {
       // Rollback visuel en cas d'échec.
@@ -380,10 +380,16 @@ export default function ProjectKanbanPage() {
 
     const fe: Record<string, string> = {};
     if (!taskTitle.trim()) fe.title = "Le titre de la tâche est obligatoire.";
-    if (taskStartDate && project.startDate && taskStartDate < project.startDate) {
+    if (!taskStartDate) {
+      fe.startDate = "La date de début est obligatoire.";
+    } else if (project.startDate && taskStartDate < project.startDate) {
       fe.startDate = `Doit être postérieure ou égale au début du projet (${project.startDate}).`;
     }
-    if (taskDueDate && project.dueDate && taskDueDate > project.dueDate) {
+    if (!taskDueDate) {
+      fe.dueDate = "La date d'échéance est obligatoire.";
+    } else if (taskStartDate && taskDueDate < taskStartDate) {
+      fe.dueDate = "La date d'échéance doit être postérieure ou égale à la date de début.";
+    } else if (project.dueDate && taskDueDate > project.dueDate) {
       fe.dueDate = `Doit être antérieure ou égale à l'échéance du projet (${project.dueDate}).`;
     }
     if (Object.keys(fe).length > 0) {
@@ -622,6 +628,10 @@ export default function ProjectKanbanPage() {
                     const canDrag = canDragTask(task);
                     const assignee = memberById(task.assignedTo);
                     const prio = priorityConfig[task.priority];
+                    const deadlineBadge =
+                      task.deadlineStatus && task.deadlineStatus !== "a_venir"
+                        ? DEADLINE_META[task.deadlineStatus]
+                        : null;
                     return (
                       <div
                         key={task.id}
@@ -693,7 +703,7 @@ export default function ProjectKanbanPage() {
                           </p>
                         )}
 
-                        {task.tags.length > 0 && (
+{task.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1">
                             {task.tags.map((tg) => (
                               <span
@@ -714,6 +724,15 @@ export default function ProjectKanbanPage() {
                               </span>
                             ))}
                           </div>
+                        )}
+
+                        {deadlineBadge && (
+                          <span
+                            className="inline-flex w-fit items-center text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                            style={{ color: deadlineBadge.color, background: deadlineBadge.bg }}
+                          >
+                            {deadlineBadge.label}
+                          </span>
                         )}
 
                         {/* Bas de carte : échéance à gauche, avatar à droite */}
@@ -983,9 +1002,9 @@ export default function ProjectKanbanPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                  Date de début
+                  Date de début *
                 </label>
-                <DatePickerField
+<DatePickerField
                   min={project.startDate || undefined}
                   max={project.dueDate || undefined}
                   value={taskStartDate}
@@ -995,7 +1014,7 @@ export default function ProjectKanbanPage() {
                     clearTaskFieldError("dueDate");
                   }}
                   className="w-full"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 />
                 {taskFieldErrors.startDate && (
                   <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
@@ -1005,9 +1024,9 @@ export default function ProjectKanbanPage() {
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                  Date d&apos;échéance
+                  Date d&apos;échéance *
                 </label>
-                <DatePickerField
+<DatePickerField
                   min={taskStartDate || project.startDate || undefined}
                   max={project.dueDate || undefined}
                   value={taskDueDate}
@@ -1016,7 +1035,7 @@ export default function ProjectKanbanPage() {
                     clearTaskFieldError("dueDate");
                   }}
                   className="w-full"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 />
                 {taskFieldErrors.dueDate && (
                   <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
@@ -1031,7 +1050,7 @@ export default function ProjectKanbanPage() {
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Priorité
                 </label>
-                <CustomSelectField
+<CustomSelectField
                   value={taskPriority}
                   onChange={(v) => setTaskPriority(v as TaskPriority)}
                   options={(Object.keys(priorityConfig) as TaskPriority[]).map((p) => ({ value: p, label: priorityConfig[p].label }))}
@@ -1043,7 +1062,7 @@ export default function ProjectKanbanPage() {
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Assignée à
                 </label>
-                <CustomSelectField
+<CustomSelectField
                   value={taskAssigneeId}
                   onChange={(v) => setTaskAssigneeId(v)}
                   placeholder="Non assignée"
@@ -1079,7 +1098,7 @@ export default function ProjectKanbanPage() {
                 type="submit"
                 disabled={actionLoading}
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
-                style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+                style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
               >
                 <Save size={16} /> {actionLoading ? "Création…" : "Créer la tâche"}
               </button>

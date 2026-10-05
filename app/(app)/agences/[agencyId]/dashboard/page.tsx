@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { motion, type Variants } from "framer-motion";
 import {
-  FolderKanban, Users, CheckCircle2, Clock, AlertTriangle, Plus,
+  FolderKanban, Users, AlertTriangle, Plus,
   ShieldCheck, ListTodo, ArrowLeft, CalendarClock,
   Lightbulb, Award, AlarmClock, Ban, Crown, TrendingUp,
-  History, CalendarPlus, Flag, UserRound, MessageSquare, Pencil,
+  History, CalendarPlus, Flag, UserRound, MessageSquare,
   ChevronDown, ChevronUp, ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
@@ -25,8 +25,6 @@ const item: Variants = {
   hidden: { y: 16, opacity: 0 },
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
 };
-
-
 
 const timeAgo = (iso: string | null | undefined): string => {
   if (!iso) return "";
@@ -149,7 +147,7 @@ function Breadcrumb({ title, agencyName }: { title: string; agencyName: string }
           <li>/</li>
           <li>{agencyName}</li>
           <li>/</li>
-          <li className="font-semibold" style={{ color: "#056cf2" }}>Dashboard</li>
+          <li className="font-semibold" style={{ color: "var(--blue)" }}>Dashboard</li>
         </ol>
       </nav>
     </motion.div>
@@ -218,7 +216,7 @@ function AdminDashboard({
   const agencyProjects = projectsByAgency(agencyId);
   const totalTasks = agencyTasks.length;
   const totalProjects = agencyProjects.length;
-  const overdueCount = overdueTasks(
+const overdueCount = overdueTasks(
     agencyTasks.map((t) => ({ deadline: t.dueDate, status: t.status })),
     statuses,
   ).length;
@@ -264,12 +262,14 @@ function AdminDashboard({
         : null
       : Math.round(((doneThisWeek - doneLastWeek) / doneLastWeek) * 100);
   const taskStatuses = [
-    { label: "À faire", value: agencyTasks.filter((t) => t.status === "a_faire").length, color: "#0c79f2" },
-    { label: "En cours", value: agencyTasks.filter((t) => t.status === "en_cours").length, color: "#056cf2" },
-    { label: "En révision", value: agencyTasks.filter((t) => t.status === "en_revision").length, color: "#589bff" },
+    { label: "À faire", value: agencyTasks.filter((t) => t.status === "a_faire").length, color: "var(--blue-accent)" },
+    { label: "En cours", value: agencyTasks.filter((t) => t.status === "en_cours").length, color: "var(--blue)" },
+    { label: "En révision", value: agencyTasks.filter((t) => t.status === "en_revision").length, color: "var(--blue-mid)" },
     { label: "Terminées", value: agencyTasks.filter((t) => isTerminal(t.status)).length, color: "var(--color-success)" },
     { label: "En retard", value: overdueCount, color: "var(--color-error)" },
   ];
+
+  const totalCompleted = weeklyReport.reduce((s, r) => s + r.value, 0);
 
   const maxReport = Math.max(1, ...weeklyReport.map((r) => r.value));
 
@@ -291,10 +291,10 @@ function AdminDashboard({
   const avgY = chartTop + (1 - avg / chartMax) * (chartHeight - chartTop - chartBottom);
 
   const statCards = [
-    { label: "Total projets", value: String(totalProjects), icon: FolderKanban, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
-    { label: "Total tâches", value: String(totalTasks), icon: ListTodo, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
-    { label: "Membres", value: String(totalMembers), icon: Users, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
-    { label: "En retard", value: String(overdueCount), icon: AlarmClock, grad: "linear-gradient(135deg, rgba(88,155,255,0.35), rgba(5,108,242,0.10))", color: "#6ea8ff" },
+    { label: "Total projets", value: String(totalProjects), icon: FolderKanban, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+    { label: "Total tâches", value: String(totalTasks), icon: ListTodo, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+    { label: "Membres", value: String(totalMembers), icon: Users, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+    { label: "En retard", value: String(overdueCount), icon: AlarmClock, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
   ];
 
   return (
@@ -334,9 +334,9 @@ function AdminDashboard({
                 transition={{ type: "spring", stiffness: 240, damping: 15 }}
                 whileHover={{ rotate: 8, scale: 1.1 }}
                 className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: "linear-gradient(135deg, #E8F2FF 0%, #C9DEFF 100%)", border: `1px solid ${s.color}66` }}
+                style={{ background: `linear-gradient(135deg, rgba(var(--blue-rgb),0.12) 0%, rgba(var(--blue-mid-rgb),0.28) 100%)`, border: `1px solid rgba(var(--blue-rgb),0.35)` }}
               >
-                <s.icon className="w-5 h-5" style={{ color: "#2e70d0" }} />
+                <s.icon className="w-5 h-5" style={{ color: "var(--blue)" }} />
               </motion.div>
               <div className="min-w-0">
                 <motion.div
@@ -361,8 +361,8 @@ function AdminDashboard({
           {/* Répartition des tâches */}
           <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(5,108,242,0.12)" }}>
-                <CalendarClock size={16} style={{ color: "#056cf2" }} />
+              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(var(--blue-rgb),0.12)" }}>
+                <CalendarClock size={16} style={{ color: "var(--blue)" }} />
               </div>
               <div>
                 <h2 className="font-bold leading-none" style={{ color: "var(--text-primary)" }}>Tâches par statut</h2>
@@ -406,13 +406,13 @@ function AdminDashboard({
                 style={{ background: "rgba(16,185,129,0.12)", color: "var(--color-success)" }}
               >
                 {deltaPct === null
-                  ? `${doneThisWeek} terminée${doneThisWeek > 1 ? "s" : ""} cette semaine`
+                  ? `${totalCompleted} tâche${totalCompleted > 1 ? "s" : ""} terminée${totalCompleted > 1 ? "s" : ""}`
                   : `${deltaPct >= 0 ? "+" : ""}${deltaPct}% cette semaine`}
               </span>
             </div>
             <div className="mb-4 flex items-center gap-5 text-xs">
               <span className="flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
-                <span className="w-4 h-0.5 rounded-full" style={{ background: "linear-gradient(90deg, #056cf2, #589bff)" }} />
+                <span className="w-4 h-0.5 rounded-full" style={{ background: "linear-gradient(90deg, var(--blue), var(--blue-mid))" }} />
                 Tâches terminées
               </span>
               <span className="flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
@@ -425,13 +425,13 @@ function AdminDashboard({
               <svg viewBox="0 0 640 200" className="w-full h-auto overflow-visible">
                 <defs>
                   <linearGradient id="chartLine" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#0c79f2" />
-                    <stop offset="55%" stopColor="#589bff" />
+                    <stop offset="0%" stopColor="var(--blue-accent)" />
+                    <stop offset="55%" stopColor="var(--blue-mid)" />
                     <stop offset="100%" stopColor="#8b5cf6" />
                   </linearGradient>
                   <linearGradient id="chartArea" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#056cf2" stopOpacity="0.35" />
-                    <stop offset="100%" stopColor="#056cf2" stopOpacity="0.02" />
+                    <stop offset="0%" stopColor="var(--blue)" stopOpacity="0.35" />
+                    <stop offset="100%" stopColor="var(--blue)" stopOpacity="0.02" />
                   </linearGradient>
                 </defs>
 
@@ -465,7 +465,7 @@ function AdminDashboard({
                   stroke="url(#chartLine)"
                   strokeWidth="2.5"
                   strokeLinecap="round"
-                  style={{ filter: "drop-shadow(0 0 6px rgba(5,108,242,0.45))" }}
+                  style={{ filter: "drop-shadow(0 0 6px rgba(var(--blue-rgb),0.45))" }}
                 />
 
                 <line x1="28" y1={avgY} x2="612" y2={avgY} stroke="#7C3AED" strokeDasharray="5 4" strokeWidth="1" opacity="0.7" />
@@ -479,7 +479,7 @@ function AdminDashboard({
                       cx={points[i].x}
                       cy={points[i].y}
                       r="10"
-                      fill="rgba(5,108,242,0.15)"
+                      fill="rgba(var(--blue-rgb),0.15)"
                       className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 cursor-pointer"
                     />
                     <motion.circle
@@ -489,7 +489,7 @@ function AdminDashboard({
                       cx={points[i].x}
                       cy={points[i].y}
                       r="4"
-                      fill="#0c79f2"
+                      fill="var(--blue-accent)"
                       stroke="rgba(255,255,255,0.6)"
                       strokeWidth="1.5"
                       className="cursor-pointer"
@@ -503,7 +503,7 @@ function AdminDashboard({
                       y={points[i].y - 14}
                       fontSize="11"
                       fontWeight="700"
-                      fill="#9dc7ff"
+                      fill="var(--blue-light)"
                     >
                       {r.value}
                     </motion.text>
@@ -609,8 +609,8 @@ function AdminDashboard({
           {/* Statut de l'équipe */}
           <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(5,108,242,0.12)" }}>
-                <Users size={16} style={{ color: "#056cf2" }} />
+              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(var(--blue-rgb),0.12)" }}>
+                <Users size={16} style={{ color: "var(--blue)" }} />
               </div>
               <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Statut de l&apos;équipe</h2>
             </div>
@@ -670,11 +670,11 @@ function AdminDashboard({
                       <motion.span
                         whileHover={{ rotate: 8, scale: 1.12 }}
                         className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
-                        style={{ background: "rgba(5,108,242,0.12)" }}
+                        style={{ background: "rgba(var(--blue-rgb),0.12)" }}
                       >
-                        <b.icon className="w-4.5 h-4.5" style={{ color: "#056cf2" }} />
+                        <b.icon className="w-4.5 h-4.5" style={{ color: "var(--blue)" }} />
                       </motion.span>
-                      <span className="font-medium text-sm group-hover:text-[#589bff] transition-colors duration-200">{b.label}</span>
+                      <span className="font-medium text-sm group-hover:text-[color:var(--blue-mid)] transition-colors duration-200">{b.label}</span>
                     </Link>
                   </motion.div>
                 ))}
@@ -685,7 +685,7 @@ function AdminDashboard({
           {/* Droits */}
           <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
             <div className="flex items-center gap-2 mb-3">
-              <ShieldCheck className="w-4 h-4" style={{ color: "#056cf2" }} />
+              <ShieldCheck className="w-4 h-4" style={{ color: "var(--blue)" }} />
               <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
                 {isOwner
                   ? "Vue propriétaire — accès complet"
@@ -742,21 +742,7 @@ const badPractices = [
 
 function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: string }) {
   const { myTasksInAgency, projectsByAgency, tasksByProject } = useAppData();
-  const { statuses, isTerminal } = useTaskStatuses();
   const myT = myTasksInAgency(agencyId);
-
-  const today = new Date().toISOString().slice(0, 10);
-  // Une tuile par statut réel de l'agence, plus le compteur de retards.
-  const statusTiles = statuses.map((s) => ({
-    label: s.label,
-    value: myT.filter((t) => t.status === s.key).length,
-    icon: s.is_terminal ? CheckCircle2 : s.key === "a_faire" ? CalendarClock : Clock,
-    color: s.color,
-  }));
-  const memberTasks = [
-    ...statusTiles,
-    { label: "En retard", value: myT.filter((t) => !isTerminal(t.status) && t.deadline !== null && t.deadline < today).length, icon: AlertTriangle, color: "var(--color-error)" },
-  ];
 
   // Projets dans lesquels le membre participe (au moins une tâche), non archivés
   const projectIds = new Set(myT.map((t) => t.projectId));
@@ -776,51 +762,6 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
         name={userName}
         subtitle="Découvrez les bonnes pratiques pour exceller dans votre travail."
       />
-
-      {/* Mes statistiques */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {memberTasks.map((s) => (
-          <motion.div
-            key={s.label}
-            variants={item}
-            whileHover={{ y: -4, scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-            className="relative overflow-hidden glass rounded-2xl p-5 cursor-default"
-            style={{ boxShadow: "var(--shadow-card)" }}
-          >
-            <motion.div
-              className="absolute inset-0"
-              style={{ background: "linear-gradient(135deg, #E8F2FF 0%, #C9DEFF 100%)", opacity: 0.4 }}
-              animate={{ opacity: [0.3, 0.5, 0.3] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <div className="relative flex items-center gap-3.5">
-              <motion.div
-                initial={{ scale: 0, rotate: -20 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: "spring", stiffness: 240, damping: 15 }}
-                whileHover={{ rotate: 8, scale: 1.1 }}
-                className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: "linear-gradient(135deg, #E8F2FF 0%, #C9DEFF 100%)", border: `1px solid ${s.color}66` }}
-              >
-                <s.icon className="w-5 h-5" style={{ color: "#2e70d0" }} />
-              </motion.div>
-              <div className="min-w-0">
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                  className="text-xl font-black leading-none"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  {s.value}
-                </motion.div>
-                <div className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{s.label}</div>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
 
       {/* Bonnes pratiques / Erreurs à éviter */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -908,8 +849,8 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
       <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
         <div className="flex items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(5,108,242,0.12)" }}>
-              <FolderKanban size={16} style={{ color: "#056cf2" }} />
+            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(var(--blue-rgb),0.12)" }}>
+              <FolderKanban size={16} style={{ color: "var(--blue)" }} />
             </div>
             <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Vos projets</h2>
           </div>

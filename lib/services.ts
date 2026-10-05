@@ -4,6 +4,7 @@
 // ============================================================
 import { api } from "./api";
 import { splitName } from "./mappers";
+import { DEFAULT_AGENCY_SETTINGS } from "./types";
 import type {
   ActivityEntry,
   Agency,
@@ -22,6 +23,7 @@ import type {
   Subtask,
   Tag,
   Task,
+  TaskDeadlineStatus,
   TaskComment,
   TaskDepRef,
   TaskPriority,
@@ -58,8 +60,8 @@ const mapAgency = (r: any): Agency => ({
       ? r.my_role
       : null,
   createdAt: str(r.created_at) ?? "",
-  members: [],
-  settings: r.settings ?? null,
+  members: Array.isArray(r.members) ? r.members.map(mapMember) : [],
+  settings: { ...DEFAULT_AGENCY_SETTINGS, ...(r.settings ?? {}) },
 });
 
 const mapMember = (r: any): AgencyMember => ({
@@ -99,6 +101,7 @@ const mapProject = (r: any): Project => ({
       : Math.round(Number(r.progress)),
   wallpaper: str(r.wallpaper),
   createdAt: str(r.created_at) ?? "",
+  tasks: Array.isArray(r.tasks) ? r.tasks.map(mapTask) : undefined,
 });
 
 const mapProjectMember = (r: any): ProjectMember => ({
@@ -140,6 +143,7 @@ const mapTask = (r: any): Task => ({
   tags: Array.isArray(r.tags) ? (r.tags as any[]).map(mapTag) : [],
   dependencies: Array.isArray(r.dependencies) ? (r.dependencies as any[]).map(mapDepRef) : [],
   dependents: Array.isArray(r.dependents) ? (r.dependents as any[]).map(mapDepRef) : [],
+  deadlineStatus: (r.deadline_status ?? null) as TaskDeadlineStatus,
 });
 
 const mapSubtask = (r: any): Subtask => ({
@@ -202,6 +206,31 @@ const toApiDate = (d: unknown): string | null => {
 };
 
 // ---------- Agences ----------
+// Charge tout le nécessaire au démarrage en UNE seule requête :
+// agences (avec membres + projets + tâches) + notifications.
+export const fetchBootstrap = async (): Promise<{
+  agencies: Agency[];
+  projects: Project[];
+  tasks: Task[];
+  notifications: AppNotification[];
+}> => {
+  const { data } = await api.get<{
+    agencies?: Array<{ projects?: unknown[] }>;
+    notifications?: unknown[];
+  }>("/bootstrap");
+  const rawAgencies = Array.isArray(data?.agencies) ? data.agencies : [];
+  const agencies = rawAgencies.map(mapAgency);
+  const projects: Project[] = rawAgencies.flatMap((a) =>
+    Array.isArray(a.projects) ? a.projects.map(mapProject) : [],
+  );
+  const tasks: Task[] = projects.flatMap((p) => p.tasks ?? []);
+  const notifications: AppNotification[] = Array.isArray(data?.notifications)
+    ? data.notifications.map(mapNotification)
+    : [];
+  return { agencies, projects, tasks, notifications };
+};
+
+// ---------- Agences ----------
 export const fetchAgencies = async (): Promise<Agency[]> => {
   const { data } = await api.get("/agencies");
   return (data as any[] ?? []).map(mapAgency);
@@ -211,9 +240,6 @@ export const loadAgencyMembers = async (agencyId: number | string): Promise<Agen
   const { data } = await api.get(`/agencies/${agencyId}/members`);
   return (data as any[] ?? []).map(mapMember);
 };
-
-export const fetchAgency = async (agencyId: number | string): Promise<Agency> =>
-  mapAgency((await api.get(`/agencies/${agencyId}`)).data);
 
 export const createAgency = async (payload: {
   name: string;
@@ -252,8 +278,11 @@ export const updateAgencyMember = async (
 export const removeAgencyMember = async (
   agencyId: number | string,
   memberId: number | string,
+  confirm = false,
 ): Promise<void> => {
-  await api.delete(`/agencies/${agencyId}/members/${memberId}`);
+  await api.delete(`/agencies/${agencyId}/members/${memberId}`, {
+    params: confirm ? { confirm: true } : undefined,
+  });
 };
 
 
@@ -345,9 +374,6 @@ export const fetchProjects = async (agencyId: number | string): Promise<Project[
   return (data as any[] ?? []).map(mapProject);
 };
 
-export const fetchProject = async (projectId: number | string): Promise<Project> =>
-  mapProject((await api.get(`/projects/${projectId}`)).data);
-
 export const fetchProjectMembers = async (projectId: number | string): Promise<ProjectMember[]> => {
   const { data } = await api.get(`/projects/${projectId}/members`);
   return (data as any[] ?? []).map(mapProjectMember);
@@ -400,8 +426,11 @@ export const addProjectMember = async (
 export const removeProjectMember = async (
   projectId: number | string,
   projectMemberId: number | string,
+  confirm = false,
 ): Promise<void> => {
-  await api.delete(`/projects/${projectId}/members/${projectMemberId}`);
+  await api.delete(`/projects/${projectId}/members/${projectMemberId}`, {
+    params: confirm ? { confirm: true } : undefined,
+  });
 };
 
 // ---------- Tâches ----------
@@ -637,9 +666,13 @@ export const deleteComment = async (commentId: number | string): Promise<void> =
 };
 
 // ---------- Notifications ----------
+/**
+ * Liste paginée. Utilisée par le repli de lib/appData.tsx quand le backend
+ * n'expose pas encore GET /bootstrap : sans elle, aucune donnée ne se charge.
+ */
 export const fetchNotifications = async (perPage = 100): Promise<AppNotification[]> => {
   const { data } = await api.get("/notifications", { params: { per_page: perPage } });
-  const list = Array.isArray(data) ? data : data?.data ?? [];
+  const list = Array.isArray(data) ? data : (data as { data?: unknown[] })?.data ?? [];
   return (list as any[]).map(mapNotification);
 };
 

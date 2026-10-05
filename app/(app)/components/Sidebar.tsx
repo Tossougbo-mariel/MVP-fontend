@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Building2, LogOut, X, Sparkles, Bell, User, Plus, Bot,
@@ -13,9 +12,18 @@ import { useAppData } from "@/lib/appData";
 import {
   userAgencies, userRoleInAgency, type AgencyRole,
 } from "@/lib/types";
+import { useActiveAgencyId } from "@/lib/useActiveAgencyId";
 
-/** Rail d'icônes : 64px, pleine hauteur, lié au header. */
-export const MAIN_RAIL_WIDTH = 64;
+/** Rail principal : 80px, sous le header. Doit rester égal à --rail-w (globals.css). */
+export const MAIN_RAIL_WIDTH = 80;
+
+/** Navigation globale, hors agence : les mêmes accès depuis n'importe quel écran. */
+const GLOBAL_ITEMS = [
+  { href: "/mes-agences", label: "Mes agences", icon: Building2 },
+  { href: "/agences/nouvelle", label: "Créer une agence", icon: Plus },
+  { href: "/notifications", label: "Notifications", icon: Bell },
+  { href: "/profil", label: "Mon profil", icon: User },
+];
 
 const AGENCY_ITEMS = [
   { suffix: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
@@ -29,12 +37,10 @@ const OWNER_AGENCY_ITEMS = [
   { suffix: "parametres", label: "Paramètres", icon: Settings },
 ];
 
-/** Contexte d'agence déduit de l'URL : `/agences/{id}/...`. */
-export function useAgencyContext() {
-  const pathname = usePathname();
-  const match = pathname.match(/^\/agences\/([^/]+)/);
-  return match ? match[1] : null;
-}
+/* Le contexte d'agence n'est pas défini ici : useActiveAgencyId (lib/) est la
+   seule source de vérité, utilisée par le rail comme par AppShell. Le trait
+   final de sa regexp est ce qui empêche `/agences/nouvelle` — la page de
+   création — d'être lu comme un identifiant d'agence. */
 
 const initials = (name: string) =>
   name
@@ -59,8 +65,8 @@ export default function Sidebar({
   const logout = useAuthStore((s) => s.logout);
   const { data, agencyById, projectsByAgency, unreadCount } = useAppData();
 
-  const agencyMatch = pathname.match(/^\/agences\/([^/]+)/);
-  const agencyId = agencyMatch ? agencyMatch[1] : null;
+  // ✅ Contexte d'agence : pathname (/agences/{id}/...) ou ?agency= sur /profil
+  const agencyId = useActiveAgencyId();
   const isInAgency = agencyId !== null;
   const currentAgency = agencyId ? agencyById(agencyId) : undefined;
   const myAgencies = user ? userAgencies(data.agencies, user.email) : [];
@@ -70,74 +76,52 @@ export default function Sidebar({
     currentAgency && user ? userRoleInAgency(currentAgency, user.email) : "membre";
   const agencyItems = agencyRole === "owner" ? OWNER_AGENCY_ITEMS : AGENCY_ITEMS;
 
-  const [switcherOpen, setSwitcherOpen] = useState(false);
-  const switcherRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!switcherOpen) return;
-    const onPointerDown = (event: MouseEvent) => {
-      if (!switcherRef.current?.contains(event.target as Node)) setSwitcherOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSwitcherOpen(false);
-    };
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [switcherOpen]);
-
   const handleLogout = () => {
     logout();
     router.push("/connexion");
   };
 
+  // Aucun filet : le rail se distingue par sa couleur, pas par une bordure.
   const railStyle = {
     background: "var(--rail-bg)",
-    borderRight: "1px solid var(--rail-border)",
   };
 
-  /** Carré d'icône du rail, avec libellé au survol. */
-  const iconButton = (opts: {
+  /**
+   * Entrée du rail : icône au-dessus, nom de la page en petit dessous. Le nom
+   * est toujours visible, donc pas besoin d'infobulle au survol.
+   */
+  const railItem = (opts: {
     label: string;
+    short?: string;
     href?: string;
     active?: boolean;
     badge?: number;
     onClick?: () => void;
     children: React.ReactNode;
   }) => {
-    const { label, href, active, badge, onClick, children } = opts;
+    const { label, short, href, active, badge, onClick, children } = opts;
 
     const inner = (
       <>
-        {children}
-        {badge !== undefined && badge > 0 && (
-          <span
-            className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold text-white flex items-center justify-center"
-            style={{ background: "var(--color-error)" }}
-          >
-            {badge > 9 ? "9+" : badge}
-          </span>
-        )}
-        <span
-          role="tooltip"
-          className="pointer-events-none absolute left-full ml-2 top-1/2 -translate-y-1/2 whitespace-nowrap px-2 py-1 rounded-lg text-[11px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity z-50"
-          style={{
-            background: "var(--chrome-card)",
-            color: "var(--chrome-text)",
-            border: "1px solid var(--chrome-border)",
-            boxShadow: "var(--shadow-card)",
-          }}
-        >
-          {label}
+        <span className="relative flex items-center justify-center h-[22px]">
+          {children}
+          {badge !== undefined && badge > 0 && (
+            <span
+              className="absolute -top-1 -right-2 min-w-[15px] h-[15px] px-1 rounded-full text-[9px] font-bold text-white flex items-center justify-center"
+              style={{ background: "var(--color-error)" }}
+            >
+              {badge > 9 ? "9+" : badge}
+            </span>
+          )}
+        </span>
+        <span className="text-[10px] font-semibold leading-[12px] tracking-tight text-center max-w-full truncate">
+          {short ?? label}
         </span>
       </>
     );
 
     const className =
-      "group relative w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors";
+      "w-full flex flex-col items-center gap-1 px-1 py-2 rounded-xl shrink-0 transition-colors";
 
     if (href) {
       return (
@@ -145,10 +129,15 @@ export default function Sidebar({
           href={href}
           onClick={onClose}
           aria-label={label}
+          aria-current={active ? "page" : undefined}
+          title={label}
           className={className}
           style={
             active
-              ? { background: "var(--rail-accent-soft)", color: "var(--rail-accent-text)" }
+              ? {
+                  background: "var(--rail-accent-soft)",
+                  color: "var(--rail-accent-text)",
+                }
               : { color: "var(--rail-text-secondary)" }
           }
         >
@@ -162,6 +151,7 @@ export default function Sidebar({
         type="button"
         onClick={onClick}
         aria-label={label}
+        title={label}
         className={className}
         style={{ color: "var(--rail-text-secondary)" }}
       >
@@ -170,129 +160,79 @@ export default function Sidebar({
     );
   };
 
-  const agencySwitcher = (
-    <div ref={switcherRef} className="relative">
-      {iconButton({
-        label: currentAgency ? currentAgency.name : "Choisir une agence",
-        onClick: () => setSwitcherOpen((v) => !v),
-        children: (
-          <span
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold text-white"
-            style={{ background: "var(--gradient-primary)" }}
-          >
-            {currentAgency ? initials(currentAgency.name) || "?" : <Building2 size={15} />}
-          </span>
-        ),
-      })}
-
-      {switcherOpen && (
-        <div
-          className="absolute left-full ml-2 top-0 w-60 rounded-xl z-50 p-1.5"
-          style={{
-            background: "var(--chrome-card)",
-            border: "1px solid var(--chrome-border)",
-            boxShadow: "0 20px 50px -15px rgba(0,0,0,0.6)",
-          }}
-        >
-          <p
-            className="px-2.5 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-wide"
-            style={{ color: "var(--text-muted)" }}
-          >
-            Vos agences
-          </p>
-
-          {myAgencies.length === 0 && (
-            <p className="px-2.5 py-3 text-xs" style={{ color: "var(--text-muted)" }}>
-              Vous n&apos;êtes membre d&apos;aucune agence.
-            </p>
-          )}
-
-          {myAgencies.map((agency) => {
-            const active = agencyId === String(agency.id);
-            return (
-              <Link
-                key={agency.id}
-                href={`/agences/${agency.id}/dashboard`}
-                className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors"
-                style={{ background: active ? "var(--hover-soft)" : "transparent" }}
-              >
-                <span
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-                  style={{ background: "var(--gradient-primary)" }}
-                >
-                  {initials(agency.name) || "?"}
-                </span>
-                <span className="min-w-0 flex-1 text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>
-                  {agency.name}
-                </span>
-                {active && (
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "var(--accent-text)" }} />
-                )}
-              </Link>
-            );
-          })}
-
-          <div className="mt-1 pt-1 border-t" style={{ borderColor: "var(--border-subtle)" }}>
-            <Link
-              href="/agences/nouvelle"
-              className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              <Plus size={15} /> Nouvelle agence
-            </Link>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  // Entrée « Agence » du rail : elle mène à la page « Mes agences », qui liste
+  // les agences et permet d'en créer. Elle n'ouvre plus de liste déroulante :
+  // la liste elle-même vit sur cette page, et le second sidebar offre le même
+  // choix quand on est déjà dans une agence.
+  const agencySwitcher = railItem({
+    label: "Mes agences",
+    short: "Agence",
+    href: "/mes-agences",
+    active: pathname === "/mes-agences" || pathname === "/agences/nouvelle",
+    children: (
+      <span
+        className="w-[26px] h-[26px] rounded-lg flex items-center justify-center text-[10px] font-bold text-white"
+        style={{ background: "var(--gradient-primary)" }}
+      >
+        {currentAgency ? initials(currentAgency.name) || "?" : <Building2 size={14} />}
+      </span>
+    ),
+  });
 
   return (
     <>
-      {/* Rail d'icônes, toute la hauteur, collé au header */}
+      {/* Rail principal : c'est la bande de gauche de l'interface générale. Il
+          démarre sous le header (pleine largeur, cf. Header) et descend jusqu'en
+          bas : le header et le rail forment le cadre, la feuille de contenu se
+          pose dessus à droite. */}
       <aside
-        className="hidden lg:flex fixed left-0 top-0 bottom-0 z-40 flex-col items-center gap-4 py-4"
-        style={{ ...railStyle, width: MAIN_RAIL_WIDTH }}
+        className="hidden lg:flex fixed left-0 bottom-0 z-40 flex-col items-center gap-2.5 px-1.5 py-4"
+        style={{ ...railStyle, top: "var(--header-h)", width: MAIN_RAIL_WIDTH }}
       >
-        <Link
-          href="/mes-agences"
-          aria-label="MVP Studio"
-          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: "var(--gradient-primary)" }}
-        >
-          <Sparkles className="w-5 h-5 text-white" />
-        </Link>
-
+        {/* La marque est dans le coin haut-gauche du header (cf. Header), juste
+            au-dessus : le rail démarre au sélecteur d'agence. Il n'a pas d'entrée
+            « Agences » propre pour éviter deux entrées « agences » côte à côte,
+            le sélecteur ci-dessous les liste déjà. */}
         {agencySwitcher}
 
-        <div className="flex flex-col items-center gap-1.5 flex-1">
-          {iconButton({
+        <div className="flex w-full flex-1 flex-col items-center gap-1.5">
+          {railItem({
             label: "Assistant IA",
+            short: "Assistant",
             onClick: onOpenAi,
             children: <Bot size={19} />,
           })}
-          {iconButton({
-            label: "Mes agences",
-            href: "/mes-agences",
-            active: pathname === "/mes-agences",
-            children: <Building2 size={18} />,
-          })}
-          {iconButton({
+          {railItem({
             label: "Notifications",
+            short: "Notifications",
             href: "/notifications",
             active: pathname.startsWith("/notifications"),
             badge: unreadCount,
             children: <Bell size={18} />,
           })}
-          {iconButton({
+          {railItem({
             label: "Mon profil",
+            short: "Profil",
             href: "/profil",
             active: pathname.startsWith("/profil"),
             children: <User size={18} />,
           })}
+          {/* Réglages d'agence : ils n'existent que dans une agence, donc
+              l'entrée n'apparaît que dans ce contexte et pointe vers la page
+              de l'agence courante plutôt que vers une route globale absente. */}
+          {isInAgency &&
+            railItem({
+              label: "Paramètres",
+              short: "Paramètres",
+              href: `/agences/${agencyId}/parametres`,
+              active: pathname.includes("/parametres"),
+              children: <Settings size={18} />,
+            })}
         </div>
 
-        {iconButton({
+        {railItem({
           label: "Se déconnecter",
+          short: "Déconnexion",
           onClick: handleLogout,
           children: <LogOut size={18} />,
         })}
@@ -382,26 +322,59 @@ export default function Sidebar({
                 ))}
               </div>
             )}
+
+            {/* Notifications filtrées sur l'agence courante. */}
+            <div className="pt-2 mt-1 border-t" style={{ borderColor: "var(--rail-border)" }}>
+              <Link
+                href={`/agences/${agencyId}/notifications`}
+                onClick={onClose}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
+                style={
+                  pathname.startsWith(`/agences/${agencyId}/notifications`)
+                    ? { background: "var(--rail-accent-soft)", color: "var(--rail-text)" }
+                    : { color: "var(--rail-text-secondary)" }
+                }
+              >
+                <Bell size={18} />
+                Notifications
+              </Link>
+            </div>
           </div>
         )}
 
-        {[
-          { href: "/mes-agences", label: "Mes agences", icon: Building2 },
-          { href: "/agences/nouvelle", label: "Créer une agence", icon: Plus },
-          { href: "/notifications", label: "Notifications", icon: Bell },
-          { href: "/profil", label: "Mon profil", icon: User },
-        ].map((item) => (
+        {/* Aucune agence : on l'annonce avant la navigation globale. */}
+        {!isInAgency && myAgencies.length === 0 && (
+          <div
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
+            style={{ background: "var(--rail-accent-soft)", color: "var(--rail-text-secondary)" }}
+          >
+            <Building2 size={18} style={{ color: "var(--rail-text-muted)" }} />
+            <span className="flex-1 text-sm font-medium">Aucune agence</span>
+          </div>
+        )}
+
+        {GLOBAL_ITEMS.map((item) => (
           <Link
             key={item.href}
             href={item.href}
             onClick={onClose}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
-            style={{ color: "var(--rail-text-secondary)" }}
+            style={
+              pathname === item.href
+                ? { background: "var(--rail-accent-soft)", color: "var(--rail-text)" }
+                : { color: "var(--rail-text-secondary)" }
+            }
           >
             <item.icon className="w-[18px] h-[18px]" />
             {item.label}
           </Link>
         ))}
+
+        {!isInAgency && myAgencies.length === 0 && (
+          <p className="px-1 text-xs" style={{ color: "var(--rail-text-muted)" }}>
+            Créez votre première agence ou acceptez une invitation pour gérer vos projets.
+          </p>
+        )}
 
         <button
           onClick={handleLogout}

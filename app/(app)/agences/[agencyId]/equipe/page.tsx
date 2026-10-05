@@ -20,12 +20,13 @@ import {
 } from "@/lib/types";
 import {
   createInvitation, fetchAgencyInvitations, resendInvitation, cancelInvitation,
-  updateAgencyMember, removeAgencyMember, getApiErrorMessage,
+  updateAgencyMember, removeAgencyMember, loadAgencyMembers, getApiErrorMessage,
   fetchAgencyTeams, createAgencyTeam, updateTeam, deleteTeam,
 } from "@/lib/services";
 import { useAuthStore } from "@/app/store/authStore";
 import AvatarViewer from "@/app/(app)/components/AvatarViewer";
 import CustomSelectField from "@/app/(app)/components/CustomSelectField";
+import Select from "@/app/(app)/components/Select";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -120,7 +121,7 @@ function InviteConfirmModal({
           <button
             onClick={onConfirm}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
-            style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)" }}
+            style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
           >
             <UserPlus size={15} /> Confirmer
           </button>
@@ -286,7 +287,7 @@ function ConfirmActionModal({
   const toneShadow =
     tone === "danger"
       ? "0 8px 18px -8px rgba(239,68,68,0.4)"
-      : "0 8px 18px -8px rgba(37,99,235,0.4)";
+      : "0 8px 18px -8px rgba(var(--blue-rgb),0.4)";
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
@@ -618,10 +619,10 @@ function MemberMenu({
         onClick={toggle}
         className={`w-9 h-9 rounded-full inline-flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 ${buttonClassName ?? ""}`}
         style={{
-          background: open ? "rgba(5,108,242,0.14)" : "var(--surface)",
+          background: open ? "rgba(var(--blue-rgb),0.14)" : "var(--surface)",
           border: "1px solid",
-          borderColor: open ? "#056cf2" : "var(--border-subtle)",
-          color: open ? "#056cf2" : "var(--text-secondary)",
+          borderColor: open ? "var(--blue)" : "var(--border-subtle)",
+          color: open ? "var(--blue)" : "var(--text-secondary)",
           boxShadow: "0 4px 12px -6px rgba(10,27,60,0.3)",
         }}
         title="Actions de gestion"
@@ -662,7 +663,7 @@ function MemberMenu({
               className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left rounded-lg transition-colors hover:bg-[var(--hover-soft)]"
               style={{ color: "var(--text-primary)" }}
             >
-              <ShieldCheck size={15} style={{ color: "#056cf2" }} />
+              <ShieldCheck size={15} style={{ color: "var(--blue)" }} />
               {member.role === "admin" ? "Rétrograder en Membre" : "Promouvoir en Admin"}
             </button>
             {member.status !== "en_attente" && (
@@ -693,7 +694,7 @@ function MemberMenu({
 
 export default function EquipePage() {
   const { agencyId } = useParams<{ agencyId: string }>();
-  const { data, reload, tasksByAgency } = useAppData();
+  const { data, reload, tasksByAgency, setAgencyMembers } = useAppData();
   const agency = data.agencies.find((a) => a.id === Number(agencyId));
   const user = useAuthStore((s) => s.user);
 
@@ -708,6 +709,10 @@ export default function EquipePage() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [pendingForcedRemoval, setPendingForcedRemoval] = useState<{
+    member: AgencyMember;
+    message: string;
+  } | null>(null);
   const [invitations, setInvitations] = useState<AgencyInvitation[]>([]);
   const [invitationsLoading, setInvitationsLoading] = useState(true);
   const [cancelInvitationTarget, setCancelInvitationTarget] = useState<AgencyInvitation | null>(null);
@@ -878,33 +883,72 @@ export default function EquipePage() {
     if (!pendingAction) return;
     const { type, member } = pendingAction;
     const fullName = `${member.user.firstName} ${member.user.lastName}`.trim() || member.user.email;
+    setPendingAction(null);
+
+    const snapshot = agency?.members ?? [];
+    const reconcile = () =>
+      void loadAgencyMembers(agencyId)
+        .then((members) => setAgencyMembers(agencyId, members))
+        .catch(() => {});
 
     try {
       if (type === "changeRole") {
         const newRole = member.role === "admin" ? "membre" : "admin";
-        await updateAgencyMember(agencyId, member.id, { role: newRole });
-        await reload();
+        // UI optimiste : le rôle change immédiatement, l'API travaille en fond.
+        setAgencyMembers(
+          agencyId,
+          snapshot.map((m) => (m.id === member.id ? { ...m, role: newRole } : m)),
+        );
         setActionSuccess(`« ${fullName} » est désormais ${newRole === "admin" ? "Admin" : "Membre"}.`);
+        await updateAgencyMember(agencyId, member.id, { role: newRole });
+        reconcile();
       } else if (type === "toggleStatus") {
         const newStatus = member.status === "inactif" ? "actif" : "inactif";
-        await updateAgencyMember(agencyId, member.id, { status: newStatus });
-        await reload();
+        setAgencyMembers(
+          agencyId,
+          snapshot.map((m) => (m.id === member.id ? { ...m, status: newStatus } : m)),
+        );
         setActionSuccess(
           newStatus === "actif"
             ? `Le compte de « ${fullName} » a été réactivé.`
             : `Le compte de « ${fullName} » a été désactivé.`,
         );
+        await updateAgencyMember(agencyId, member.id, { status: newStatus });
+        reconcile();
       } else {
-        await removeAgencyMember(agencyId, member.id);
-        await reload();
-        setActionSuccess(`« ${fullName} » a été supprimé(e) de l'agence.`);
+        // Retrait optimiste : le membre disparaît immédiatement.
+        setAgencyMembers(
+          agencyId,
+          snapshot.filter((m) => m.id !== member.id),
+        );
+        try {
+          await removeAgencyMember(agencyId, member.id);
+          setActionSuccess(`« ${fullName} » a été supprimé(e) de l'agence.`);
+          reconcile();
+        } catch (err) {
+          const axiosErr = err as {
+            response?: { status?: number; data?: { message?: string; requires_confirmation?: boolean } };
+          };
+          if (
+            axiosErr?.response?.status === 409 &&
+            axiosErr?.response?.data?.requires_confirmation
+          ) {
+            setAgencyMembers(agencyId, snapshot);
+            setPendingForcedRemoval({
+              member,
+              message: axiosErr.response.data.message ?? "Ce membre a des tâches en cours dans les projets de l'agence.",
+            });
+            return;
+          }
+          throw err;
+        }
       }
     } catch (err) {
+      setAgencyMembers(agencyId, snapshot);
       setActionSuccess(null);
       alert(getApiErrorMessage(err));
     }
 
-    setPendingAction(null);
     setTimeout(() => setActionSuccess(null), 3000);
   };
 
@@ -941,24 +985,25 @@ export default function EquipePage() {
 
   const confirmSendInvitation = async () => {
     if (!confirmEmail) return;
+    const inviteEmail = confirmEmail;
+    setConfirmEmail(null);
     setInviteError(null);
     try {
-      const created = await createInvitation(agencyId, { email: confirmEmail, role: inviteRole });
-      await reload();
-      await refreshInvitations();
+      const created = await createInvitation(agencyId, { email: inviteEmail, role: inviteRole });
       setEmail("");
-      setInviteSuccess(confirmEmail);
+      setInviteSuccess(inviteEmail);
       setInviteLink(`${window.location.origin}/accepter-invitation?token=${created.token}`);
       setTimeout(() => {
         setInviteSuccess(null);
         setInviteLink(null);
         setInviteCopied(false);
-      }, 8000);
+      }, 5000);
+      void reload();
+      void refreshInvitations();
     } catch (err) {
       setInviteError(getApiErrorMessage(err));
       setTimeout(() => setInviteError(null), 4000);
     }
-    setConfirmEmail(null);
   };
 
   const copyInviteLink = async () => {
@@ -995,15 +1040,15 @@ export default function EquipePage() {
   };
 
   const confirmCancelInvitation = async (inv: AgencyInvitation) => {
+    setCancelInvitationTarget(null);
     setBusyInvitationId(inv.id);
     setInviteError(null);
     try {
       await cancelInvitation(agencyId, inv.id);
       setInvitations((prev) => prev.filter((i) => i.id !== inv.id));
-      await reload();
-      setCancelInvitationTarget(null);
       setActionSuccess(`Invitation de ${inv.email} annulée.`);
       setTimeout(() => setActionSuccess(null), 3000);
+      void reload();
     } catch (err) {
       setInviteError(getApiErrorMessage(err));
       setTimeout(() => setInviteError(null), 4000);
@@ -1022,7 +1067,7 @@ export default function EquipePage() {
               width: 52,
               height: 52,
               background: "var(--gradient-primary)",
-              boxShadow: "0 10px 26px -8px rgba(5,108,242,0.55)",
+              boxShadow: "0 10px 26px -8px rgba(var(--blue-rgb),0.55)",
             }}
           >
             <Users className="w-6 h-6 text-white" />
@@ -1032,12 +1077,12 @@ export default function EquipePage() {
               Équipe
             </h1>
             <p className="mt-0.5 text-sm flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
-              <span className="font-bold" style={{ color: "#056cf2" }}>{people.length}</span>
+              <span className="font-bold" style={{ color: "var(--blue)" }}>{people.length}</span>
               membre{people.length > 1 ? "s" : ""} dans
               <span className="font-semibold" style={{ color: "var(--text-primary)" }}>
                 {agency.name}
               </span>
-              <Sparkles size={13} className="ml-0.5" style={{ color: "#056cf2", opacity: 0.6 }} />
+              <Sparkles size={13} className="ml-0.5" style={{ color: "var(--blue)", opacity: 0.6 }} />
             </p>
           </div>
         </div>
@@ -1083,6 +1128,18 @@ export default function EquipePage() {
                 </div>
               )}
             </div>
+            <button
+              onClick={() => {
+                setInviteSuccess(null);
+                setInviteLink(null);
+                setInviteCopied(false);
+              }}
+              aria-label="Fermer"
+              className="shrink-0 self-start rounded-lg p-1 transition-opacity hover:opacity-70"
+              style={{ color: "var(--color-success)" }}
+            >
+              <X size={16} />
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1131,7 +1188,7 @@ export default function EquipePage() {
         <motion.div variants={item} className="glass rounded-3xl p-10 text-center" style={{ boxShadow: "var(--shadow-card)" }}>
           <div
             className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center mb-4"
-            style={{ background: "var(--accent-soft)", color: "#056cf2" }}
+            style={{ background: "var(--accent-soft)", color: "var(--blue)" }}
           >
             <Users size={26} />
           </div>
@@ -1270,7 +1327,7 @@ export default function EquipePage() {
             className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1 rounded-full"
             style={
               m.role === "admin"
-                ? { background: "var(--gradient-button)", color: "#fff", boxShadow: "0 4px 10px -5px rgba(37,99,235,0.45)" }
+                ? { background: "var(--gradient-button)", color: "#fff", boxShadow: "0 4px 10px -5px rgba(var(--blue-rgb),0.45)" }
                 : { background: "var(--surface)", color: "var(--text-secondary)", border: "1px solid var(--border-subtle)" }
             }
           >
@@ -1362,7 +1419,7 @@ export default function EquipePage() {
                         onClick={() => handleResendInvitation(inv)}
                         disabled={busyInvitationId === inv.id}
                         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold disabled:opacity-60"
-                        style={{ background: "rgba(5,108,242,0.08)", border: "1px solid rgba(5,108,242,0.25)", color: "#056cf2" }}
+                        style={{ background: "rgba(var(--blue-rgb),0.08)", border: "1px solid rgba(var(--blue-rgb),0.25)", color: "var(--blue)" }}
                       >
                         <RefreshCw size={13} /> Relancer
                       </button>
@@ -1384,6 +1441,63 @@ export default function EquipePage() {
 
       </Section>
 
+      {canInvite && (
+        <motion.form
+          variants={item}
+          onSubmit={handleInvite}
+          className="glass relative rounded-3xl p-6 md:p-7 transition-all duration-300"
+          style={{
+            boxShadow: inviteFocused ? "0 16px 40px -16px rgba(var(--blue-rgb),0.35)" : "var(--shadow-card)",
+            borderStyle: inviteFocused ? "solid" : "dashed",
+            borderWidth: "1.5px",
+            borderColor: inviteFocused ? "var(--blue)" : "var(--border-subtle)",
+          }}
+        >
+          <div
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-4"
+            style={{ background: "var(--accent-soft)", color: "var(--blue)" }}
+          >
+            <UserPlus size={13} /> Inviter un agent
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onFocus={() => setInviteFocused(true)}
+              onBlur={() => setInviteFocused(false)}
+              placeholder="Email de l'agent à inviter"
+              type="email"
+              required
+              className="flex-1 rounded-xl px-4 py-3 text-sm focus:outline-none transition-all duration-200"
+              style={{
+                background: inviteFocused ? "var(--card-bg)" : "var(--input-bg)",
+                border: `1px solid ${inviteFocused ? "var(--blue)" : "var(--input-border)"}`,
+                boxShadow: inviteFocused ? "0 0 0 4px rgba(var(--blue-rgb),0.12)" : "none",
+                color: "var(--text-primary)",
+              }}
+            />
+            <Select
+              value={inviteRole}
+              onChange={(v) => setInviteRole(v as "admin" | "membre")}
+              options={[
+                { value: "membre", label: "Membre" },
+                { value: "admin", label: "Admin" },
+              ]}
+              className="rounded-xl"
+            />
+            <motion.button
+              type="submit"
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.97 }}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white shrink-0"
+              style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
+            >
+              <Plus size={16} /> Inviter
+            </motion.button>
+          </div>
+        </motion.form>
+      )}
+
       {!canInvite && isAdmin && (
         <motion.div
           variants={item}
@@ -1394,11 +1508,11 @@ export default function EquipePage() {
             className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
             style={{ background: "var(--accent-soft)" }}
           >
-            <Settings size={15} style={{ color: "#056cf2" }} />
+            <Settings size={15} style={{ color: "var(--blue)" }} />
           </div>
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
             Seul le propriétaire peut inviter des membres.{" "}
-            <Link href={`/agences/${agencyId}/parametres`} className="font-semibold" style={{ color: "#056cf2" }}>
+            <Link href={`/agences/${agencyId}/parametres`} className="font-semibold" style={{ color: "var(--blue)" }}>
               Modifier ce réglage
             </Link>
           </p>
@@ -1610,6 +1724,51 @@ export default function EquipePage() {
             confirmLabel="Supprimer"
             onConfirm={confirmPendingAction}
             onCancel={() => setPendingAction(null)}
+          />
+        );
+      })()}
+
+      {pendingForcedRemoval && (() => {
+        const { member, message } = pendingForcedRemoval;
+        const fullName = `${member.user.firstName} ${member.user.lastName}`.trim() || member.user.email;
+        const confirmForcedRemoval = async () => {
+          setPendingForcedRemoval(null);
+          const snapshot = agency?.members ?? [];
+          setAgencyMembers(
+            agencyId,
+            snapshot.filter((m) => m.id !== member.id),
+          );
+          try {
+            await removeAgencyMember(agencyId, member.id, true);
+            setActionSuccess(`« ${fullName} » a été supprimé(e) de l'agence.`);
+            void loadAgencyMembers(agencyId)
+              .then((members) => setAgencyMembers(agencyId, members))
+              .catch(() => {});
+          } catch (err) {
+            setAgencyMembers(agencyId, snapshot);
+            setActionSuccess(null);
+            alert(getApiErrorMessage(err));
+          }
+          setTimeout(() => setActionSuccess(null), 3000);
+        };
+        return (
+          <ConfirmActionModal
+            icon={<Trash2 size={20} />}
+            tone="danger"
+            title="Retirer ce membre&nbsp;?"
+            description={
+              <>
+                {message}
+                <div className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                  Si vous continuez, ce membre sera supprimé de l&apos;agence et de{" "}
+                  <strong style={{ color: "var(--color-error)" }}>tous les projets</strong> auxquels il
+                  appartient.
+                </div>
+              </>
+            }
+            confirmLabel="Retirer quand même"
+            onConfirm={confirmForcedRemoval}
+            onCancel={() => setPendingForcedRemoval(null)}
           />
         );
       })()}

@@ -15,13 +15,14 @@ import { useAuthStore } from "@/app/store/authStore";
 import { getEcho, disconnectEcho } from "./echo";
 import {
   fetchAgencies,
+  fetchBootstrap,
   fetchNotifications,
   fetchProjects,
   fetchTasks,
-  loadAgencyMembers,
   getApiErrorMessage,
+  loadAgencyMembers,
 } from "./services";
-import type { Agency, AppNotification, MyTask, Project, Task } from "./types";
+import type { Agency, AgencyMember, AppNotification, MyTask, Project, Task } from "./types";
 import {
   buildMyTask,
   getProjectById,
@@ -46,8 +47,6 @@ type AppDataContextValue = {
   reload: () => Promise<void>;
   refresh: () => Promise<void>;
   agencyById: (id: number | string) => Agency | undefined;
-  projectById: (id: number | string) => Project | undefined;
-  taskById: (id: number | string) => Task | undefined;
   getProject: (id: number | string) => Project | undefined;
   getTask: (id: number | string) => Task | undefined;
   projectsByAgency: (agencyId: number | string) => Project[];
@@ -56,6 +55,7 @@ type AppDataContextValue = {
   myTasks: () => MyTask[];
   myTasksInAgency: (agencyId: number | string) => MyTask[];
   unreadCount: number;
+  setAgencyMembers: (agencyId: number | string, members: AgencyMember[]) => void;
 };
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -70,6 +70,50 @@ const EMPTY: AppDataState = {
   lastLoadedAt: null,
 };
 
+type BootstrapPayload = {
+  agencies: Agency[];
+  projects: Project[];
+  tasks: Task[];
+  notifications: AppNotification[];
+};
+
+/**
+ * Repli sur les routes unitaires, pour les backends qui n'exposent pas encore
+ * GET /api/bootstrap. Un 404 sur /bootstrap ne doit pas laisser l'application
+ * vide : sans données, plus aucun lien n'a de cible et les pages semblent
+ * rediriger dans le vide.
+ *
+ * Les membres d'une agence ne sont pas dans GET /agencies, il faut les charger
+ * séparément pour que `userAgencies` et les badges de rôle fonctionnent.
+ */
+const loadEverythingFanOut = async (): Promise<BootstrapPayload> => {
+  const agencies = await fetchAgencies();
+
+  // Les trois niveaux sont indépendante : on les demande en parallèle plutôt
+  // qu'en cascade. En séquentiel, un simple rechargement coûtait 1 + 2N + P
+  // allers-retours les uns après les autres (soit ~18 requêtes pour 3 agences et
+  // 10 projets), ce qui rendait chaque clic sur un bouton interminable.
+  const [membersByAgency, projectsByAgency, notifications] = await Promise.all([
+    Promise.all(agencies.map((agency) => loadAgencyMembers(agency.id))),
+    Promise.all(agencies.map((agency) => fetchProjects(agency.id))),
+    fetchNotifications(),
+  ]);
+
+  const withMembers: Agency[] = agencies.map((agency, i) => ({
+    ...agency,
+    members: membersByAgency[i],
+  }));
+
+  const projects = projectsByAgency.flat();
+
+  // Promise.all conserve l'ordre des entrées, donc l'ordre des tâches reste
+  // celui des projets, comme avec les boucles d'origine.
+  const tasksByProject = await Promise.all(projects.map((project) => fetchTasks(project.id)));
+  const tasks: Task[] = tasksByProject.flat();
+
+  return { agencies: withMembers, projects, tasks, notifications };
+};
+
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
@@ -77,55 +121,47 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [toast, setToast] = useState<AppNotification | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchAll = useCallback(async (opts: { silent?: boolean } = {}) => {
+  const fetchAllNow = useCallback(async (opts: { silent?: boolean } = {}) => {
     const { silent = false } = opts;
-    if (!silent) setData((prev) => ({ ...prev, loading: true, error: null }));
+    setData((prev) =>
+      // Rechargement silencieux : ne pas basculer sur l'écran « Chargement… »
+      // quand des données sont déjà affichées (ex. déplacement de carte Kanban).
+      silent || prev.lastLoadedAt !== null
+        ? { ...prev, error: null }
+        : { ...prev, loading: true, error: null },
+    );
+
     try {
-      const agencies = await fetchAgencies();
-      const withMembers: Agency[] = [];
-      for (const agency of agencies) {
-        const members = await loadAgencyMembers(agency.id);
-        withMembers.push({ ...agency, members });
+      // Chargement en UNE seule requête : agences (avec membres, projets et tâches)
+      // + notifications, au lieu du fan-out multiplicatif d'appels unitaires.
+      // Ce n'est qu'une optimisation : le backend peut ne pas encore exposer
+      // GET /api/bootstrap, auquel cas on retombe sur les routes unitaires.
+      let boot: {
+        agencies: Agency[];
+        projects: Project[];
+        tasks: Task[];
+        notifications: AppNotification[];
+      };
+      try {
+        boot = await fetchBootstrap();
+      } catch (err) {
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        if (status !== 404 && status !== 405) throw err;
+        boot = await loadEverythingFanOut();
       }
 
-      const projects: Project[] = [];
-      for (const agency of withMembers) {
-        const agencyProjects = await fetchProjects(agency.id);
-        projects.push(...agencyProjects);
-      }
-
-      const tasks: Task[] = [];
-      for (const project of projects) {
-        const projectTasks = await fetchTasks(project.id);
-        tasks.push(...projectTasks);
-      }
-
-      const notifications = await fetchNotifications();
-
-      if (silent) {
+      setData((prev) => ({
+        ...prev,
+        agencies: boot.agencies,
+        projects: boot.projects,
+        tasks: boot.tasks,
+        notifications: boot.notifications,
         // Rafraîchissement en arrière-plan : on garde l'affichage stable
         // (aucun flash « Chargement… »), on met simplement les données à jour.
-        setData((prev) => ({
-          ...prev,
-          agencies: withMembers,
-          projects,
-          tasks,
-          notifications,
-          loading: prev.loading,
-          error: null,
-          lastLoadedAt: Date.now(),
-        }));
-      } else {
-        setData({
-          agencies: withMembers,
-          projects,
-          tasks,
-          notifications,
-          loading: false,
-          error: null,
-          lastLoadedAt: Date.now(),
-        });
-      }
+        loading: silent ? prev.loading : false,
+        error: null,
+        lastLoadedAt: Date.now(),
+      }));
     } catch (err) {
       // En silencieux, on ignore l'erreur : les données existantes restent affichées.
       if (!silent) {
@@ -133,6 +169,24 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, []);
+
+  // Deux clics rapprochés, ou une page qui enchaîne deux rechargements après
+  // coup, ne doivent pas déclencher deux balayages complets du backend : le
+  // second attend le premier au lieu de le doubler.
+  const inFlight = useRef<Promise<void> | null>(null);
+  const fetchAll = useCallback(
+    async (opts: { silent?: boolean } = {}) => {
+      if (inFlight.current) return inFlight.current;
+      const run = fetchAllNow(opts);
+      inFlight.current = run;
+      try {
+        await run;
+      } finally {
+        inFlight.current = null;
+      }
+    },
+    [fetchAllNow],
+  );
 
   const load = useCallback(() => fetchAll({ silent: false }), [fetchAll]);
   const refresh = useCallback(() => fetchAll({ silent: true }), [fetchAll]);
@@ -218,8 +272,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       reload: load,
       refresh,
       agencyById: (id) => byId(data.agencies, id),
-      projectById: (id) => byId(data.projects, id),
-      taskById: (id) => byId(data.tasks, id),
       getProject: (id) => getProjectById(data.projects, id),
       getTask: (id) => getTaskById(data.tasks, id),
       projectsByAgency: (agencyId) => getProjectsByAgency(data.projects, agencyId),
@@ -230,6 +282,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       myTasks,
       myTasksInAgency,
       unreadCount,
+      setAgencyMembers: (agencyId, members) =>
+        setData((prev) => ({
+          ...prev,
+          agencies: prev.agencies.map((a) =>
+            Number(a.id) === Number(agencyId) ? { ...a, members } : a,
+          ),
+        })),
     };
   }, [data, user, load, refresh]);
 

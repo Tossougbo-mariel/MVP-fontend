@@ -70,7 +70,7 @@ export default function NouvelleAgencePage() {
         <div className="flex items-center gap-4">
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center"
-            style={{ background: "var(--gradient-primary)", boxShadow: "0 4px 12px -4px rgba(37,99,235,0.35)" }}
+            style={{ background: "var(--gradient-primary)", boxShadow: "0 4px 12px -4px rgba(var(--blue-rgb),0.35)" }}
           >
             <Building2 className="w-7 h-7 text-white" />
           </div>
@@ -127,7 +127,7 @@ export default function NouvelleAgencePage() {
             className="w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold text-white focus:outline-none transition-all hover:opacity-90 disabled:opacity-60"
             style={{
               background: "var(--gradient-button)",
-              boxShadow: "0 8px 18px -8px rgba(37,99,235,0.4)",
+              boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)",
             }}
           >
             {loading ? (
