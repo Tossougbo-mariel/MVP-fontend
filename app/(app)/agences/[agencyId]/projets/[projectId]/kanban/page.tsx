@@ -50,6 +50,7 @@ const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: st
     border: "1px solid var(--border-subtle)",
   },
   en_cours: { label: "En cours", color: "var(--blue)", bg: "var(--accent-soft)" },
+  en_retard: { label: "En retard", color: "#D85A30", bg: "rgba(216,90,48,0.14)" },
   termine: { label: "Terminé", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
   archive: {
     label: "Archivé",

@@ -183,7 +183,9 @@ export default function ProfilPage() {
     email: user?.email ?? "",
     phone: user?.phone ?? "",
     city: user?.city ?? "",
-    jobTitle: user?.jobTitle ?? (displayRole ? (displayRole === "owner" ? "Propriétaire" : displayRole === "admin" ? "Administrateur" : "Membre") : ""),
+    // Le métier est libre : on ne le remplit jamais avec le rôle système,
+    // sinon la page Équipe afficherait « Membre » comme jobtitle.
+    jobTitle: user?.jobTitle ?? "",
     bio: user?.bio ?? "",
   });
   const [draft, setDraft] = useState<InfosPersonnelles>(infos);
@@ -347,9 +349,11 @@ export default function ProfilPage() {
                 <h1 className="text-2xl md:text-3xl font-black" style={{ color: "var(--text-primary)" }}>
                   {infos.firstName} {infos.lastName}
                 </h1>
-                <p className="mt-1 flex items-center justify-center md:justify-start gap-2" style={{ color: "var(--text-secondary)" }}>
-                  <Briefcase size={15} /> {infos.jobTitle}
-                </p>
+                {infos.jobTitle && (
+                  <p className="mt-1 flex items-center justify-center md:justify-start gap-2" style={{ color: "var(--text-secondary)" }}>
+                    {infos.jobTitle}
+                  </p>
+                )}
                 {displayRole && (
                   <span
                     className="inline-flex items-center gap-1.5 mt-3 text-xs font-semibold text-white px-3 py-1 rounded-full"
@@ -397,9 +401,8 @@ export default function ProfilPage() {
             </div>
             <Champ label="Téléphone" value={draft.phone} onChange={set("phone")} editing={editing === "personnel"} />
             <Champ label="Ville / Pays" value={draft.city} onChange={set("city")} editing={editing === "personnel"} />
-            <div className="md:col-span-2">
-              <Champ label="Bio" value={draft.bio} onChange={set("bio")} editing={editing === "personnel"} />
-            </div>
+            <Champ label="Bio" value={draft.bio} onChange={set("bio")} editing={editing === "personnel"} />
+            <Champ label="JobTitle" value={draft.jobTitle} onChange={set("jobTitle")} editing={editing === "personnel"} />
           </div>
 
           {editing === "personnel" && (

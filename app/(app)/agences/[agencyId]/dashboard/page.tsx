@@ -597,7 +597,7 @@ function AdminDashboard({
               </div>
               <div className="space-y-3">
                 {[
-                  { label: "Créer un projet", href: `/agences/${agencyId}/projets/nouveau`, icon: Plus },
+                  { label: "Créer un projet", href: `/agences/${agencyId}/projets/nouveauProjet`, icon: Plus },
                   { label: "Gérer l'équipe", href: `/agences/${agencyId}/equipe`, icon: Users },
                   { label: "Voir les tâches", href: `/agences/${agencyId}/mes-taches`, icon: ListTodo },
                 ].map((b, index) => (

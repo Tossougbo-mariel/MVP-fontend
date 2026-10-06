@@ -157,7 +157,10 @@ export function useAsync<T>(fetcher: () => Promise<T>, deps: unknown[]) {
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const fetcherRef = useRef(fetcher);
-  fetcherRef.current = fetcher;
+
+  useEffect(() => {
+    fetcherRef.current = fetcher;
+  }, [fetcher]);
 
   const reload = useCallback(() => setVersion((v) => v + 1), []);
   const key = JSON.stringify(deps);
@@ -183,7 +186,6 @@ export function useAsync<T>(fetcher: () => Promise<T>, deps: unknown[]) {
     return () => {
       alive = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, version]);
 
   return { data: result, loading, error, reload };

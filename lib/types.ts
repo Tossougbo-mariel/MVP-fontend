@@ -11,6 +11,8 @@ export type UserLite = {
   lastName: string;
   email: string;
   avatar: string | null;
+  /** Poste / métier saisi par la personne dans son profil. Null si non renseigné. */
+  jobTitle: string | null;
 };
 
 // ---------- Agences ----------
@@ -170,7 +172,7 @@ export const hasRight = (
 };
 
 // ---------- Projets ----------
-export type ProjectStatus = "a_venir" | "en_cours" | "termine" | "archive";
+export type ProjectStatus = "a_venir" | "en_cours" | "termine" | "archive" | "en_retard";
 
 export type Project = {
   id: number;
@@ -266,24 +268,6 @@ export const buildMyTask = (t: Task, project?: Project): MyTask => ({
   deadlineStatus: t.deadlineStatus,
 });
 
-export const myTasksFor = (
-  tasks: Task[],
-  projects: Project[],
-  userEmail: string,
-): MyTask[] => {
-  const projectById = new Map(projects.map((p) => [p.id, p]));
-  return tasks
-    .filter((t) => (t.assigneeEmail ?? "").toLowerCase() === userEmail.toLowerCase())
-    .map((t) => buildMyTask(t, projectById.get(t.projectId)));
-};
-
-export const overdueTasks = (list: { deadline: string | null; status: TaskStatus }[]): typeof list => {
-  const today = new Date().toISOString().slice(0, 10);
-  return list.filter(
-    (t) => t.status !== "terminee" && t.deadline !== null && t.deadline < today,
-  );
-};
-
 export const getProjectStatusFromTasks = (
   currentStatus: ProjectStatus,
   projectTasks: Task[],
@@ -291,6 +275,9 @@ export const getProjectStatusFromTasks = (
   if (currentStatus === "archive") return "archive";
   if (projectTasks.length === 0) return "a_venir";
   if (projectTasks.every((t) => t.status === "terminee")) return "termine";
+  // Une tâche dont l'échéance est passée met le projet en retard.
+  // deadline_status est déjà null pour les tâches terminées (Task.php:21-23).
+  if (projectTasks.some((t) => t.deadlineStatus === "en_retard")) return "en_retard";
   return "en_cours";
 };
 
@@ -324,27 +311,6 @@ export const getProjectById = (
 export const getTaskById = (tasks: Task[], taskId: number | string): Task | undefined =>
   tasks.find((t) => Number(t.id) === Number(taskId));
 
-export const LABEL_STATUS: Record<TaskStatus, string> = {
-  a_faire: "À faire",
-  en_cours: "En cours",
-  en_revision: "En révision",
-  terminee: "Terminée",
-};
-
-export const LABEL_PRIORITY: Record<TaskPriority, string> = {
-  basse: "Basse",
-  moyenne: "Moyenne",
-  haute: "Haute",
-  urgente: "Urgente",
-};
-
-export const LABEL_PROJECT_STATUS: Record<ProjectStatus, string> = {
-  a_venir: "À venir",
-  en_cours: "En cours",
-  termine: "Terminé",
-  archive: "Archivé",
-};
-
 // ---------- Commentaires ----------
 export type TaskComment = {
   id: number;
@@ -354,14 +320,6 @@ export type TaskComment = {
   content: string;
   createdAt: string;
 };
-
-export const getCommentsByTask = (
-  comments: TaskComment[],
-  taskId: number | string,
-): TaskComment[] =>
-  comments
-    .filter((c) => Number(c.taskId) === Number(taskId))
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
 // ---------- Historique / journal ----------
 export type ActivityEntry = {

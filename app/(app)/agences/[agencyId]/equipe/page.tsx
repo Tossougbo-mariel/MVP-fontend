@@ -9,13 +9,15 @@ import {
   Users, Mail, ShieldCheck, UserRound, UserPlus, Plus,
   Settings, CheckCircle2, MoreHorizontal, Trash2, ArrowLeft, Crown, Sparkles,
   Ban, UserCheck, ClipboardList, Copy, Calendar, Clock, RefreshCw, X, AlertTriangle,
+  Search,
 } from "lucide-react";
 import {
   useAppData,
 } from "@/lib/appData";
+import { hexToRgba } from "@/lib/color";
 import {
   userRoleInAgency, hasRight, OWNER_COLOR, colorizeMembers,
-  type AgencyMember, type DisplayMember, type AgencyInvitation,
+  type AgencyMember, type AgencyMemberStatus, type DisplayMember, type AgencyInvitation,
 } from "@/lib/types";
 import {
   createInvitation, fetchAgencyInvitations, resendInvitation, cancelInvitation,
@@ -32,11 +34,6 @@ const container: Variants = {
 const item: Variants = {
   hidden: { y: 16, opacity: 0 },
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
-};
-
-const hexToRgba = (hex: string, alpha: number) => {
-  const n = parseInt(hex.replace("#", ""), 16);
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${(n & 255)},${alpha})`;
 };
 
 const formatJoinedAt = (date: string | null): string | null => {
@@ -58,6 +55,41 @@ const isInvitationExpired = (inv: { expiresAt: string | null }): boolean => {
   const d = new Date(inv.expiresAt);
   return !Number.isNaN(d.getTime()) && d.getTime() < Date.now();
 };
+
+// Le « jobtitle » est saisi par la personne dans son profil (PUT /api/me),
+// puis renvoyé par l'API membres. Aucune valeur de secours ici : si le champ
+// est vide, la colonne affiche un tiret « - ».
+
+// Les clés doivent être de vraies propriétés CSS : ces objets sont
+// appliqués directement via `style`. « bg » serait ignoré par React.
+type Tone = { background: string; color: string; border?: string };
+
+// Reprend exactement les styles de badge déjà présents sur la page.
+const TONE_OWNER: Tone = {
+  background: `linear-gradient(120deg, ${hexToRgba(OWNER_COLOR, 0.16)}, ${hexToRgba(OWNER_COLOR, 0.28)})`,
+  color: "#8A6A0A",
+  border: `1px solid ${hexToRgba(OWNER_COLOR, 0.4)}`,
+};
+const TONE_ADMIN: Tone = { background: "var(--gradient-button)", color: "#fff" };
+const TONE_MEMBRE: Tone = {
+  background: "var(--surface)",
+  color: "var(--text-secondary)",
+  border: "1px solid var(--border-subtle)",
+};
+
+const STATUT_META: Record<AgencyMemberStatus, { label: string; dot: string }> = {
+  actif: { label: "Actif", dot: "var(--color-success)" },
+  en_attente: { label: "En attente", dot: "#f59e0b" },
+  inactif: { label: "Inactif", dot: "var(--color-error)" },
+};
+
+const FILTRES_ROLE = [
+  { key: "all", label: "Tous" },
+  { key: "admin", label: "Administrateur" },
+  { key: "membre", label: "Membre" },
+] as const;
+
+type FiltreRole = (typeof FILTRES_ROLE)[number]["key"];
 
 function InviteConfirmModal({
   email,
@@ -361,6 +393,8 @@ export default function EquipePage() {
   const [invitationsLoading, setInvitationsLoading] = useState(true);
   const [cancelInvitationTarget, setCancelInvitationTarget] = useState<AgencyInvitation | null>(null);
   const [busyInvitationId, setBusyInvitationId] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<FiltreRole>("all");
 
   useEffect(() => {
     let alive = true;
@@ -447,6 +481,30 @@ export default function EquipePage() {
     const email = (m.user.email ?? "").toLowerCase();
     return agencyTasks.filter((t) => (t.assigneeEmail ?? "").toLowerCase() === email).length;
   };
+
+  // ---------- Vue membre : poste métier ≠ rôle système ----------
+  // Le rôle affiché est celui du BADGE, donc le propriétaire est une
+  // catégorie à part : il ne doit apparaître que dans « Tous ».
+  const roleAffiche = (m: AgencyMember): "proprietaire" | "admin" | "membre" =>
+    isOwnerMember(m) ? "proprietaire" : m.role;
+
+  const posteDe = (m: AgencyMember): string | null =>
+    (m.user.jobTitle ?? "").trim() || null;
+
+  const compteRole = (key: FiltreRole): number =>
+    key === "all"
+      ? people.length
+      : people.filter((m) => roleAffiche(m) === key).length;
+
+  // ---------- Recherche + filtre ----------
+  const q = search.trim().toLowerCase();
+  const visiblePeople = people.filter((m) => {
+    if (roleFilter !== "all" && roleAffiche(m) !== roleFilter) return false;
+    if (!q) return true;
+    return [m.user.name, m.user.firstName, m.user.lastName, m.user.email].some((v) =>
+      (v ?? "").toLowerCase().includes(q),
+    );
+  });
 
   const confirmPendingAction = async () => {
     if (!pendingAction) return;
@@ -657,6 +715,14 @@ export default function EquipePage() {
 
       </motion.div>
 
+      <motion.p
+        variants={item}
+        className="-mt-3 text-lg  tracking-tight"
+        style={{ color: "var(--text-secondary)" }}
+      >
+        Gérez les membres de votre équipe et accompagnez chaque projet efficacement.
+      </motion.p>
+
       <AnimatePresence>
         {inviteSuccess && (
           <motion.div
@@ -769,151 +835,302 @@ export default function EquipePage() {
         </motion.div>
       )}
 
-  <div className="space-y-3">
-    {people.map((m) => (
-      <motion.div
-        key={m.user.id}
+  <motion.div
         variants={item}
-        whileHover={{ x: 4 }}
-        transition={{ duration: 0.25, ease: "easeOut" }}
-        className="glass relative rounded-2xl pl-7 pr-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5"
-        style={{
-          boxShadow: isOwnerMember(m) ? `0 10px 26px -12px ${hexToRgba(OWNER_COLOR, 0.4)}` : "var(--shadow-card)",
-          border: isOwnerMember(m) ? `1px solid ${hexToRgba(OWNER_COLOR, 0.28)}` : undefined,
-        }}
+        className="glass rounded-2xl overflow-hidden"
+        style={{ boxShadow: "var(--shadow-card)" }}
       >
-        <div
-          className="absolute left-0 top-0 bottom-0 w-1.5"
-          style={{
-            background:
-              m.status === "inactif"
-                ? "var(--border-subtle)"
-                : isOwnerMember(m)
-                  ? "linear-gradient(180deg, #056cf2, " + OWNER_COLOR + ")"
-                  : accentOf(m),
-          }}
-        />
-
-        <div className="flex items-center gap-3 min-w-0 flex-1">
-          <div className="relative shrink-0">
-            <div
-              className="w-11 h-11 rounded-full p-[2px]"
+        {/* ---------- Recherche + filtres ---------- */}
+        <div className="px-5 py-3 flex flex-col lg:flex-row lg:items-center gap-3">
+          <div className="relative flex-1 min-w-0 max-w-sm">
+            <label htmlFor="equipe-recherche" className="sr-only">
+              Rechercher un membre par nom ou e-mail
+            </label>
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+              style={{ color: "var(--text-muted)" }}
+            />
+            <input
+              id="equipe-recherche"
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher par nom, e-mail..."
+              className="w-full rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none transition-all duration-200"
               style={{
-                background:
-                  m.status === "inactif"
-                    ? "var(--border-subtle)"
-                    : isOwnerMember(m)
-                      ? "linear-gradient(145deg, #056cf2, #0a2a6b)"
-                      : accentOf(m),
-                boxShadow: m.status !== "inactif" ? `0 6px 14px -6px ${hexToRgba(accentOf(m), 0.4)}` : "none",
+                background: "var(--input-bg)",
+                border: "1px solid var(--input-border)",
+                color: "var(--text-primary)",
               }}
-              onClick={m.user.avatar ? () => setViewerMail(m.user.email) : undefined}
-              title={m.user.avatar ? "Voir la photo de profil" : undefined}
-            >
-              <div
-                className="w-full h-full rounded-full overflow-hidden flex items-center justify-center"
-                style={{ background: "var(--card-bg)" }}
-              >
-                {m.user.avatar ? (
-                  <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(${m.user.avatar})` }} />
-                ) : (
-                  <UserRound className="w-6 h-6" style={{ color: m.status === "inactif" ? "var(--text-muted)" : accentOf(m) }} />
-                )}
-              </div>
-            </div>
-            {isOwnerMember(m) && (
-              <span
-                className="absolute -top-1 -right-1 w-4.5 h-4.5 rounded-full flex items-center justify-center"
-                style={{ width: 18, height: 18, background: OWNER_COLOR, border: "2px solid var(--card-bg)" }}
-              >
-                <Crown size={9} className="text-white" />
-              </span>
-            )}
-            {m.status === "actif" && !isOwnerMember(m) && (
-              <span className="absolute bottom-0 right-0 flex h-3 w-3">
-                <span
-                  className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60"
-                  style={{ background: "var(--color-success)" }}
-                />
-                <span
-                  className="relative inline-flex rounded-full h-3 w-3"
-                  style={{ background: "var(--color-success)", border: "2px solid var(--card-bg)" }}
-                />
-              </span>
-            )}
+            />
           </div>
-          <div className="min-w-0">
-            <div className="font-bold truncate flex items-center gap-1.5" style={{ color: "var(--text-primary)" }}>
-              {m.user.firstName} {m.user.lastName}
-            </div>
-            <div className="text-xs truncate flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
-              <Mail size={10} /> {m.user.email}
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
-              <span className="inline-flex items-center gap-1">
-                <ClipboardList size={10} /> {taskCountFor(m)} tâche{taskCountFor(m) > 1 ? "s" : ""}
-              </span>
-              {formatJoinedAt(m.joinedAt) && (
-                <span className="inline-flex items-center gap-1">
-                  <Calendar size={10} /> Membre depuis le {formatJoinedAt(m.joinedAt)}
-                </span>
+
+          <div className="flex items-center gap-2 overflow-x-auto lg:ml-auto">
+            {FILTRES_ROLE.map((f) => {
+              const actif = roleFilter === f.key;
+              return (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => setRoleFilter(f.key)}
+                  aria-pressed={actif}
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-80"
+                  style={{
+                    background: actif ? "var(--gradient-button)" : "var(--surface)",
+                    color: actif ? "#fff" : "var(--text-secondary)",
+                    border: `1px solid ${actif ? "transparent" : "var(--border-subtle)"}`,
+                  }}
+                >
+                  {f.label}
+                  <span className="opacity-80">{compteRole(f.key)}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ---------- Tableau des membres ---------- */}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[880px]">
+            <caption className="sr-only">
+              Membres de l&apos;agence : jobtitle, rôle, tâches assignées et statut.
+            </caption>
+            <thead>
+              <tr style={{ background: "var(--surface)" }}>
+                {(
+                  [
+                    "Membre",
+                    "Jobtitle",
+                    "Rôle",
+                    "Tâches",
+                    "Statut",
+                    "Actions",
+                  ] as const
+                ).map((h) => (
+                  <th
+                    key={h}
+                    scope="col"
+                    className="text-left text-[11px] font-bold uppercase tracking-wide px-4 py-3 whitespace-nowrap"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visiblePeople.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-14 text-center">
+                    <Search
+                      size={22}
+                      className="mx-auto mb-3"
+                      style={{ color: "var(--text-muted)" }}
+                    />
+                    <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                      Aucun membre ne correspond à votre recherche.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearch("");
+                        setRoleFilter("all");
+                      }}
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold"
+                      style={{
+                        background: "var(--accent-soft)",
+                        color: "var(--blue)",
+                        border: "1px solid var(--border-subtle)",
+                      }}
+                    >
+                      <RefreshCw size={12} /> Réinitialiser les filtres
+                    </button>
+                  </td>
+                </tr>
+              ) : (
+                visiblePeople.map((m) => {
+                  const role = roleAffiche(m);
+                  const poste = posteDe(m);
+                  const meta = STATUT_META[m.status];
+                  return (
+                    <tr
+                      key={m.user.id}
+                      className="transition-colors hover:bg-[color:var(--surface)]"
+                      style={{ borderTop: "1px solid var(--border-subtle)" }}
+                    >
+                      {/* Membre */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              m.user.avatar ? setViewerMail(m.user.email) : undefined
+                            }
+                            disabled={!m.user.avatar}
+                            aria-label={
+                              m.user.avatar
+                                ? `Voir la photo de ${m.user.firstName} ${m.user.lastName}`
+                                : undefined
+                            }
+                            className="relative w-10 h-10 rounded-full p-[2px] shrink-0 disabled:cursor-default"
+                            style={{
+                              background:
+                                m.status === "inactif"
+                                  ? "var(--border-subtle)"
+                                  : isOwnerMember(m)
+                                    ? "linear-gradient(145deg, #056cf2, #0a2a6b)"
+                                    : accentOf(m),
+                            }}
+                          >
+                            <span
+                              className="w-full h-full rounded-full overflow-hidden flex items-center justify-center"
+                              style={{ background: "var(--card-bg)" }}
+                            >
+                              {m.user.avatar ? (
+                                <span
+                                  className="w-full h-full bg-cover bg-center"
+                                  style={{ backgroundImage: `url(${m.user.avatar})` }}
+                                />
+                              ) : (
+                                <UserRound
+                                  className="w-5 h-5"
+                                  style={{
+                                    color:
+                                      m.status === "inactif"
+                                        ? "var(--text-muted)"
+                                        : accentOf(m),
+                                  }}
+                                />
+                              )}
+                            </span>
+                            {isOwnerMember(m) && (
+                              <span
+                                className="absolute -top-1 -right-1 flex items-center justify-center rounded-full"
+                                style={{
+                                  width: 18,
+                                  height: 18,
+                                  background: OWNER_COLOR,
+                                  border: "2px solid var(--card-bg)",
+                                }}
+                              >
+                                <Crown size={9} className="text-white" />
+                              </span>
+                            )}
+                          </button>
+                          <div className="min-w-0">
+                            <div
+                              className="font-bold truncate"
+                              style={{ color: "var(--text-primary)" }}
+                            >
+                              {m.user.firstName} {m.user.lastName}
+                            </div>
+                            <div
+                              className="text-xs truncate flex items-center gap-1"
+                              style={{ color: "var(--text-muted)" }}
+                            >
+                              <Mail size={10} /> {m.user.email}
+                            </div>
+                            {formatJoinedAt(m.joinedAt) && (
+                              <div
+                                className="text-[11px] truncate flex items-center gap-1 mt-0.5"
+                                style={{ color: "var(--text-muted)" }}
+                              >
+                                <Calendar size={10} /> Depuis le{" "}
+                                {formatJoinedAt(m.joinedAt)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Poste / métier */}
+                      <td className="px-4 py-3">
+                        <span
+                          className="text-sm"
+                          style={{ color: poste ? "var(--text-secondary)" : "var(--text-muted)" }}
+                        >
+                          {poste ?? "-"}
+                        </span>
+                      </td>
+
+                      {/* Rôle système */}
+                      <td className="px-4 py-3">
+                        <span
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1 rounded-full whitespace-nowrap"
+                          style={
+                            role === "proprietaire"
+                              ? TONE_OWNER
+                              : role === "admin"
+                                ? {
+                                    ...TONE_ADMIN,
+                                    boxShadow: "0 4px 10px -5px rgba(var(--blue-rgb),0.45)",
+                                  }
+                                : TONE_MEMBRE
+                          }
+                        >
+                          {role === "proprietaire" ? (
+                            <Crown size={11} />
+                          ) : (
+                            <ShieldCheck size={11} />
+                          )}
+                          {role === "proprietaire"
+                            ? "Propriétaire"
+                            : role === "admin"
+                              ? "Administrateur"
+                              : "Membre"}
+                        </span>
+                      </td>
+
+                      {/* Tâches assignées */}
+                      <td className="px-4 py-3">
+                        <span
+                          className="inline-flex items-center gap-1.5 text-sm font-semibold"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          <ClipboardList
+                            size={13}
+                            style={{ color: "var(--text-muted)" }}
+                          />
+                          {taskCountFor(m)}
+                        </span>
+                      </td>
+
+                      {/* Statut */}
+                      <td className="px-4 py-3">
+                        <span
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap"
+                          style={{ color: meta.dot }}
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ background: meta.dot }}
+                          />
+                          {meta.label}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-4 py-3 text-right">
+                        {canManageUsers && !isOwnerMember(m) ? (
+                          <MemberMenu
+                            member={m}
+                            onChangeRole={() => requestChangeRole(m)}
+                            onToggleStatus={() => requestToggleStatus(m)}
+                            onRemove={() => requestRemove(m)}
+                          />
+                        ) : (
+                          <span className="inline-block w-9" />
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
-            </div>
-          </div>
+            </tbody>
+          </table>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {isOwnerMember(m) && (
-            <span
-              className="inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1 rounded-full"
-              style={{
-                background: `linear-gradient(120deg, ${hexToRgba(OWNER_COLOR, 0.16)}, ${hexToRgba(OWNER_COLOR, 0.28)})`,
-                color: "#8A6A0A",
-                border: `1px solid ${hexToRgba(OWNER_COLOR, 0.4)}`,
-              }}
-            >
-              <Crown size={11} /> Propriétaire
-            </span>
-          )}
-          <span
-            className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1 rounded-full"
-            style={
-              m.role === "admin"
-                ? { background: "var(--gradient-button)", color: "#fff", boxShadow: "0 4px 10px -5px rgba(var(--blue-rgb),0.45)" }
-                : { background: "var(--surface)", color: "var(--text-secondary)", border: "1px solid var(--border-subtle)" }
-            }
-          >
-            <ShieldCheck size={11} />
-            {m.role === "admin" ? "Admin" : "Membre"}
-          </span>
-          <span
-            className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1 rounded-full"
-            style={
-              m.status === "inactif"
-                ? { background: "rgba(239,68,68,0.12)", color: "var(--color-error)" }
-                : m.status === "en_attente"
-                  ? { background: "rgba(245,158,11,0.12)", color: "#f59e0b" }
-                  : { background: "rgba(16,185,129,0.12)", color: "var(--color-success)" }
-            }
-          >
-            <CheckCircle2 size={11} />
-            {m.status === "inactif" ? "Inactif" : m.status === "en_attente" ? "En attente" : "Actif"}
-          </span>
-        </div>
-
-        {canManageUsers && !isOwnerMember(m) ? (
-          <MemberMenu
-            member={m}
-            onChangeRole={() => requestChangeRole(m)}
-            onToggleStatus={() => requestToggleStatus(m)}
-            onRemove={() => requestRemove(m)}
-          />
-        ) : (
-          <span className="w-9" />
-        )}
       </motion.div>
-    ))}
-  </div>
 
       {canManageUsers && (invitationsLoading ? (
         <motion.div

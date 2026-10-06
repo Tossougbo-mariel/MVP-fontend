@@ -6,7 +6,6 @@ import { Plus, Building2, ChevronRight } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
 import { userAgencies, userRoleInAgency } from "@/lib/types";
-import { getApiErrorMessage } from "@/lib/services";
 import { agencyGradientOf, agencyDarkGradientOf } from "@/app/lib/agencyDecor";
 import { useIsDarkMode } from "@/app/lib/useIsDarkMode";
 
@@ -50,7 +49,7 @@ export default function MesAgencesPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-lg font-bold" style={{ color: "var(--color-error)" }}>
-          {getApiErrorMessage(data.error)}
+          {data.error}
         </p>
       </div>
     );

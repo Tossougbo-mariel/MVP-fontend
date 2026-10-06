@@ -42,6 +42,11 @@ export type AccentRamp = {
   lightRgb: string;
 };
 
+export const hexToRgba = (hex: string, alpha: number): string => {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 export const buildAccentRamp = (hex: string): AccentRamp => {
   const base = expandHex(hex);
   return {

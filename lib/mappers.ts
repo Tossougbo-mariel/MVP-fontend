@@ -32,7 +32,6 @@ export const apiUserToLocalUser = (u: ApiUser): User => {
     firstName: u.first_name ?? fallback.firstName,
     lastName: u.last_name ?? fallback.lastName,
     email: u.email,
-    role: "membre",
     avatar: u.avatar ?? null,
     phone: u.phone ?? undefined,
     city: u.city ?? undefined,

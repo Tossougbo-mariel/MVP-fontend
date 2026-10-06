@@ -167,9 +167,9 @@ export default function Sidebar({
               href={`/agences/${agencyId}/notifications`}
               onClick={mobile ? onClose : undefined}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                pathname.startsWith("/notifications") ? "" : "hover:bg-[var(--sidebar-hover)]"
+                pathname.startsWith(`/agences/${agencyId}/notifications`) ? "" : "hover:bg-[var(--sidebar-hover)]"
               }`}
-              style={linkStyle(pathname.startsWith("/notifications"))}
+              style={linkStyle(pathname.startsWith(`/agences/${agencyId}/notifications`))}
             >
               <Bell className="w-[18px] h-[18px]" />
               <span className="text-sm">Notifications</span>

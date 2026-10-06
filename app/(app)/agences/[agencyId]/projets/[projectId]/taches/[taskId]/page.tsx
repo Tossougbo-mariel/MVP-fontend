@@ -479,30 +479,6 @@ export default function TaskDetailPage() {
                       {deadlineMeta.label}
                     </span>
                   )}
-                  {task.deadlineStatus && task.deadlineStatus !== "a_venir" && (
-                    <span
-                      className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
-                      style={{
-                        color: readableOnWhite(DEADLINE_META[task.deadlineStatus].color),
-                        background: "#fff",
-                        border: `1px solid ${DEADLINE_META[task.deadlineStatus].color}`,
-                      }}
-                    >
-                      {DEADLINE_META[task.deadlineStatus].label}
-                    </span>
-                  )}
-                  {task.deadlineStatus && task.deadlineStatus !== "a_venir" && (
-                    <span
-                      className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
-                      style={{
-                        color: readableOnWhite(DEADLINE_META[task.deadlineStatus].color),
-                        background: "#fff",
-                        border: `1px solid ${DEADLINE_META[task.deadlineStatus].color}`,
-                      }}
-                    >
-                      {DEADLINE_META[task.deadlineStatus].label}
-                    </span>
-                  )}
                 </div>
               </div>
             </div>

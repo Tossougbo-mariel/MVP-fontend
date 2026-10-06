@@ -39,6 +39,7 @@ const mapUser = (u: any): UserLite => {
     lastName: str(u.last_name) ?? fallback.lastName,
     email: String(u.email ?? ""),
     avatar: str(u.avatar),
+    jobTitle: str(u.job_title),
   };
 };
 
