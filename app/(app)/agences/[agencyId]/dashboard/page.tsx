@@ -519,6 +519,40 @@ const overdueCount = overdueTasks(
 
         {/* Colonne droite */}
         <div className="space-y-6">
+          {/* Statut de l'équipe */}
+          <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(var(--blue-rgb),0.12)" }}>
+                <Users size={16} style={{ color: "var(--blue)" }} />
+              </div>
+              <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Statut de l&apos;équipe</h2>
+            </div>
+            <ul className="space-y-2.5">
+              <li className="flex items-center gap-3 text-sm">
+                <span className="relative w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "var(--color-success)" }}>
+                  <motion.span
+                    className="absolute inset-0 rounded-full"
+                    style={{ background: "var(--color-success)" }}
+                    animate={{ scale: [1, 2.4], opacity: [0.6, 0] }}
+                    transition={{ duration: 1.8, repeat: Infinity }}
+                  />
+                </span>
+                Membres actifs
+                <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{activeMembers}</span>
+              </li>
+              <li className="flex items-center gap-3 text-sm">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "var(--color-error)", boxShadow: "0 0 8px var(--color-error)" }} />
+                Membres inactifs
+                <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{inactiveMembers}</span>
+              </li>
+              <li className="flex items-center gap-3 text-sm">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "#C7961A", boxShadow: "0 0 8px #C7961A" }} />
+                Tâches cumulées
+                <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{totalTasks}</span>
+              </li>
+            </ul>
+          </motion.div>
+
           {/* Activité récente — à côté, comme l'historique des tâches */}
           <motion.div variants={item} className="glass rounded-2xl p-5" style={{ boxShadow: "var(--shadow-card)" }}>
             <h2 className="font-bold flex items-center gap-2.5 mb-3" style={{ color: "var(--text-primary)" }}>
@@ -604,40 +638,6 @@ const overdueCount = overdueTasks(
                 Aucune activité récente.
               </p>
             )}
-          </motion.div>
-
-          {/* Statut de l'équipe */}
-          <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(var(--blue-rgb),0.12)" }}>
-                <Users size={16} style={{ color: "var(--blue)" }} />
-              </div>
-              <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Statut de l&apos;équipe</h2>
-            </div>
-            <ul className="space-y-2.5">
-              <li className="flex items-center gap-3 text-sm">
-                <span className="relative w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "var(--color-success)" }}>
-                  <motion.span
-                    className="absolute inset-0 rounded-full"
-                    style={{ background: "var(--color-success)" }}
-                    animate={{ scale: [1, 2.4], opacity: [0.6, 0] }}
-                    transition={{ duration: 1.8, repeat: Infinity }}
-                  />
-                </span>
-                Membres actifs
-                <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{activeMembers}</span>
-              </li>
-              <li className="flex items-center gap-3 text-sm">
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "var(--color-error)", boxShadow: "0 0 8px var(--color-error)" }} />
-                Membres inactifs
-                <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{inactiveMembers}</span>
-              </li>
-              <li className="flex items-center gap-3 text-sm">
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "#C7961A", boxShadow: "0 0 8px #C7961A" }} />
-                Tâches cumulées
-                <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{totalTasks}</span>
-              </li>
-            </ul>
           </motion.div>
 
           {/* Gestion (masqué pour le propriétaire) */}

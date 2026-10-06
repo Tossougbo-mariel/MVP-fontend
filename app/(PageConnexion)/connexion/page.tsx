@@ -294,13 +294,13 @@ function ConnexionContent() {
           }}
         />
 
-        <div style={{ perspective: 1200 }} className="w-full max-w-md">
+        <div style={{ perspective: 1200 }} className="w-full max-w-[350px]">
           <motion.div
             onMouseMove={handleTilt}
             onMouseLeave={resetTilt}
             style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
           >
-            <AuthCard>
+            <AuthCard padding="p-5">
 
               <motion.div
                 variants={container}
@@ -308,19 +308,19 @@ function ConnexionContent() {
                 animate="show"
               >
                 {/* Logo */}
-                <motion.div variants={item} className="flex flex-col items-center mb-6">
+                <motion.div variants={item} className="flex flex-col items-center mb-3">
                   <div
-                    className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3"
+                    className="w-10 h-10 rounded-2xl flex items-center justify-center mb-1.5"
                     style={{
                       background: "var(--gradient-primary)",
                       boxShadow: "0 0 35px var(--glow-pink)",
                     }}
                   >
-                    <Sparkles className="w-7 h-7 text-white" />
+                    <Sparkles className="w-5 h-5 text-white" />
                   </div>
                   <div className="text-center">
                     <h1
-                      className="text-3xl font-black mb-1"
+                      className="text-xl font-black mb-1"
                       style={{ color: "var(--text-primary)" }}
                     >
                       Connexion
@@ -395,7 +395,7 @@ function ConnexionContent() {
 
                 {step.kind === "password" && (
                   <>
-                <form onSubmit={handleSubmit} className="space-y-5">
+                <form onSubmit={handleSubmit} className="space-y-3">
                   <motion.div variants={item}>
                     <div className="relative">
                       <Mail
@@ -408,7 +408,7 @@ function ConnexionContent() {
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full rounded-xl pl-12 pr-4 py-3.5 transition-all focus:outline-none"
+                        className="w-full rounded-xl pl-12 pr-4 py-2.5 transition-all focus:outline-none"
                         style={inputStyle}
                         onFocus={handleFocus}
                         onBlur={handleBlur}
@@ -428,7 +428,7 @@ function ConnexionContent() {
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full rounded-xl pl-12 pr-12 py-3.5 transition-all focus:outline-none"
+                        className="w-full rounded-xl pl-12 pr-12 py-2.5 transition-all focus:outline-none"
                         style={inputStyle}
                         onFocus={handleFocus}
                         onBlur={handleBlur}
@@ -467,7 +467,7 @@ function ConnexionContent() {
                         color: "#fff",
                         width: "100%",
                       }}
-                      className="w-full py-3.5 rounded-xl font-semibold focus:outline-none"
+                      className="w-full py-2.5 rounded-xl font-semibold focus:outline-none"
                     >
                       {loading ? "Connexion..." : "Se connecter"}
                     </MagneticButton>
