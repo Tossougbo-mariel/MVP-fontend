@@ -7,7 +7,11 @@ import Header from "./Header";
 import AiAgentPanel from "./AiAgentPanel";
 import { useActiveAgencyId } from "@/lib/useActiveAgencyId";
 
-/** Second sidebar : 260px, première colonne de la feuille de contenu. */
+/** Second sidebar : 260px, première colonne de la feuille de contenu.
+ *  C'est la source de vérité de la largeur : appliquée en style inline (et non
+ *  via une classe d'utilité) pour que le panneau garde exactement cette largeur
+ *  sur tous les écrans, quoi qu'il arrive.
+ */
 export const AGENCY_PANEL_WIDTH = 260;
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -60,10 +64,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         >
           {isInAgency && (
             <aside
-              className="hidden lg:flex w-[260px] shrink-0 min-h-0 border-r"
+              className="hidden lg:flex shrink-0 min-h-0 border-r"
               style={{
                 background: "var(--panel-bg)",
                 borderColor: "var(--panel-border)",
+                width: AGENCY_PANEL_WIDTH,
+                overflow: "hidden",
               }}
             >
               <AgencyPanel agencyId={agencyId} />
