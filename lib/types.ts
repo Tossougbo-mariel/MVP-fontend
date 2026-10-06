@@ -495,11 +495,13 @@ export const formatFileSize = (bytes: number): string => {
 };
 
 // ---------- Sous-tâches ----------
-export type Subtask = {  id: number;
+export type Subtask = {
+  id: number;
   taskId: number;
   title: string;
   done: boolean;
   position: number;
+  imposed: boolean;
 };
 
 export const subtaskProgress = (

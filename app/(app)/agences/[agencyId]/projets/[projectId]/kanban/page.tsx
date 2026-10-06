@@ -45,6 +45,7 @@ import {
   bulkUpdateTasks as apiBulkUpdateTasks,
   restoreTask as apiRestoreTask,
   deleteTask as apiDeleteTask,
+  completeAllSubtasks as apiCompleteAllSubtasks,
   getApiErrorMessage,
 } from "@/lib/services";
 import { getWallpaperBg } from "@/app/store/wallpapers";
@@ -1114,21 +1115,21 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
         onConfirm={async () => {
           const fc = forceConfirm;
           if (!fc) return;
-          if (fc.kind === "task" && fc.taskId && fc.targetStatus) {
-            try {
+          try {
+            if (fc.kind === "task" && fc.taskId && fc.targetStatus) {
+              // « Terminer quand même » : on coche d'abord toutes les
+              // sous-tâches, puis on force le statut terminal.
+              await apiCompleteAllSubtasks(fc.taskId);
               await apiUpdateTaskStatus(fc.taskId, fc.targetStatus, { force: true });
               void refresh();
-            } catch (err) {
-              alert(getApiErrorMessage(err));
-            }
-          } else if (fc.kind === "bulk" && fc.payload) {
-            try {
+            } else if (fc.kind === "bulk" && fc.payload) {
+              await Promise.all(selectedIds.map((id) => apiCompleteAllSubtasks(id)));
               await apiBulkUpdateTasks(project.id, { task_ids: selectedIds, ...fc.payload }, { force: true });
               await refresh();
               setSelectedIds([]);
-            } catch (err) {
-              alert(getApiErrorMessage(err));
             }
+          } catch (err) {
+            alert(getApiErrorMessage(err));
           }
           setForceConfirm(null);
         }}

@@ -7,9 +7,8 @@ import { motion, type Variants } from "framer-motion";
 import {
 ShieldCheck, ArrowLeft, Settings, Users, Users2, Trash2, CheckCircle2, Save,
   AlertTriangle, Globe, Mail, X, Clock, LayoutGrid, List, Kanban, RefreshCw,
-  Pencil, Lock, Check, UserRoundPlus, Plus, Palette,
+  Pencil, Lock, Check, UserRoundPlus, Plus,
 } from "lucide-react";
-import { ThemeToggleRow } from "@/app/(PageConnexion)/components/ThemeToggle";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
 import {
@@ -783,20 +782,7 @@ disabled={busyInvitationId === inv.id || expired}
         </div>
       </Section>
 
-      {/* SECTION 5 : Apparence */}
-      <Section icon={<Palette size={18} style={{ color: "var(--blue)" }} />} title="Apparence">
-        <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
-          Ce réglage est propre à votre navigateur : il n&apos;affecte que votre écran.
-        </p>
-        <div
-          className="w-full flex flex-wrap items-center justify-between gap-4 px-5 py-4 rounded-2xl"
-          style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
-        >
-          <ThemeToggleRow />
-        </div>
-      </Section>
-
-      {/* SECTION 6 : Zone de danger */}
+      {/* SECTION 5 : Zone de danger */}
       <motion.div
         variants={item}
         className="rounded-2xl p-6 md:p-8"

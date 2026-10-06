@@ -152,6 +152,7 @@ const mapSubtask = (r: any): Subtask => ({
   title: String(r.title ?? ""),
   done: Boolean(r.done),
   position: Number(r.position ?? 0),
+  imposed: Boolean(r.imposed),
 });
 
 const mapAttachment = (r: any): Attachment => ({
@@ -641,6 +642,12 @@ export const updateSubtask = async (
   subtaskId: number | string,
   payload: { title?: string; done?: boolean; position?: number },
 ): Promise<Subtask> => mapSubtask((await api.put(`/subtasks/${subtaskId}`, payload)).data);
+
+export const completeAllSubtasks = async (taskId: number | string): Promise<Subtask[]> => {
+  const { data } = await api.post(`/tasks/${taskId}/subtasks/complete-all`);
+  const list = Array.isArray(data) ? data : [];
+  return list.map((r: unknown) => mapSubtask(r));
+};
 
 export const deleteSubtask = async (subtaskId: number | string): Promise<void> => {
   await api.delete(`/subtasks/${subtaskId}`);

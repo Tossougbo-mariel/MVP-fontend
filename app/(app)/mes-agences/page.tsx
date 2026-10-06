@@ -64,12 +64,13 @@ function Avatar({
 }
 
 // Pastilles empilées : la façon lisible de montrer l'effectif d'une agence.
-function AvatarStack({ members, max = 5 }: { members: DisplayMember[]; max?: number }) {
+function AvatarStack({ members, max = 5, size = 28 }: { members: DisplayMember[]; max?: number; size?: number }) {
   const shown = members.slice(0, max);
   const rest = members.length - shown.length;
+  const overlap = Math.round(size * 0.28);
   if (shown.length === 0) {
     return (
-      <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+      <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
         Aucun membre
       </span>
     );
@@ -80,17 +81,18 @@ function AvatarStack({ members, max = 5 }: { members: DisplayMember[]; max?: num
         <span
           key={`${m.user.id}-${i}`}
           className="rounded-full"
-          style={{ marginLeft: i === 0 ? 0 : -8, border: "2px solid var(--surface)", zIndex: shown.length - i }}
+          style={{ marginLeft: i === 0 ? 0 : -overlap, border: "2px solid var(--surface)", zIndex: shown.length - i }}
         >
-          <Avatar src={m.user.avatar} initials={memberInitials(m)} color={m.color} size={28} />
+          <Avatar src={m.user.avatar} initials={memberInitials(m)} color={m.color} size={size} />
         </span>
       ))}
       {rest > 0 && (
         <span
-          className="inline-flex items-center justify-center rounded-full text-[11px] font-bold ml-[-8px]"
+          className="inline-flex items-center justify-center rounded-full text-[10px] font-bold"
           style={{
-            width: 28,
-            height: 28,
+            marginLeft: -overlap,
+            width: size,
+            height: size,
             background: "var(--surface)",
             color: "var(--text-secondary)",
             border: "2px solid var(--surface)",
@@ -220,7 +222,7 @@ export default function MesAgencesPage() {
                     variants={item}
                     whileHover={{ y: -6 }}
                     transition={{ duration: 0.25, ease: "easeOut" }}
-                    className="glass relative rounded-3xl p-5 pt-7 cursor-pointer overflow-hidden group"
+                    className="glass relative rounded-3xl p-4 pt-5 cursor-pointer overflow-hidden group"
                     style={{ boxShadow: "var(--shadow-card)" }}
                   >
                     {/* Couleurs de l'agence : mélange de 2 teintes douces selon la 1re lettre du nom */}
@@ -232,24 +234,24 @@ export default function MesAgencesPage() {
                       className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl"
                       style={{ background: "var(--gradient-primary)" }}
                     />
-                    <div className="relative flex flex-col gap-4">
+                    <div className="relative flex flex-col gap-3">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex items-center gap-2.5 min-w-0">
                           <div
-                            className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+                            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                             style={{
                               background: "var(--gradient-primary)",
                               boxShadow: "0 6px 16px -6px rgba(var(--blue-rgb),0.45)",
                             }}
                           >
-                            <Building2 className="w-6 h-6 text-white" />
+                            <Building2 className="w-4 h-4 text-white" />
                           </div>
                           <div className="min-w-0">
-                            <div className="font-bold truncate text-lg" style={{ color: "var(--text-primary)" }}>
+                            <div className="font-bold truncate text-[15px] leading-tight" style={{ color: "var(--text-primary)" }}>
                               {a.name}
                             </div>
                             <span
-                              className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
+                              className="inline-flex items-center mt-0.5 text-[10px] font-semibold px-2 py-0.5 rounded-full"
                               style={
                                 role === "membre"
                                   ? {
@@ -269,7 +271,7 @@ export default function MesAgencesPage() {
                           </div>
                         </div>
                         <ChevronRight
-                          className="w-5 h-5 shrink-0 mt-1 transition-transform group-hover:translate-x-1"
+                          className="w-4 h-4 shrink-0 mt-0.5 transition-transform group-hover:translate-x-1"
                           style={{ color: "var(--text-muted)" }}
                         />
                       </div>
@@ -290,9 +292,9 @@ export default function MesAgencesPage() {
                       )}
 
                       {/* Effectif d'un coup d'œil, sans entrer dans l'agence. */}
-                      <AvatarStack members={members} />
+                      <AvatarStack members={members} size={22} />
 
-                      <div className="flex items-center justify-between gap-3 pt-3 text-xs" style={{ borderTop: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}>
+                      <div className="flex items-center justify-between gap-3 pt-2.5 text-[11px]" style={{ borderTop: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}>
                         <span>
                           {projectCount} projet{projectCount > 1 ? "s" : ""}
                           {runningCount > 0 && ` · ${runningCount} en cours`}
@@ -301,7 +303,7 @@ export default function MesAgencesPage() {
                           {taskCount} tâche{taskCount > 1 ? "s" : ""}
                         </span>
                       </div>
-                      <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                      <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>
                         Créée le {formatCreatedAt(a.createdAt)}
                       </div>
                     </div>

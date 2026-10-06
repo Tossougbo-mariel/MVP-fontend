@@ -77,9 +77,11 @@ import {
   downloadAttachment as apiDownloadAttachment,
   createTag as apiCreateTag,
   setTaskTags as apiSetTaskTags,
+  deleteTag as apiDeleteTag,
   createSubtask as apiCreateSubtask,
   updateSubtask as apiUpdateSubtask,
   deleteSubtask as apiDeleteSubtask,
+  completeAllSubtasks as apiCompleteAllSubtasks,
   updateTask as apiUpdateTask,
 updateTaskStatus as apiUpdateTaskStatus,
   archiveTask as apiArchiveTask,
@@ -144,6 +146,17 @@ const formatDateTime = (iso: string) =>
 const HISTORY_VISIBLE = 8;
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Corps d'erreur renvoyé par PATCH /tasks/{id}/status quand le statut terminal
+// est bloqué par des sous-tâches non cochées.
+type StatusErrorPayload = {
+  message?: string;
+  requires_force?: boolean;
+  open_subtasks?: number;
+};
+
+const statusErrorPayload = (err: unknown): StatusErrorPayload | undefined =>
+  (err as { response?: { data?: StatusErrorPayload } })?.response?.data;
 
 const renderWithMentions = (content: string, names: string[]): React.ReactNode => {
   const valid = names.filter(Boolean);
@@ -248,7 +261,11 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
 
   // ====== Blocage « Terminée » ======
   const [statusBlocked, setStatusBlocked] = useState<string | null>(null);
-  const [forceConfirm, setForceConfirm] = useState<{ openSubtasks: number } | null>(null);
+  // On mémorise la cible cliquée : une agence peut avoir plusieurs statuts
+  // terminaux (« Terminée », « Annulée »…), il faut forcer VERS CE statut-là.
+  const [forceConfirm, setForceConfirm] = useState<
+    { openSubtasks: number; target: TaskStatus } | null
+  >(null);
   const [statusBusy, setStatusBusy] = useState(false);
 
   // ====== Étiquettes ======
@@ -389,7 +406,7 @@ const handleStatusChange = async (status: TaskStatus) => {
       if (openSubtasks > 0) {
         const message = `Impossible de terminer : ${openSubtasks} sous-tâche${openSubtasks > 1 ? "s" : ""} encore non cochée${openSubtasks > 1 ? "s" : ""}.`;
         if (isAdmin) {
-          setForceConfirm({ openSubtasks });
+          setForceConfirm({ openSubtasks, target: status });
           return;
         }
         setStatusBlocked(message);
@@ -409,10 +426,10 @@ const handleStatusChange = async (status: TaskStatus) => {
       historyResult.reload();
       void reload();
     } catch (err) {
-      const d: any = (err as any)?.response?.data;
+      const d = statusErrorPayload(err);
       if (d?.requires_force) {
         if (isAdmin) {
-          setForceConfirm({ openSubtasks: d.open_subtasks ?? 0 });
+          setForceConfirm({ openSubtasks: d.open_subtasks ?? 0, target: status });
         } else {
           setStatusBlocked(d.message || "Des sous-tâches ne sont pas encore cochées.");
         }
@@ -553,6 +570,21 @@ const handleStatusChange = async (status: TaskStatus) => {
       setNewTagName("");
       agencyTagsResult.reload();
       await apiSetTaskTags(task.id, [...task.tags.map((t) => t.id), created.id]);
+      taskResult.reload();
+      void reload();
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    } finally {
+      setTagsBusy(false);
+    }
+  };
+
+  const handleDeleteTag = async (tg: Tag) => {
+    if (!task) return;
+    setTagsBusy(true);
+    try {
+      await apiDeleteTag(tg.id);
+      agencyTagsResult.reload();
       taskResult.reload();
       void reload();
     } catch (err) {
@@ -894,7 +926,7 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
                   >
                     Priorité {prio.label.toLowerCase()}
                   </span>
-{isTaskBlocked(task) && (
+{isTaskBlocked(task, statuses) && (
                       <span
                         className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full"
                         style={{ color: "#fff", background: "rgba(0,0,0,0.28)", border: "1px solid rgba(255,255,255,0.4)" }}
@@ -1100,21 +1132,32 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
                 agencyTags.map((tg) => {
                   const on = task.tags.some((t) => t.id === tg.id);
                   return (
-                    <button
-                      key={tg.id}
-                      type="button"
-                      disabled={tagsBusy}
-                      onClick={() => handleToggleTag(tg.id)}
-                      className="inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-full transition-all hover:scale-105 disabled:opacity-60"
-                      style={
-                        on
-                          ? { background: tg.color, color: "#fff", border: "1px solid transparent" }
-                          : { background: "transparent", color: tg.color, border: `1px solid ${tg.color}66` }
-                      }
-                    >
-                      {on && <Check size={12} />}
-                      {tg.name}
-                    </button>
+                    <div key={tg.id} className="inline-flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={tagsBusy}
+                        onClick={() => handleToggleTag(tg.id)}
+                        className="inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-full transition-all hover:scale-105 disabled:opacity-60"
+                        style={
+                          on
+                            ? { background: tg.color, color: "#fff", border: "1px solid transparent" }
+                            : { background: "transparent", color: tg.color, border: `1px solid ${tg.color}66` }
+                        }
+                      >
+                        {on && <Check size={12} />}
+                        {tg.name}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={tagsBusy}
+                        onClick={() => handleDeleteTag(tg)}
+                        title={`Supprimer l'étiquette « ${tg.name} »`}
+                        className="shrink-0 p-1 rounded-full opacity-60 hover:opacity-100 transition-opacity disabled:opacity-30"
+                        style={{ color: "var(--color-error)" }}
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
                   );
                 })
               )}
@@ -1265,16 +1308,26 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
                 >
                   {sub.done && <Check size={13} color="#fff" />}
                 </button>
-                <span
-                  className="flex-1 text-sm"
-                  style={{
-                    color: sub.done ? "var(--text-muted)" : "var(--text-primary)",
-                    textDecoration: sub.done ? "line-through" : "none",
-                  }}
-                >
-                  {sub.title}
+                <span className="flex-1 min-w-0 flex items-center gap-1.5">
+                  <span
+                    className="text-sm truncate"
+                    style={{
+                      color: sub.done ? "var(--text-muted)" : "var(--text-primary)",
+                      textDecoration: sub.done ? "line-through" : "none",
+                    }}
+                  >
+                    {sub.title}
+                  </span>
+                  {sub.imposed && (
+                    <Lock
+                      size={13}
+                      className="shrink-0"
+                      style={{ color: "var(--text-muted)" }}
+                      aria-label="Sous-tâche imposée par un administrateur : suppression réservée à un admin"
+                    />
+                  )}
                 </span>
-                {canManageSubtasks && (
+                {canManageSubtasks && (isAdmin || !sub.imposed) && (
                   <button
                     type="button"
                     onClick={() => handleDeleteSubtask(sub)}
@@ -1491,7 +1544,11 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
                       </div>
 <p
                         ref={measureComment(c.id, isExpanded)}
-                        className={`text-sm whitespace-pre-wrap break-words mt-1 ${isExpanded ? "" : "line-clamp-2"}`}
+                        // max-h plutôt que line-clamp : avec -webkit-line-clamp le
+                        // navigateur rapporte scrollHeight == clientHeight, la
+                        // détection d'overflow échoue et « Voir le commentaire »
+                        // n'apparaît jamais sur un long texte.
+                        className={`text-sm whitespace-pre-wrap break-words mt-1 ${isExpanded ? "" : "max-h-10 overflow-hidden"}`}
                         style={{ color: "var(--text-secondary)" }}
                       >
                         {renderWithMentions(c.content, mentionNames)}
@@ -1914,13 +1971,16 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
         }
         confirmLabel="Terminer quand même"
         onConfirm={async () => {
-          // On reforce vers le statut terminal courant de l'agence, qui peut
-          // ne pas s'appeler « terminee ».
+          // « Terminer quand même » = on coche d'abord toutes les sous-tâches
+          // restantes, puis on force le statut terminal exactement cliqué.
           if (task && forceConfirm) {
-            const terminal = statuses.find((s) => s.is_terminal);
-            if (terminal) {
-              await doUpdateStatus(terminal.key, true);
+            try {
+              await apiCompleteAllSubtasks(task.id);
+              subtasksResult.reload();
+            } catch (err) {
+              alert(getApiErrorMessage(err));
             }
+            await doUpdateStatus(forceConfirm.target, true);
           }
           setForceConfirm(null);
         }}
