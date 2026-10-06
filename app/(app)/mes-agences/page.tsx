@@ -222,7 +222,7 @@ export default function MesAgencesPage() {
                     variants={item}
                     whileHover={{ y: -6 }}
                     transition={{ duration: 0.25, ease: "easeOut" }}
-                    className="glass relative rounded-3xl p-4 pt-5 cursor-pointer overflow-hidden group"
+                    className="glass relative rounded-3xl p-4 pt-4 cursor-pointer overflow-hidden group"
                     style={{ boxShadow: "var(--shadow-card)" }}
                   >
                     {/* Couleurs de l'agence : mélange de 2 teintes douces selon la 1re lettre du nom */}
@@ -234,9 +234,9 @@ export default function MesAgencesPage() {
                       className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl"
                       style={{ background: "var(--gradient-primary)" }}
                     />
-                    <div className="relative flex flex-col gap-3">
+                    <div className="relative flex flex-col gap-2.5">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0">
                           <div
                             className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                             style={{

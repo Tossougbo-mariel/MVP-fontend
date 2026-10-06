@@ -107,21 +107,72 @@ export default function ReglagesPage() {
         </p>
       </motion.div>
 
-      {/* ---------- Apparence ---------- */}
+      {/* ---------- Préférences ---------- */}
       <motion.section variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
         <h2 className="text-lg font-bold flex items-center gap-2 mb-1" style={{ color: "var(--text-primary)" }}>
-          <Palette size={18} style={{ color: "var(--accent-text)" }} /> Apparence
+          <SlidersHorizontal size={18} style={{ color: "var(--accent-text)" }} /> Préférences
         </h2>
         <p className="text-sm mb-5" style={{ color: "var(--text-secondary)" }}>
-          Ces réglages sont propres à votre navigateur : ils ne changent que sur votre écran.
+          Le thème (couleurs), la langue et les notifications, sur toutes vos agences.
         </p>
 
-        <div className="space-y-4">
+        <div className="space-y-6">
+          <div className="max-w-sm">
+            <label className="text-xs uppercase tracking-wide block mb-1" style={{ color: "var(--text-secondary)" }}>
+              Langue
+            </label>
+            <Select
+              value={language}
+              onChange={setLanguage}
+              options={[
+                { value: "fr", label: "Français" },
+                { value: "en", label: "English" },
+              ]}
+              className="w-full"
+              ariaLabel="Langue"
+            />
+          </div>
+
+          {/* Un seul interrupteur pour toutes les notifications : il coupe ou
+              rallume d'un coup les six catégories. */}
           <div
-            className="w-full flex flex-wrap items-center justify-between gap-4 px-5 py-4 rounded-2xl"
+            className="px-4 py-3 rounded-xl"
             style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
           >
-            <ThemeToggle />
+            <button
+              type="button"
+              onClick={toggleAllNotifPrefs}
+              disabled={notifBusy}
+              aria-pressed={allNotifOn}
+              className="w-full flex items-center justify-between gap-4 text-left transition-opacity hover:opacity-90 disabled:opacity-60"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <Bell size={15} style={{ color: "var(--text-secondary)" }} />
+                <span className="min-w-0">
+                  <span className="block text-sm" style={{ color: "var(--text-primary)" }}>
+                    Notifications
+                  </span>
+                  <span className="block text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                    Affectations, commentaires, mentions et rappels d&apos;échéance.
+                  </span>
+                </span>
+              </span>
+              <span
+                className="w-10 h-6 rounded-full relative transition-colors shrink-0"
+                style={{ background: allNotifOn ? "var(--gradient-button)" : "var(--border-subtle)" }}
+              >
+                <span
+                  className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all"
+                  style={{ left: allNotifOn ? "19px" : "2px", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }}
+                />
+              </span>
+            </button>
+
+            {notifPrefsError && (
+              <p className="text-xs font-semibold mt-2" style={{ color: "var(--color-error)" }}>
+                {notifPrefsError}
+              </p>
+            )}
           </div>
 
           {/* Thème : la couleur d'accent, repliée derrière un bouton comme sur
@@ -191,72 +242,21 @@ export default function ReglagesPage() {
         </div>
       </motion.section>
 
-      {/* ---------- Préférences ---------- */}
+      {/* ---------- Apparence ---------- */}
       <motion.section variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
         <h2 className="text-lg font-bold flex items-center gap-2 mb-1" style={{ color: "var(--text-primary)" }}>
-          <SlidersHorizontal size={18} style={{ color: "var(--accent-text)" }} /> Préférences
+          <Palette size={18} style={{ color: "var(--accent-text)" }} /> Apparence
         </h2>
         <p className="text-sm mb-5" style={{ color: "var(--text-secondary)" }}>
-          La langue de l&apos;interface et les notifications, sur toutes vos agences.
+          Ces réglages sont propres à votre navigateur : ils ne changent que sur votre écran.
         </p>
 
-        <div className="space-y-6">
-          <div className="max-w-sm">
-            <label className="text-xs uppercase tracking-wide block mb-1" style={{ color: "var(--text-secondary)" }}>
-              Langue
-            </label>
-            <Select
-              value={language}
-              onChange={setLanguage}
-              options={[
-                { value: "fr", label: "Français" },
-                { value: "en", label: "English" },
-              ]}
-              className="w-full"
-              ariaLabel="Langue"
-            />
-          </div>
-
-          {/* Un seul interrupteur pour toutes les notifications : il coupe ou
-              rallume d'un coup les six catégories. */}
+        <div className="space-y-4">
           <div
-            className="px-4 py-3 rounded-xl"
+            className="w-full flex flex-wrap items-center justify-between gap-4 px-5 py-4 rounded-2xl"
             style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
           >
-            <button
-              type="button"
-              onClick={toggleAllNotifPrefs}
-              disabled={notifBusy}
-              aria-pressed={allNotifOn}
-              className="w-full flex items-center justify-between gap-4 text-left transition-opacity hover:opacity-90 disabled:opacity-60"
-            >
-              <span className="flex items-center gap-2 min-w-0">
-                <Bell size={15} style={{ color: "var(--text-secondary)" }} />
-                <span className="min-w-0">
-                  <span className="block text-sm" style={{ color: "var(--text-primary)" }}>
-                    Notifications
-                  </span>
-                  <span className="block text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                    Affectations, commentaires, mentions et rappels d&apos;échéance.
-                  </span>
-                </span>
-              </span>
-              <span
-                className="w-10 h-6 rounded-full relative transition-colors shrink-0"
-                style={{ background: allNotifOn ? "var(--gradient-button)" : "var(--border-subtle)" }}
-              >
-                <span
-                  className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all"
-                  style={{ left: allNotifOn ? "19px" : "2px", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }}
-                />
-              </span>
-            </button>
-
-            {notifPrefsError && (
-              <p className="text-xs font-semibold mt-2" style={{ color: "var(--color-error)" }}>
-                {notifPrefsError}
-              </p>
-            )}
+            <ThemeToggle />
           </div>
         </div>
       </motion.section>

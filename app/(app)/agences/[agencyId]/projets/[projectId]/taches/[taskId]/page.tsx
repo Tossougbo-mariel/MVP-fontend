@@ -691,13 +691,16 @@ const handleStatusChange = async (status: TaskStatus) => {
     );
   }
 
-  // ✅ Accès : admin, créateur ou assigné à la tâche, sinon membre du projet
-  const isProjectUser =
-    !!user && (task?.assignedTo === user.id || task?.createdBy === user.id);
-  const hasProjectAccess =
-    isAdmin || isProjectUser || projectMembers.some((pm) => pm.user.id === user.id);
+  // ✅ Accès : admin, ou assigné à la tâche. Un membre non assigné ne fait que
+  // suivre l'évolution de la tâche sur le Kanban, il n'ouvre pas sa fiche.
+  const hasDetailAccess =
+    isAdmin ||
+    (task?.assignedTo !== null &&
+      task?.assignedTo !== undefined &&
+      task.assignedTo === user.id);
+  const hasProjectAccess = hasDetailAccess;
 
-  if (!hasProjectAccess && membersResult.loading) {
+  if (!hasProjectAccess && (membersResult.loading || taskResult.loading)) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
@@ -712,14 +715,14 @@ const handleStatusChange = async (status: TaskStatus) => {
           Accès refusé
         </p>
         <p className="max-w-sm" style={{ color: "var(--text-secondary)" }}>
-          Vous devez être assigné à ce projet pour consulter ses tâches.
+          Seuls l&apos;assigné à la tâche ou un administrateur peuvent ouvrir sa fiche.
         </p>
         <Link
-          href={`/agences/${agencyId}/projets`}
+          href={`/agences/${agencyId}/projets/${projectId}/kanban`}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Retour aux projets
+          <ArrowLeft size={16} /> Retour au Kanban
         </Link>
       </div>
     );

@@ -94,7 +94,7 @@ export default function AgencyPanel({ agencyId }: { agencyId: string }) {
       : { color: "var(--sidebar-text-secondary)" };
 
   return (
-    <div className="flex flex-col min-h-0 flex-1 p-3">
+    <div className="flex flex-col min-h-0 flex-1 min-w-0 p-3">
       {/* Rectangle d'options : ouvre la liste des agences et la création. */}
       <div ref={optionsRef} className="relative shrink-0">
         <button

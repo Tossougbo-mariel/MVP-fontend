@@ -308,6 +308,13 @@ export default function ProjectKanbanPage() {
     (task.assignedTo !== null &&
       task.assignedTo === user.id);
 
+  // ✅ Règle : un membre n'ouvre que le détail de SES tâches assignées. Pour
+  // les autres, il ne fait que suivre leur évolution sur le tableau (statuts).
+  const canViewTaskDetails = (task: { assignedTo: number | null }) =>
+    isAdmin ||
+    (task.assignedTo !== null &&
+      task.assignedTo === user.id);
+
   const handleDrop = async (taskId: string, targetStatus: TaskStatus) => {
     setOverColumn(null);
     setDraggingId(null);
@@ -628,6 +635,7 @@ export default function ProjectKanbanPage() {
                 ) : (
                   colTasks.map((task) => {
                     const canDrag = canDragTask(task);
+                    const canView = canViewTaskDetails(task);
                     const assignee = memberById(task.assignedTo);
                     const prio = priorityConfig[task.priority];
                     const deadlineBadge =
@@ -644,7 +652,11 @@ export default function ProjectKanbanPage() {
                         }}
                         onDragEnd={() => setDraggingId(null)}
                         onClick={() =>
-                          selectMode ? toggleSelected(task.id) : openTaskDetail(String(task.id))
+                          selectMode
+                            ? toggleSelected(task.id)
+                            : canView
+                              ? openTaskDetail(String(task.id))
+                              : undefined
                         }
                         className="rounded-lg p-2.5 flex flex-col gap-2 transition-all hover:opacity-95"
                         style={{
@@ -657,14 +669,16 @@ export default function ProjectKanbanPage() {
                                 : "1px solid var(--border-subtle)",
                           boxShadow: "var(--shadow-card)",
                           opacity: draggingId === String(task.id) ? 0.5 : 1,
-                          cursor: selectMode ? "pointer" : canDrag ? "grab" : "pointer",
+                          cursor: selectMode ? "pointer" : canView ? (canDrag ? "grab" : "pointer") : "default",
                         }}
                         title={
                           selectMode
                             ? "Cliquer pour sélectionner"
                             : canDrag
                               ? "Cliquer pour les détails — glisser pour changer de colonne"
-                              : "Déplacement réservé à l'assigné ou à l'admin — cliquer pour les détails"
+                              : canView
+                                ? "Déplacement réservé à l'assigné ou à l'admin — cliquer pour les détails"
+                                : "Vous suivez simplement l'évolution de cette tâche — utilisable uniquement par l'assigné ou l'admin"
                         }
                       >
                         {/* Titre + badge priorité compact */}
