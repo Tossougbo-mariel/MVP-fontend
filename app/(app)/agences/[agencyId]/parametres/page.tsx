@@ -461,11 +461,6 @@ export default function ParametresPage() {
               }}
             />
           </div>
-          <div className="flex items-center gap-3 text-xs" style={{ color: "var(--text-muted)" }}>
-            <span>Créée le {agency.createdAt}</span>
-            <span>·</span>
-            <span>{(agency.members ?? []).length} membre{(agency.members ?? []).length > 1 ? "s" : ""}</span>
-          </div>
           {editingInfo ? (
             <div className="flex items-center gap-3">
               <button
@@ -485,11 +480,7 @@ export default function ParametresPage() {
                 <X size={16} /> Annuler
               </button>
             </div>
-          ) : (
-            <p className="text-xs flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
-              <Lock size={12} /> Informations verrouillées — cliquez sur « Modifier » pour les modifier.
-            </p>
-          )}
+          ) : null}
         </div>
       </Section>
 

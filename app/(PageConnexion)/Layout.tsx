@@ -1,6 +1,7 @@
 "use client";
 
-import AccentApplier from "../(app)/components/AccentApplier";
+import { useEffect } from "react";
+import { applyAccent } from "@/lib/applyAccent";
 
 // Généré une seule fois au chargement du module (pas pendant le rendu)
 const PARTICLES = Array.from({ length: 18 }).map(() => {
@@ -16,6 +17,15 @@ const PARTICLES = Array.from({ length: 18 }).map(() => {
   };
 });
 
+/** Réinitialise l'accent à la rampe par défaut (bleu de la page d'accueil). */
+function ForceDefaultAccent() {
+  useEffect(() => {
+    applyAccent(null);
+  }, []);
+
+  return null;
+}
+
 export default function AuthLayout({
   children,
 }: {
@@ -26,10 +36,12 @@ export default function AuthLayout({
       className="relative min-h-screen overflow-hidden flex items-center justify-center"
       style={{ background: "var(--bg-obsidian)" }}
     >
-      {/* Les pages de connexion et d'inscription adoptent la couleur d'accent de
-          l'utilisateur, même sans session ouverte : les blobs aurora ci-dessous
-          lisent --blue / --blue-accent / --blue-mid. */}
-      <AccentApplier />
+      {/* Les pages de connexion et d'inscription utilisent toujours l'accent
+          par défaut — la couleur de la page d'accueil — même si l'utilisateur a
+          choisi un autre thème : ce choix ne colore que son espace, pas la
+          vitrine. Les blobs aurora ci-dessous lisent --blue / --blue-accent /
+          --blue-mid de la rampe par défaut. */}
+      <ForceDefaultAccent />
 
       {/* Aurora blobs */}
       <div
