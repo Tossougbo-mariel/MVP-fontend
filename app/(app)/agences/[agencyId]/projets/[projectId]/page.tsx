@@ -9,6 +9,8 @@ import {
   Calendar,
   CalendarClock,
   Check,
+  Archive,
+  ArchiveRestore,
   FolderKanban,
   ImageIcon,
   ImageOff,
@@ -21,6 +23,8 @@ import {
 } from "lucide-react";
 import { useAppData, useAsync } from "@/lib/appData";
 import { userRoleInAgency, getProjectStatusFromTasks, type ProjectStatus, type ProjectMember } from "@/lib/types";
+import DatePickerField from "@/app/(app)/components/DatePickerField";
+import CustomSelectField from "@/app/(app)/components/CustomSelectField";
 import { useAuthStore } from "@/app/store/authStore";
 import {
   fetchProjectMembers,
@@ -31,8 +35,6 @@ import {
   getApiErrorMessage,
 } from "@/lib/services";
 import { WALLPAPERS } from "@/app/store/wallpapers";
-import Select from "@/app/(app)/components/Select";
-import DatePicker from "@/app/(app)/components/DatePicker";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -91,6 +93,7 @@ export default function ProjectDetailPage() {
   const [selectedToAdd, setSelectedToAdd] = useState<number[]>([]);
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmingHardDelete, setConfirmingHardDelete] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [pendingRemoval, setPendingRemoval] = useState<{
     memberId: number;
@@ -185,15 +188,43 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleArchive = async () => {
+    if (!project) return;
+    setActionLoading(true);
+    try {
+      await apiUpdateProject(project.id, { status: "archive" });
+      setConfirmingDelete(false);
+      await reload();
+      router.push(`/agences/${agencyId}/projets`);
+    } catch (err) {
+      setConfirmingDelete(false);
+      alert(getApiErrorMessage(err));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!project) return;
+    setActionLoading(true);
+    try {
+      await apiUpdateProject(project.id, { status: "en_cours" });
+      await reload();
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!project) return;
     setActionLoading(true);
     try {
       await apiDeleteProject(project.id);
       await reload();
-      router.push(`/agences/${agencyId}/projets`);
+      router.replace(`/agences/${agencyId}/projets`);
     } catch (err) {
-      setConfirmingDelete(false);
       alert(getApiErrorMessage(err));
     } finally {
       setActionLoading(false);
@@ -394,13 +425,31 @@ export default function ProjectDetailPage() {
                   >
                     <Pencil size={13} /> Modifier
                   </button>
+                  {project.status === "archive" ? (
+                  <button
+                    onClick={handleRestore}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5"
+                    style={{ background: "var(--color-success)", color: "#fff", boxShadow: "0 2px 6px -2px rgba(16,185,129,0.35)" }}
+                  >
+                    <ArchiveRestore size={13} /> Restaurer
+                  </button>
+                ) : (
                   <button
                     onClick={() => setConfirmingDelete(true)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5"
                     style={{ background: "rgba(239,68,68,0.10)", color: "var(--color-error)", boxShadow: "0 2px 6px -2px rgba(239,68,68,0.3)" }}
                   >
-                    <Trash2 size={13} /> Supprimer
+                    <Archive size={13} /> Archiver
                   </button>
+                )}
+                <button
+                  onClick={() => setConfirmingHardDelete(true)}
+                  title="Supprimer définitivement"
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg transition-all hover:scale-[1.03] hover:-translate-y-0.5"
+                  style={{ background: "rgba(239,68,68,0.12)", color: "var(--color-error)", border: "1px solid rgba(239,68,68,0.3)" }}
+                >
+                  <Trash2 size={14} />
+                </button>
                 </div>
               )}
               <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
@@ -413,6 +462,23 @@ export default function ProjectDetailPage() {
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
             {project.description || "Aucune description."}
           </p>
+
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <Link
+              href={`/agences/${agencyId}/projets/${projectId}/kanban`}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-[1.02]"
+              style={{ background: "var(--gradient-button)" }}
+            >
+              <FolderKanban size={15} /> Kanban
+            </Link>
+            <Link
+              href={`/agences/${agencyId}/projets/${projectId}/planning`}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
+              style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
+            >
+              <CalendarClock size={15} /> Planning
+            </Link>
+          </div>
         </div>
       </motion.div>
 
@@ -622,7 +688,7 @@ export default function ProjectDetailPage() {
               <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                 Statut
               </label>
-<Select
+<CustomSelectField
                   value={editStatus}
                   onChange={(v) => setEditStatus(v as ProjectStatus)}
                   options={[
@@ -632,6 +698,7 @@ export default function ProjectDetailPage() {
                     { value: "archive", label: "Archivé" },
                   ]}
                   className="w-full"
+ariaLabel="Statut du projet"
                 />
             </div>
 
@@ -640,7 +707,7 @@ export default function ProjectDetailPage() {
                 <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   <Calendar size={14} /> Date de début
                 </label>
-                <DatePicker
+<DatePickerField
                   value={editStartDate}
                   min={todayISO}
                   onChange={(v) => {
@@ -649,6 +716,7 @@ export default function ProjectDetailPage() {
                     clearEditFieldError("dueDate");
                   }}
                   className="w-full"
+style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 />
                 {editFieldErrors.startDate && (
                   <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
@@ -660,13 +728,14 @@ export default function ProjectDetailPage() {
                 <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   <CalendarClock size={14} /> Date d&apos;échéance
                 </label>
-                <DatePicker
+<DatePickerField
                   value={editDueDate}
                   onChange={(v) => {
                     setEditDueDate(v);
                     clearEditFieldError("dueDate");
                   }}
                   className="w-full"
+style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 />
                 {editFieldErrors.dueDate && (
                   <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
@@ -751,7 +820,7 @@ export default function ProjectDetailPage() {
         </motion.div>
       )}
 
-      {/* Modal de confirmation de suppression (admin uniquement) */}
+      {/* Modal de confirmation d'archivage (admin uniquement) */}
       {confirmingDelete && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -770,22 +839,73 @@ export default function ProjectDetailPage() {
           >
             <div
               className="mx-auto w-14 h-14 rounded-2xl flex items-center justify-center"
+              style={{ background: "rgba(5,108,242,0.12)" }}
+            >
+              <Archive className="w-7 h-7" style={{ color: "var(--accent-text)" }} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+                Archiver le projet&nbsp;?
+              </h2>
+              <p className="text-sm mt-1.5" style={{ color: "var(--text-secondary)" }}>
+                «&nbsp;{project.name}&nbsp;» sera archivé avec ses tâches. Vous pourrez toujours le restaurer depuis cette page.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-1">
+              <button
+                onClick={() => setConfirmingDelete(false)}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
+                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleArchive}
+                disabled={actionLoading}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
+                style={{ background: "var(--accent-text)" }}
+              >
+                <Archive size={15} /> {actionLoading ? "Archivage…" : "Archiver"}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Modal de suppression définitive (admin uniquement) */}
+      {confirmingHardDelete && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        >
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setConfirmingHardDelete(false)}
+          />
+          <motion.div
+            initial={{ scale: 0.96, y: 10 }}
+            animate={{ scale: 1, y: 0 }}
+            className="relative w-full max-w-xs glass rounded-2xl p-5 text-center space-y-4"
+            style={{ boxShadow: "var(--shadow-card)" }}
+          >
+            <div
+              className="mx-auto w-14 h-14 rounded-2xl flex items-center justify-center"
               style={{ background: "rgba(239,68,68,0.12)" }}
             >
               <Trash2 className="w-7 h-7" style={{ color: "var(--color-error)" }} />
             </div>
             <div>
               <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-                Supprimer le projet&nbsp;?
+                Supprimer définitivement ?
               </h2>
               <p className="text-sm mt-1.5" style={{ color: "var(--text-secondary)" }}>
-                «&nbsp;{project.name}&nbsp;» et toutes ses tâches seront définitivement
-                supprimés. Cette action est irréversible.
+                «&nbsp;{project.name}&nbsp;» et toutes ses tâches, sous-tâches, fichiers et commentaires seront définitivement supprimés. Cette action est irréversible.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-1">
               <button
-                onClick={() => setConfirmingDelete(false)}
+                onClick={() => setConfirmingHardDelete(false)}
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
               >

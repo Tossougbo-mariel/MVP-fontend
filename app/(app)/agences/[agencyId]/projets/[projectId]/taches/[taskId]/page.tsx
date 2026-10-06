@@ -1,24 +1,40 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
+import DatePickerField from "@/app/(app)/components/DatePickerField";
+import CustomSelectField from "@/app/(app)/components/CustomSelectField";
+import ConfirmDialog from "@/app/(app)/components/ConfirmDialog";
 import {
   ArrowLeft,
+  Archive,
+  ArchiveRestore,
   Calendar,
   CalendarClock,
   CalendarPlus,
+  Check,
   CheckCircle2,
+ChevronDown,
+  ChevronUp,
+  Clock,
+  Download,
   Eye,
   Flag,
   FolderKanban,
   History,
+  ListChecks,
+  Lock,
   MessageSquare,
+  Paperclip,
   Pencil,
+  Plus,
   Save,
   Send,
+  Tags,
   Trash2,
+  Upload,
   UserRound,
   X,
 } from "lucide-react";
@@ -27,11 +43,24 @@ import {
   userRoleInAgency,
   getHistoryByTask,
   ACTIVITY_LABELS,
+subtaskProgress,
+  formatFileSize,
+  isTaskBlocked,
+  type Attachment,
+  type Subtask,
+  type Tag,
   DEADLINE_META,
   type TaskPriority,
   type TaskStatus,
   type ProjectMember,
 } from "@/lib/types";
+import {
+  buildStatusStyleIndex,
+  darken,
+  statusStyleOf as statusStyleOfStyle,
+  type StatusStyle,
+} from "@/lib/taskStatusStyle";
+import { useTaskStatuses } from "@/lib/useTaskStatuses";
 import { useAuthStore } from "@/app/store/authStore";
 import {
   fetchTask,
@@ -40,12 +69,26 @@ import {
   addComment as apiAddComment,
   deleteComment as apiDeleteComment,
   fetchActivity,
+  fetchSubtasks,
+  fetchAgencyTags,
+  fetchAttachments,
+  uploadAttachment as apiUploadAttachment,
+  deleteAttachment as apiDeleteAttachment,
+  downloadAttachment as apiDownloadAttachment,
+  createTag as apiCreateTag,
+  setTaskTags as apiSetTaskTags,
+  deleteTag as apiDeleteTag,
+  createSubtask as apiCreateSubtask,
+  updateSubtask as apiUpdateSubtask,
+  deleteSubtask as apiDeleteSubtask,
+  completeAllSubtasks as apiCompleteAllSubtasks,
   updateTask as apiUpdateTask,
+updateTaskStatus as apiUpdateTaskStatus,
+  archiveTask as apiArchiveTask,
+  restoreTask as apiRestoreTask,
   deleteTask as apiDeleteTask,
   getApiErrorMessage,
 } from "@/lib/services";
-import Select from "@/app/(app)/components/Select";
-import DatePicker from "@/app/(app)/components/DatePicker";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -54,13 +97,6 @@ const container: Variants = {
 const item: Variants = {
   hidden: { y: 16, opacity: 0 },
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
-};
-
-const statusConfig: Record<TaskStatus, { label: string; color: string; bg: string; border?: string }> = {
-  a_faire: { label: "À faire", color: "#FF6B6B", bg: "rgba(255,107,107,0.16)", border: "1px solid rgba(255,107,107,0.4)" },
-  en_cours: { label: "En cours", color: "#fbbf24", bg: "rgba(251,191,36,0.18)", border: "1px solid rgba(251,191,36,0.4)" },
-  en_revision: { label: "En révision", color: "#7db5ff", bg: "rgba(125,181,255,0.16)", border: "1px solid rgba(125,181,255,0.4)" },
-  terminee: { label: "Terminée", color: "#34d399", bg: "rgba(52,211,153,0.16)", border: "1px solid rgba(52,211,153,0.4)" },
 };
 
 const priorityConfig: Record<TaskPriority, { label: string; color: string; bg: string; border?: string }> = {
@@ -106,11 +142,50 @@ const formatDateTime = (iso: string) =>
     minute: "2-digit",
   });
 
+// Nombre d'événements affichés avant le repli « Voir plus » (comme l'activité récente du dashboard).
+const HISTORY_VISIBLE = 8;
+
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Corps d'erreur renvoyé par PATCH /tasks/{id}/status quand le statut terminal
+// est bloqué par des sous-tâches non cochées.
+type StatusErrorPayload = {
+  message?: string;
+  requires_force?: boolean;
+  open_subtasks?: number;
+};
+
+const statusErrorPayload = (err: unknown): StatusErrorPayload | undefined =>
+  (err as { response?: { data?: StatusErrorPayload } })?.response?.data;
+
+const renderWithMentions = (content: string, names: string[]): React.ReactNode => {
+  const valid = names.filter(Boolean);
+  if (valid.length === 0) return content;
+
+  const pattern = new RegExp(`@(${valid.map(escapeRegExp).join("|")})`, "g");
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(content)) !== null) {
+    if (match.index > last) parts.push(content.slice(last, match.index));
+    parts.push(
+      <span key={`m-${match.index}`} className="font-semibold" style={{ color: "var(--accent-text)" }}>
+        @{match[1]}
+      </span>,
+    );
+    last = match.index + match[0].length;
+  }
+
+  if (last < content.length) parts.push(content.slice(last));
+  return parts.length > 0 ? parts : content;
+};
+
 export default function TaskDetailPage() {
   const { agencyId, projectId, taskId } = useParams<{ agencyId: string; projectId: string; taskId: string }>();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const { reload, agencyById, getProject, data } = useAppData();
+  const { reload, agencyById, getProject, tasksByProject, data } = useAppData();
 
   const agency = agencyById(agencyId);
   const project = getProject(projectId);
@@ -118,32 +193,39 @@ export default function TaskDetailPage() {
   const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
   const isAdmin = role === "owner" || role === "admin";
 
+  const { statuses, isTerminal, labelOf } = useTaskStatuses();
+  const statusConfig = useMemo(() => buildStatusStyleIndex(statuses), [statuses]);
+  const statusStyleOf = (status: TaskStatus): StatusStyle =>
+    statusStyleOfStyle(status, statusConfig, labelOf(status));
+
   // Données via API
   const taskResult = useAsync(() => fetchTask(taskId), [taskId]);
-  const task = taskResult.data;
+  const appTask = tasksByProject(projectId).find((t) => t.id === Number(taskId));
+  const task = taskResult.data ?? appTask;
   const membersResult = useAsync(() => fetchProjectMembers(projectId), [projectId]);
   const projectMembers: ProjectMember[] = membersResult.data ?? [];
   const commentsResult = useAsync(() => fetchComments(taskId), [taskId]);
   const comments = commentsResult.data ?? [];
   const historyResult = useAsync(() => fetchActivity({ taskId }), [taskId]);
-  const history = getHistoryByTask(historyResult.data ?? [], taskId).filter((h) => {
-    const d = new Date(h.createdAt);
-    if (Number.isNaN(d.getTime())) return false;
-    const now = new Date();
-    return (
-      d.getFullYear() === now.getFullYear() &&
-      d.getMonth() === now.getMonth() &&
-      d.getDate() === now.getDate()
-    );
-  });
+const history = getHistoryByTask(historyResult.data ?? [], taskId);
+  const subtasksResult = useAsync(() => fetchSubtasks(taskId), [taskId]);
+  const subtasks: Subtask[] = subtasksResult.data ?? [];
+  const agencyTagsResult = useAsync(() => fetchAgencyTags(agencyId), [agencyId]);
+  const agencyTags: Tag[] = agencyTagsResult.data ?? [];
+  const attachmentsResult = useAsync(() => fetchAttachments(taskId), [taskId]);
+  const attachments: Attachment[] = attachmentsResult.data ?? [];
 
   const [editing, setEditing] = useState(false);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
+  const [confirmingArchive, setConfirmingArchive] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   // ====== Commentaires ======
   const [commentOpen, setCommentOpen] = useState(false);
   const [commentContent, setCommentContent] = useState("");
   const [commentError, setCommentError] = useState<string | null>(null);
+const [commentMentions, setCommentMentions] = useState<number[]>([]);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [draftLong, setDraftLong] = useState(false);
   const [showCommentPreview, setShowCommentPreview] = useState(false);
   const [expandedCommentIds, setExpandedCommentIds] = useState<Set<number>>(() => new Set());
@@ -171,6 +253,30 @@ export default function TaskDetailPage() {
   const [editFieldErrors, setEditFieldErrors] = useState<Record<string, string>>({});
   const [editApiError, setEditApiError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // ====== Sous-tâches ======
+  const [newSubtask, setNewSubtask] = useState("");
+  const [subtaskError, setSubtaskError] = useState<string | null>(null);
+  const [subtaskBusy, setSubtaskBusy] = useState(false);
+
+  // ====== Blocage « Terminée » ======
+  const [statusBlocked, setStatusBlocked] = useState<string | null>(null);
+  // On mémorise la cible cliquée : une agence peut avoir plusieurs statuts
+  // terminaux (« Terminée », « Annulée »…), il faut forcer VERS CE statut-là.
+  const [forceConfirm, setForceConfirm] = useState<
+    { openSubtasks: number; target: TaskStatus } | null
+  >(null);
+  const [statusBusy, setStatusBusy] = useState(false);
+
+  // ====== Étiquettes ======
+  const [tagsOpen, setTagsOpen] = useState(false);
+  const [tagsBusy, setTagsBusy] = useState(false);
+  const [newTagName, setNewTagName] = useState("");
+
+  // ====== Pièces jointes ======
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = task ? `${task.title} — Détail de la tâche` : "Détail de la tâche";
@@ -244,18 +350,94 @@ export default function TaskDetailPage() {
     }
   };
 
+  const handleArchive = async () => {
+    if (!task) return;
+    setActionLoading(true);
+    try {
+      await apiArchiveTask(task.id);
+      setConfirmingArchive(false);
+      void reload();
+      taskResult.reload();
+    } catch (err) {
+      setConfirmingArchive(false);
+      alert(getApiErrorMessage(err));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!task) return;
+    setActionLoading(true);
+    try {
+      await apiRestoreTask(task.id);
+      void reload();
+      taskResult.reload();
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!task) return;
     setActionLoading(true);
     try {
+      const projectId = String(task.projectId);
       await apiDeleteTask(task.id);
-      void reload();
+      await reload();
       router.push(`/agences/${agencyId}/projets/${projectId}/kanban`);
     } catch (err) {
       setConfirmingDelete(false);
       alert(getApiErrorMessage(err));
     } finally {
       setActionLoading(false);
+    }
+  };
+
+const handleStatusChange = async (status: TaskStatus) => {
+    if (!task) return;
+    // C'est le statut terminal de l'agence qui « clôt » la tâche, pas la clé
+    // 'terminee' : une colonne personnalisée comme « Livré » déclenche le même
+    // contrôle de sous-tâches.
+    if (isTerminal(status)) {
+      const openSubtasks = subtasks.filter((s) => !s.done).length;
+      if (openSubtasks > 0) {
+        const message = `Impossible de terminer : ${openSubtasks} sous-tâche${openSubtasks > 1 ? "s" : ""} encore non cochée${openSubtasks > 1 ? "s" : ""}.`;
+        if (isAdmin) {
+          setForceConfirm({ openSubtasks, target: status });
+          return;
+        }
+        setStatusBlocked(message);
+        return;
+      }
+    }
+    await doUpdateStatus(status, false);
+  };
+
+  const doUpdateStatus = async (status: TaskStatus, force: boolean) => {
+    if (!task || statusBusy) return;
+    setStatusBusy(true);
+    setStatusBlocked(null);
+    try {
+      await apiUpdateTaskStatus(task.id, status, force ? { force: true } : undefined);
+      taskResult.reload();
+      historyResult.reload();
+      void reload();
+    } catch (err) {
+      const d = statusErrorPayload(err);
+      if (d?.requires_force) {
+        if (isAdmin) {
+          setForceConfirm({ openSubtasks: d.open_subtasks ?? 0, target: status });
+        } else {
+          setStatusBlocked(d.message || "Des sous-tâches ne sont pas encore cochées.");
+        }
+      } else {
+        alert(getApiErrorMessage(err));
+      }
+    } finally {
+      setStatusBusy(false);
     }
   };
 
@@ -268,8 +450,10 @@ export default function TaskDetailPage() {
       return;
     }
     try {
-      await apiAddComment(task.id, commentContent.trim());
+      await apiAddComment(task.id, commentContent.trim(), commentMentions);
       setCommentContent("");
+      setCommentMentions([]);
+      setMentionQuery(null);
       setCommentOpen(false);
       commentsResult.reload();
       historyResult.reload();
@@ -283,6 +467,162 @@ export default function TaskDetailPage() {
     try {
       await apiDeleteComment(commentId);
       commentsResult.reload();
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    }
+  };
+
+  const handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setCommentContent(value);
+    const caret = e.target.selectionStart ?? value.length;
+    const before = value.slice(0, caret);
+    const match = before.match(/@([\p{L}\w'-]*)$/u);
+    setMentionQuery(match ? match[1] : null);
+  };
+
+  const insertMention = (pm: ProjectMember) => {
+    const name = `${pm.user.firstName} ${pm.user.lastName}`.trim() || pm.user.name;
+    setCommentContent((prev) => prev.replace(/@([\p{L}\w'-]*)$/u, `@${name} `));
+    setCommentMentions((prev) => (prev.includes(pm.user.id) ? prev : [...prev, pm.user.id]));
+    setMentionQuery(null);
+  };
+
+  const mentionNames = [
+    ...projectMembers.map((pm) => `${pm.user.firstName} ${pm.user.lastName}`.trim()),
+    user ? `${user.firstName} ${user.lastName}`.trim() : "",
+  ].filter(Boolean);
+
+  const mentionSuggestions =
+    mentionQuery === null
+      ? []
+      : projectMembers
+          .filter((pm) => pm.user.id !== user?.id)
+          .filter((pm) => {
+            const q = mentionQuery.toLowerCase();
+            const full = `${pm.user.firstName} ${pm.user.lastName}`.toLowerCase();
+            return full.includes(q) || pm.user.email.toLowerCase().includes(q);
+          })
+          .slice(0, 6);
+
+  const handleAddSubtask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubtaskError(null);
+    if (!task) return;
+    if (!newSubtask.trim()) {
+      setSubtaskError("Le titre de la sous-tâche est obligatoire.");
+      return;
+    }
+    setSubtaskBusy(true);
+    try {
+      await apiCreateSubtask(task.id, newSubtask.trim());
+      setNewSubtask("");
+      subtasksResult.reload();
+    } catch (err) {
+      setSubtaskError(getApiErrorMessage(err));
+    } finally {
+      setSubtaskBusy(false);
+    }
+  };
+
+  const handleToggleSubtask = async (sub: Subtask) => {
+    try {
+      await apiUpdateSubtask(sub.id, { done: !sub.done });
+      subtasksResult.reload();
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    }
+  };
+
+  const handleDeleteSubtask = async (sub: Subtask) => {
+    try {
+      await apiDeleteSubtask(sub.id);
+      subtasksResult.reload();
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    }
+  };
+
+  const handleToggleTag = async (tagId: number) => {
+    if (!task) return;
+    const current = task.tags.map((t) => t.id);
+    const next = current.includes(tagId)
+      ? current.filter((id) => id !== tagId)
+      : [...current, tagId];
+    setTagsBusy(true);
+    try {
+      await apiSetTaskTags(task.id, next);
+      taskResult.reload();
+      void reload();
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    } finally {
+      setTagsBusy(false);
+    }
+  };
+
+  const handleCreateTag = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!task || !newTagName.trim()) return;
+    setTagsBusy(true);
+    try {
+      const created = await apiCreateTag(agencyId, { name: newTagName.trim() });
+      setNewTagName("");
+      agencyTagsResult.reload();
+      await apiSetTaskTags(task.id, [...task.tags.map((t) => t.id), created.id]);
+      taskResult.reload();
+      void reload();
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    } finally {
+      setTagsBusy(false);
+    }
+  };
+
+  const handleDeleteTag = async (tg: Tag) => {
+    if (!task) return;
+    setTagsBusy(true);
+    try {
+      await apiDeleteTag(tg.id);
+      agencyTagsResult.reload();
+      taskResult.reload();
+      void reload();
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    } finally {
+      setTagsBusy(false);
+    }
+  };
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !task) return;
+    setAttachmentError(null);
+    setUploadBusy(true);
+    try {
+      await apiUploadAttachment(task.id, file);
+      attachmentsResult.reload();
+      historyResult.reload();
+    } catch (err) {
+      setAttachmentError(getApiErrorMessage(err));
+    } finally {
+      setUploadBusy(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDownloadAttachment = async (att: Attachment) => {
+    try {
+      await apiDownloadAttachment(att);
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    }
+  };
+
+  const handleDeleteAttachment = async (att: Attachment) => {
+    try {
+      await apiDeleteAttachment(att.id);
+      attachmentsResult.reload();
     } catch (err) {
       alert(getApiErrorMessage(err));
     }
@@ -351,9 +691,19 @@ export default function TaskDetailPage() {
     );
   }
 
-  // ✅ Accès : admin toujours, membre uniquement s'il est assigné au projet
+  // ✅ Accès : admin, créateur ou assigné à la tâche, sinon membre du projet
+  const isProjectUser =
+    !!user && (task?.assignedTo === user.id || task?.createdBy === user.id);
   const hasProjectAccess =
-    isAdmin || projectMembers.some((pm) => pm.user.id === user.id);
+    isAdmin || isProjectUser || projectMembers.some((pm) => pm.user.id === user.id);
+
+  if (!hasProjectAccess && membersResult.loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+      </div>
+    );
+  }
 
   if (!hasProjectAccess) {
     return (
@@ -375,12 +725,19 @@ export default function TaskDetailPage() {
     );
   }
 
-  // ✅ Si la tâche n'existe pas (ou en cours de chargement)
+  // ✅ Si la tâche n'existe pas
   if (!task) {
+    if (taskResult.loading) {
+      return (
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          {taskResult.loading ? "Chargement de la tâche…" : "Tâche introuvable"}
+          Tâche introuvable
         </p>
         <Link
           href={`/agences/${agencyId}/projets/${projectId}/kanban`}
@@ -401,23 +758,121 @@ export default function TaskDetailPage() {
 
   const assignee = memberById(task.assignedTo);
   const creator = memberById(task.createdBy);
+const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
+  const canChangeStatus = isAdmin || isAssigned;
+  const canManageSubtasks = isAdmin || projectMembers.some((pm) => pm.user.id === user.id);
+  const progress = subtaskProgress(subtasks);
 
-  const statusBadge = statusConfig[task.status];
+  const statusBadge = statusStyleOf(task.status);
   const prio = priorityConfig[task.priority];
   const deadlineMeta =
     task.deadlineStatus && task.deadlineStatus !== "a_venir"
       ? DEADLINE_META[task.deadlineStatus]
       : null;
 
-  // En-tête : teinte PLUS PROFONDE que le statut (couleur pure, opaque)
+  // En-tête : teinte PLUS PROFONDE que le statut (couleur pure, opaque).
+  // On garde des teintes choisies à la main pour les quatre statuts
+  // historiques, et on assombrit la couleur de l'agence pour les colonnes
+  // personnalisées.
   const STATUS_HEADER_SHADE: Record<string, string> = {
     a_faire: "#E0463E",
     en_cours: "#D08C0D",
     en_revision: "#3F82E8",
     terminee: "#0FA37A",
   };
-  const hdrBg = STATUS_HEADER_SHADE[task.status] ?? statusBadge.color;
+  const hdrBg = STATUS_HEADER_SHADE[task.status] ?? darken(statusBadge.color, 0.72);
   const hdrBorder = "1px solid rgba(255,255,255,0.28)";
+
+  const historyVisible = historyExpanded ? history : history.slice(0, HISTORY_VISIBLE);
+
+  const historyPanel = (
+    <motion.div variants={item} className="glass rounded-2xl p-5" style={{ boxShadow: "var(--shadow-card)" }}>
+      <h2 className="font-bold flex items-center gap-2.5 mb-3" style={{ color: "var(--text-primary)" }}>
+        <span
+          className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: "rgba(139,92,246,0.15)" }}
+        >
+          <History size={14} style={{ color: "#7c3aed" }} />
+        </span>
+        Historique
+        {history.length > 0 && (
+          <span
+            className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full"
+            style={{ color: "#7c3aed", background: "rgba(139,92,246,0.15)" }}
+          >
+            {history.length}
+          </span>
+        )}
+      </h2>
+
+      {historyResult.loading ? (
+        <p className="text-sm text-center py-3" style={{ color: "var(--text-muted)" }}>
+          Chargement de l&apos;historique…
+        </p>
+      ) : history.length === 0 ? (
+        <p className="text-sm text-center py-3" style={{ color: "var(--text-muted)" }}>
+          Aucune action enregistrée pour cette tâche.
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-col">
+            {historyVisible.map((h, idx) => {
+              const cfg = historyConfig[h.action] ?? {
+                label: h.action,
+                color: "var(--text-secondary)",
+                bg: "var(--hover-soft)",
+                icon: History,
+              };
+              const Icon = cfg.icon;
+              const actor = memberByEmail(h.actorEmail);
+              const isLast = idx === historyVisible.length - 1;
+              return (
+                <div key={h.id} className="flex gap-3">
+                  <div className="flex flex-col items-center shrink-0">
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                      style={{ background: cfg.bg }}
+                    >
+                      <Icon className="w-3.5 h-3.5" style={{ color: cfg.color }} />
+                    </div>
+                    {!isLast && (
+                      <div className="w-px flex-1 min-h-3" style={{ background: "var(--border-subtle)" }} />
+                    )}
+                  </div>
+                  <div className={`flex-1 min-w-0 ${isLast ? "" : "pb-3"}`}>
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                        {h.description}
+                      </span>
+                      <span
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                        style={{ color: cfg.color, background: cfg.bg }}
+                      >
+                        {cfg.label}
+                      </span>
+                    </div>
+                    <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                      {actor ? `${actor.user.firstName} ${actor.user.lastName}` : h.actorName ?? h.actorEmail} · {formatDateTime(h.createdAt)}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {history.length > HISTORY_VISIBLE && (
+            <button
+              onClick={() => setHistoryExpanded((v) => !v)}
+              className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors hover:bg-[var(--hover-soft)]"
+              style={{ color: "#056cf2", background: "rgba(5,108,242,0.08)" }}
+            >
+              {historyExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              {historyExpanded ? "Voir moins" : `Voir plus (${history.length - HISTORY_VISIBLE})`}
+            </button>
+          )}
+        </>
+      )}
+    </motion.div>
+  );
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
@@ -471,6 +926,14 @@ export default function TaskDetailPage() {
                   >
                     Priorité {prio.label.toLowerCase()}
                   </span>
+{isTaskBlocked(task, statuses) && (
+                      <span
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                        style={{ color: "#fff", background: "rgba(0,0,0,0.28)", border: "1px solid rgba(255,255,255,0.4)" }}
+                      >
+                        <Lock size={12} /> Bloquée
+                      </span>
+                    )}
                   {deadlineMeta && (
                     <span
                       className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
@@ -492,12 +955,31 @@ export default function TaskDetailPage() {
                   >
                     <Pencil size={13} /> Modifier
                   </button>
+                  {task.archivedAt ? (
+                    <button
+                      onClick={handleRestore}
+                      disabled={actionLoading}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5 disabled:opacity-60"
+                      style={{ background: "#fff", color: "var(--color-success)", boxShadow: "0 2px 6px -2px rgba(16,185,129,0.35)" }}
+                    >
+                      <ArchiveRestore size={13} /> Restaurer
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmingArchive(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5"
+                      style={{ background: "#fff", color: "var(--color-error)", boxShadow: "0 2px 6px -2px rgba(239,68,68,0.3)" }}
+                    >
+                      <Archive size={13} /> Archiver
+                    </button>
+                  )}
                   <button
                     onClick={() => setConfirmingDelete(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5"
-                    style={{ background: "#fff", color: "var(--color-error)", boxShadow: "0 2px 6px -2px rgba(239,68,68,0.3)" }}
+                    title="Supprimer définitivement"
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-[13px] transition-all hover:scale-[1.03] hover:-translate-y-0.5"
+                    style={{ background: "rgba(255,255,255,0.14)", color: "#fff", border: "1px solid rgba(255,255,255,0.25)" }}
                   >
-                    <Trash2 size={13} /> Supprimer
+                    <Trash2 size={14} />
                   </button>
                 </div>
               )}
@@ -518,35 +1000,189 @@ export default function TaskDetailPage() {
             </p>
           </div>
 
-          {/* Avancement de la tâche — affichage seul, le statut se modifie au Kanban */}
-          <div className="flex flex-col gap-2 pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.25)" }}>
-            <span className="text-xs font-bold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.92)" }}>
-              Avancement de la tâche
-            </span>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {(Object.keys(statusConfig) as TaskStatus[]).map((s) => {
-                const cfg = statusConfig[s];
-                const active = task.status === s;
-                return (
-                  <div
-                    key={s}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold"
-                    style={
-                      active
-                        ? { color: readableOnWhite(cfg.color), background: "#fff", border: `1px solid ${cfg.color}`, boxShadow: "var(--shadow-card)" }
-                        : { color: "var(--text-secondary)", background: "var(--input-bg)", border: "1px solid var(--input-border)", opacity: 0.55 }
-                    }
-                  >
-                    {cfg.label}
-                  </div>
-                );
-              })}
+{/* Changement de statut */}
+          {canChangeStatus && !task.archivedAt && (
+            <div className="flex flex-col gap-2 pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.25)" }}>
+              <span className="text-xs font-bold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.92)" }}>
+                Avancement de la tâche
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {statuses.map((s) => {
+                  const cfg = statusStyleOf(s.key);
+                  const active = task.status === s.key;
+                  return (
+                    <button
+                      key={s.key}
+                      onClick={() => handleStatusChange(s.key)}
+                      disabled={statusBusy}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all hover:scale-[1.02] disabled:opacity-60 disabled:pointer-events-none"
+                      style={
+                        active
+                          ? { color: readableOnWhite(cfg.color), background: "#fff", border: `1px solid ${cfg.color}`, boxShadow: "var(--shadow-card)" }
+                          : { color: "var(--text-secondary)", background: "var(--input-bg)", border: "1px solid var(--input-border)" }
+                      }
+                    >
+                      {s.is_terminal && <CheckCircle2 size={14} />}
+                      {s.key === "a_faire" && <Clock size={14} />}
+                      {!s.is_terminal && s.key !== "a_faire" ? <CalendarClock size={14} /> : null}
+                      {cfg.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {statusBlocked && (
+                <p className="text-[13px] font-semibold" style={{ color: "#fca5a5" }}>
+                  {statusBlocked}
+                </p>
+              )}
             </div>
-            <span className="text-[10px] uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.6)" }}>
-              Le statut se modifie uniquement sur le Kanban
-            </span>
-          </div>
+          )}
         </div>
+      </motion.div>
+
+      {/* Bannière tâche archivée */}
+      {task.archivedAt && (
+        <motion.div
+          variants={item}
+          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl px-5 py-4"
+          style={{ background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.35)" }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(245,158,11,0.16)" }}>
+              <Archive className="w-5 h-5" style={{ color: "#b45309" }} />
+            </div>
+            <div>
+              <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+                Tâche archivée
+              </p>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                {task.archivedAt
+                  ? `Archivée le ${new Date(task.archivedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}. Elle est retirée du Kanban.`
+                  : ""}
+              </p>
+            </div>
+          </div>
+          {isAdmin && (
+            <button
+              onClick={handleRestore}
+              disabled={actionLoading}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-transform hover:scale-105 disabled:opacity-60"
+              style={{ background: "var(--gradient-button)", color: "#fff", boxShadow: "0 6px 14px -6px rgba(37,99,235,0.45)" }}
+            >
+              <ArchiveRestore size={15} /> Restaurer
+            </button>
+          )}
+        </motion.div>
+      )}
+
+      {/* Corps : 2/3 contenu, 1/3 historique en haut à droite (comme l'activité récente du dashboard) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        <div className="lg:col-span-2 space-y-6">
+
+          {/* Étiquettes */}
+      <motion.div variants={item} className="glass rounded-2xl p-5" style={{ boxShadow: "var(--shadow-card)" }}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+              <Tags size={14} /> Étiquettes
+            </span>
+            {task.tags.length === 0 && (
+              <span className="text-sm" style={{ color: "var(--text-muted)" }}>Aucune</span>
+            )}
+            {task.tags.map((tg) => (
+              <span
+                key={tg.id}
+                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold whitespace-nowrap"
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border-subtle)",
+                  borderLeft: `3px solid ${tg.color}`,
+                  color: "var(--text-secondary)",
+                }}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{ background: tg.color }}
+                />
+                {tg.name}
+              </span>
+            ))}
+          </div>
+          {canManageSubtasks && (
+            <button
+              type="button"
+              onClick={() => setTagsOpen((v) => !v)}
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03]"
+              style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
+            >
+              {tagsOpen ? <X size={13} /> : <Plus size={13} />}
+              {tagsOpen ? "Fermer" : "Gérer"}
+            </button>
+          )}
+        </div>
+
+        {tagsOpen && (
+          <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--border-subtle)" }}>
+            <div className="flex flex-wrap gap-2">
+              {agencyTags.length === 0 ? (
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  Aucune étiquette dans cette agence. Créez-en une ci-dessous.
+                </p>
+              ) : (
+                agencyTags.map((tg) => {
+                  const on = task.tags.some((t) => t.id === tg.id);
+                  return (
+                    <div key={tg.id} className="inline-flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={tagsBusy}
+                        onClick={() => handleToggleTag(tg.id)}
+                        className="inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-full transition-all hover:scale-105 disabled:opacity-60"
+                        style={
+                          on
+                            ? { background: tg.color, color: "#fff", border: "1px solid transparent" }
+                            : { background: "transparent", color: tg.color, border: `1px solid ${tg.color}66` }
+                        }
+                      >
+                        {on && <Check size={12} />}
+                        {tg.name}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={tagsBusy}
+                        onClick={() => handleDeleteTag(tg)}
+                        title={`Supprimer l'étiquette « ${tg.name} »`}
+                        className="shrink-0 p-1 rounded-full opacity-60 hover:opacity-100 transition-opacity disabled:opacity-30"
+                        style={{ color: "var(--color-error)" }}
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            {isAdmin && (
+              <form onSubmit={handleCreateTag} className="mt-3 flex flex-col sm:flex-row gap-2">
+                <input
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  placeholder="Nouvelle étiquette…"
+                  className="flex-1 px-3 py-2 rounded-xl text-sm outline-none"
+                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                />
+                <button
+                  type="submit"
+                  disabled={tagsBusy || !newTagName.trim()}
+                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
+                  style={{ background: "var(--gradient-button)" }}
+                >
+                  <Plus size={14} /> Créer
+                </button>
+              </form>
+            )}
+          </div>
+        )}
       </motion.div>
 
       {/* Détails : assigné + créateur */}
@@ -612,18 +1248,239 @@ export default function TaskDetailPage() {
         </div>
       </motion.div>
 
-      {/* Commentaires + Historique — côte à côte (commentaires 2/3, historique 1/3) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-        <motion.div variants={item} className="lg:col-span-2 glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
-          <h2 className="font-bold flex items-center gap-2.5 mb-4" style={{ color: "var(--text-primary)" }}>
+      {/* Sous-tâches / checklist */}
+      <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h2 className="font-bold flex items-center gap-2.5" style={{ color: "var(--text-primary)" }}>
             <span
               className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
               style={{ background: "var(--accent-soft)" }}
             >
-              <MessageSquare size={16} style={{ color: "var(--accent-text)" }} />
+              <ListChecks size={16} style={{ color: "var(--accent-text)" }} />
             </span>
-            Commentaires
+            Sous-tâches
+            {subtasks.length > 0 && (
+              <span
+                className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                style={{ background: "var(--hover-soft)", color: "var(--text-muted)" }}
+              >
+                {progress.done}/{progress.total}
+              </span>
+            )}
           </h2>
+        </div>
+
+        {subtasks.length > 0 && (
+          <div className="mb-4 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--hover-soft)" }}>
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${progress.percent}%`, background: "var(--gradient-primary)" }}
+            />
+          </div>
+        )}
+
+        {subtasksResult.loading ? (
+          <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
+            Chargement des sous-tâches…
+          </p>
+        ) : subtasks.length === 0 ? (
+          <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
+            Aucune sous-tâche pour le moment.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {subtasks.map((sub) => (
+              <li
+                key={sub.id}
+                className="group flex items-center gap-3 rounded-xl px-3 py-2"
+                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
+              >
+                <button
+                  type="button"
+                  onClick={() => handleToggleSubtask(sub)}
+                  disabled={!canManageSubtasks}
+                  className="shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-all disabled:opacity-60"
+                  style={{
+                    background: sub.done ? "var(--gradient-primary)" : "transparent",
+                    border: sub.done ? "none" : "1.5px solid var(--input-border)",
+                  }}
+                  title={sub.done ? "Marquer comme non terminée" : "Marquer comme terminée"}
+                >
+                  {sub.done && <Check size={13} color="#fff" />}
+                </button>
+                <span className="flex-1 min-w-0 flex items-center gap-1.5">
+                  <span
+                    className="text-sm truncate"
+                    style={{
+                      color: sub.done ? "var(--text-muted)" : "var(--text-primary)",
+                      textDecoration: sub.done ? "line-through" : "none",
+                    }}
+                  >
+                    {sub.title}
+                  </span>
+                  {sub.imposed && (
+                    <Lock
+                      size={13}
+                      className="shrink-0"
+                      style={{ color: "var(--text-muted)" }}
+                      aria-label="Sous-tâche imposée par un administrateur : suppression réservée à un admin"
+                    />
+                  )}
+                </span>
+                {canManageSubtasks && (isAdmin || !sub.imposed) && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteSubtask(sub)}
+                    className="shrink-0 p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ color: "var(--color-error)" }}
+                    title="Supprimer cette sous-tâche"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {canManageSubtasks && (
+          <form onSubmit={handleAddSubtask} className="mt-4 flex flex-col sm:flex-row gap-2">
+            <input
+              value={newSubtask}
+              onChange={(e) => {
+                setNewSubtask(e.target.value);
+                setSubtaskError(null);
+              }}
+              placeholder="Ajouter une sous-tâche…"
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none"
+              style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+            />
+            <button
+              type="submit"
+              disabled={subtaskBusy}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
+              style={{ background: "var(--gradient-button)" }}
+            >
+              <Plus size={15} /> {subtaskBusy ? "…" : "Ajouter"}
+            </button>
+          </form>
+        )}
+        {subtaskError && (
+          <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
+            {subtaskError}
+          </p>
+        )}
+      </motion.div>
+
+      {/* Pièces jointes */}
+      <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h2 className="font-bold flex items-center gap-2.5" style={{ color: "var(--text-primary)" }}>
+            <span
+              className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: "var(--accent-soft)" }}
+            >
+              <Paperclip size={16} style={{ color: "var(--accent-text)" }} />
+            </span>
+            Pièces jointes
+            {attachments.length > 0 && (
+              <span
+                className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                style={{ background: "var(--hover-soft)", color: "var(--text-muted)" }}
+              >
+                {attachments.length}
+              </span>
+            )}
+          </h2>
+          {canManageSubtasks && (
+            <>
+              <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelected} />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadBusy}
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold text-white transition-all hover:scale-[1.03] disabled:opacity-60"
+                style={{ background: "var(--gradient-button)" }}
+              >
+                <Upload size={14} /> {uploadBusy ? "Envoi…" : "Ajouter un fichier"}
+              </button>
+            </>
+          )}
+        </div>
+
+        {attachmentsResult.loading ? (
+          <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
+            Chargement des pièces jointes…
+          </p>
+        ) : attachments.length === 0 ? (
+          <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
+            Aucun fichier joint à cette tâche.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {attachments.map((att) => (
+              <li
+                key={att.id}
+                className="group flex items-center gap-3 rounded-xl px-3 py-2"
+                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
+              >
+                <span
+                  className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
+                  style={{ background: "var(--accent-soft)" }}
+                >
+                  <Paperclip size={15} style={{ color: "var(--accent-text)" }} />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>
+                    {att.fileName}
+                  </p>
+                  <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                    {formatFileSize(att.fileSize)}
+                    {att.authorName ? ` · ${att.authorName}` : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadAttachment(att)}
+                  className="shrink-0 p-1.5 rounded-lg transition-colors hover:opacity-70"
+                  style={{ color: "var(--accent-text)" }}
+                  title="Télécharger"
+                >
+                  <Download size={15} />
+                </button>
+                {(isAdmin || att.uploaderId === user.id) && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteAttachment(att)}
+                    className="shrink-0 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ color: "var(--color-error)" }}
+                    title="Supprimer"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        {attachmentError && (
+          <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
+            {attachmentError}
+          </p>
+        )}
+      </motion.div>
+
+      {/* Commentaires */}
+      <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
+        <h2 className="font-bold flex items-center gap-2.5 mb-4" style={{ color: "var(--text-primary)" }}>
+          <span
+            className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: "var(--accent-soft)" }}
+          >
+            <MessageSquare size={16} style={{ color: "var(--accent-text)" }} />
+          </span>
+          Commentaires
+        </h2>
 
           {/* Liste des commentaires */}
           {commentsResult.loading ? (
@@ -685,12 +1542,16 @@ export default function TaskDetailPage() {
                           )}
                         </div>
                       </div>
-                      <p
+<p
                         ref={measureComment(c.id, isExpanded)}
-                        className={`text-sm whitespace-pre-wrap break-words mt-1 ${isExpanded ? "" : "line-clamp-2"}`}
+                        // max-h plutôt que line-clamp : avec -webkit-line-clamp le
+                        // navigateur rapporte scrollHeight == clientHeight, la
+                        // détection d'overflow échoue et « Voir le commentaire »
+                        // n'apparaît jamais sur un long texte.
+                        className={`text-sm whitespace-pre-wrap break-words mt-1 ${isExpanded ? "" : "max-h-10 overflow-hidden"}`}
                         style={{ color: "var(--text-secondary)" }}
                       >
-                        {c.content}
+                        {renderWithMentions(c.content, mentionNames)}
                       </p>
                       {!isExpanded && isLong && (
                         <button
@@ -734,20 +1595,40 @@ export default function TaskDetailPage() {
           {/* Ajout d'un commentaire — en bas, bouton bleu à droite */}
           <div className="mt-5 flex flex-col items-end gap-3">
             {commentOpen ? (
-              <form id="comment-form" onSubmit={handleCommentSubmit} className="w-full">
-                <textarea
-                  autoFocus
-                  value={commentContent}
-                  onChange={(e) => setCommentContent(e.target.value)}
-                  onInput={(e) => {
-                    const el = e.currentTarget;
-                    setDraftLong(el.scrollHeight > el.clientHeight + 1);
-                  }}
-                  rows={5}
-                  placeholder="Écrire un commentaire…"
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-y break-words max-h-52 overflow-y-auto transition-shadow"
-                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
-                />
+<form id="comment-form" onSubmit={handleCommentSubmit} className="w-full">
+                <div className="relative">
+                  <textarea
+                    autoFocus
+                    value={commentContent}
+                    onChange={handleCommentChange}
+                    onInput={(e) => {
+                      const el = e.currentTarget;
+                      setDraftLong(el.scrollHeight > el.clientHeight + 1);
+                    }}
+                    rows={5}
+                    placeholder="Écrire un commentaire… Tapez @ pour mentionner quelqu'un"
+                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-y break-words max-h-52 overflow-y-auto transition-shadow"
+                    style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                  />
+                  {mentionSuggestions.length > 0 && (
+                    <div
+                      className="absolute left-0 right-0 z-20 mt-1 rounded-xl overflow-hidden shadow-lg"
+                      style={{ background: "var(--surface, var(--input-bg))", border: "1px solid var(--input-border)" }}
+                    >
+                      {mentionSuggestions.map((pm) => (
+                        <button
+                          key={pm.id}
+                          type="button"
+                          onClick={() => insertMention(pm)}
+                          className="w-full text-left px-3 py-2 text-sm transition-colors hover:opacity-80"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          {`${pm.user.firstName} ${pm.user.lastName}`.trim() || pm.user.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 {commentError && (
                   <p className="text-xs font-semibold mt-1" style={{ color: "var(--color-error)" }}>
                     {commentError}
@@ -768,6 +1649,8 @@ export default function TaskDetailPage() {
                     type="button"
                     onClick={() => {
                       setCommentContent("");
+                      setCommentMentions([]);
+                      setMentionQuery(null);
                       setCommentError(null);
                       setCommentOpen(false);
                     }}
@@ -800,76 +1683,12 @@ export default function TaskDetailPage() {
             )}
           </div>
         </motion.div>
+        </div>
 
-        <motion.div variants={item} className="lg:col-span-1 glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
-          <h2 className="font-bold flex items-center gap-2.5 mb-4" style={{ color: "var(--text-primary)" }}>
-            <span
-              className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: "rgba(139,92,246,0.15)" }}
-            >
-              <History size={16} style={{ color: "#7c3aed" }} />
-            </span>
-            Historique
-          </h2>
-
-          {historyResult.loading ? (
-            <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
-              Chargement de l&apos;historique…
-            </p>
-          ) : history.length === 0 ? (
-            <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
-              Aucune action aujourd&apos;hui.
-            </p>
-          ) : (
-            <div className="flex flex-col">
-              {history.map((h, idx) => {
-                const cfg = historyConfig[h.action] ?? {
-                  label: h.action,
-                  color: "var(--text-secondary)",
-                  bg: "var(--hover-soft)",
-                  icon: History,
-                };
-                const Icon = cfg.icon;
-                const actor = memberByEmail(h.actorEmail);
-                const isLast = idx === history.length - 1;
-                return (
-                  <div key={h.id} className="flex gap-3">
-                    {/* Timeline : icône + ligne verticale */}
-                    <div className="flex flex-col items-center shrink-0">
-                      <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                        style={{ background: cfg.bg }}
-                      >
-                        <Icon className="w-4 h-4" style={{ color: cfg.color }} />
-                      </div>
-                      {!isLast && (
-                        <div className="w-px flex-1 min-h-6" style={{ background: "var(--border-subtle)" }} />
-                      )}
-                    </div>
-
-                    {/* Contenu */}
-                    <div className={`flex-1 min-w-0 pb-4 ${isLast ? "" : ""}`}>
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                          {h.description}
-                        </span>
-                        <span
-                          className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                          style={{ color: cfg.color, background: cfg.bg }}
-                        >
-                          {cfg.label}
-                        </span>
-                      </div>
-                      <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                        {actor ? `${actor.user.firstName} ${actor.user.lastName}` : h.actorName ?? h.actorEmail} · {formatDateTime(h.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </motion.div>
+{/* Historique — en haut à droite (voir plus) */}
+        <div className="lg:col-span-1 space-y-6">
+          {historyPanel}
+        </div>
       </div>
 
       {/* Modal d'édition (admin uniquement) */}
@@ -936,16 +1755,17 @@ export default function TaskDetailPage() {
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Date de début *
                 </label>
-                <DatePicker
-                  value={editStartDate}
+<DatePickerField
                   min={project.startDate || undefined}
                   max={project.dueDate || undefined}
+                  value={editStartDate}
                   onChange={(v) => {
                     setEditStartDate(v);
                     clearEditFieldError("startDate");
                     clearEditFieldError("dueDate");
                   }}
                   className="w-full"
+                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 />
                 {editFieldErrors.startDate && (
                   <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
@@ -957,15 +1777,16 @@ export default function TaskDetailPage() {
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Date d&apos;échéance *
                 </label>
-                <DatePicker
-                  value={editDueDate}
+<DatePickerField
                   min={editStartDate || project.startDate || undefined}
                   max={project.dueDate || undefined}
+                  value={editDueDate}
                   onChange={(v) => {
                     setEditDueDate(v);
                     clearEditFieldError("dueDate");
                   }}
                   className="w-full"
+style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 />
                 {editFieldErrors.dueDate && (
                   <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
@@ -980,31 +1801,31 @@ export default function TaskDetailPage() {
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Priorité
                 </label>
-                <Select
+<CustomSelectField
                   value={editPriority}
                   onChange={(v) => setEditPriority(v as TaskPriority)}
-                  options={(Object.keys(priorityConfig) as TaskPriority[]).map((p) => ({
-                    value: p,
-                    label: priorityConfig[p].label,
-                  }))}
+                  options={(Object.keys(priorityConfig) as TaskPriority[]).map((p) => ({ value: p, label: priorityConfig[p].label }))}
                   className="w-full"
+                  ariaLabel="Priorité"
                 />
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
                   Assignée à
                 </label>
-                <Select
+<CustomSelectField
                   value={editAssignee}
-                  onChange={setEditAssignee}
+                  onChange={(v) => setEditAssignee(v)}
+                  placeholder="Non assignée"
                   options={[
                     { value: "", label: "Non assignée" },
                     ...projectMembers.map((pm) => ({
-                      value: pm.user.id,
-                      label: `${pm.user.firstName} ${pm.user.lastName}`,
+                      value: String(pm.user.id),
+                      label: `${pm.user.firstName} ${pm.user.lastName}`.trim() || pm.user.name,
                     })),
                   ]}
                   className="w-full"
+                  ariaLabel="Assignée à"
                 />
               </div>
             </div>
@@ -1037,7 +1858,59 @@ export default function TaskDetailPage() {
         </motion.div>
       )}
 
-      {/* Modal de confirmation de suppression (admin uniquement) */}
+      {/* Modal de confirmation d'archivage (admin uniquement) */}
+      {confirmingArchive && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        >
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setConfirmingArchive(false)}
+          />
+          <motion.div
+            initial={{ scale: 0.96, y: 10 }}
+            animate={{ scale: 1, y: 0 }}
+            className="relative w-full max-w-xs glass rounded-2xl p-5 text-center space-y-4"
+            style={{ boxShadow: "var(--shadow-card)" }}
+          >
+            <div
+              className="mx-auto w-14 h-14 rounded-2xl flex items-center justify-center"
+              style={{ background: "rgba(5,108,242,0.12)" }}
+            >
+              <Archive className="w-7 h-7" style={{ color: "var(--accent-text)" }} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+                Archiver la tâche&nbsp;?
+              </h2>
+              <p className="text-sm mt-1.5" style={{ color: "var(--text-secondary)" }}>
+                «&nbsp;{task.title}&nbsp;» sera archivée et retirée du Kanban. Vous pourrez toujours la restaurer à tout moment.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-1">
+              <button
+                onClick={() => setConfirmingArchive(false)}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
+                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleArchive}
+                disabled={actionLoading}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
+                style={{ background: "var(--accent-text)" }}
+              >
+                <Archive size={15} /> {actionLoading ? "Archivage…" : "Archiver"}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Modal de suppression définitive (admin uniquement) */}
       {confirmingDelete && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -1062,10 +1935,10 @@ export default function TaskDetailPage() {
             </div>
             <div>
               <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-                Supprimer la tâche&nbsp;?
+                Supprimer définitivement ?
               </h2>
               <p className="text-sm mt-1.5" style={{ color: "var(--text-secondary)" }}>
-                «&nbsp;{task.title}&nbsp;» sera définitivement supprimée. Cette action est irréversible.
+                «&nbsp;{task.title}&nbsp;» et toutes ses données (sous-tâches, fichiers, commentaires) seront définitivement supprimées. Cette action est irréversible.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-1">
@@ -1088,6 +1961,31 @@ export default function TaskDetailPage() {
           </motion.div>
         </motion.div>
       )}
+<ConfirmDialog
+        open={forceConfirm !== null}
+        title="Terminer malgré tout ?"
+        message={
+          forceConfirm
+            ? `Cette tâche a ${forceConfirm.openSubtasks} sous-tâche${forceConfirm.openSubtasks > 1 ? "s" : ""} encore non cochée${forceConfirm.openSubtasks > 1 ? "s" : ""}. Seuls le propriétaire ou les administrateurs de l'agence peuvent passer la tâche en « Terminée » quand même.`
+            : ""
+        }
+        confirmLabel="Terminer quand même"
+        onConfirm={async () => {
+          // « Terminer quand même » = on coche d'abord toutes les sous-tâches
+          // restantes, puis on force le statut terminal exactement cliqué.
+          if (task && forceConfirm) {
+            try {
+              await apiCompleteAllSubtasks(task.id);
+              subtasksResult.reload();
+            } catch (err) {
+              alert(getApiErrorMessage(err));
+            }
+            await doUpdateStatus(forceConfirm.target, true);
+          }
+          setForceConfirm(null);
+        }}
+        onCancel={() => setForceConfirm(null)}
+      />
 
       {/* Modal d'aperçu du commentaire saisi */}
       {showCommentPreview && (
@@ -1118,7 +2016,7 @@ export default function TaskDetailPage() {
               className="whitespace-pre-wrap break-words max-h-80 overflow-y-auto rounded-xl p-4 text-sm"
               style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
             >
-              {commentContent}
+              {renderWithMentions(commentContent, mentionNames)}
             </div>
             <div className="flex justify-end gap-2">
               <button

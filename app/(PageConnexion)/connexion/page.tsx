@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuthStore } from "@/app/store/authStore";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, useMotionValue, useSpring, type Variants } from "framer-motion";
@@ -10,8 +10,23 @@ import {
   ArrowLeft, Sparkles, Mail, Lock, Eye, EyeOff, CheckCircle2, Rocket, Users,
 } from "lucide-react";
 import AuthCard from "../components/AuthCard";
+import CodeStep from "../components/CodeStep";
+import GoogleButton from "../components/GoogleButton";
 import MagneticButton from "../components/MagneticButton";
+import { messageForGoogleError } from "@/lib/auth";
 
+/** Trois étapes possibles de la connexion. */
+type Step =
+  | { kind: "password" }
+  | { kind: "otp"; email: string }
+  | { kind: "twoFactor"; ticket: string; email: string };
+
+/** Récupère le token renvoyé par le callback Google dans le fragment. */
+const tokenFromHash = (): string | null => {
+  if (typeof window === "undefined") return null;
+  const match = /[#&]token=([^&]+)/.exec(window.location.hash);
+  return match ? decodeURIComponent(match[1]) : null;
+};
 
 export default function ConnexionPage() {
   return (
@@ -26,10 +41,42 @@ function ConnexionContent() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<Step>({ kind: "password" });
   const router = useRouter();
   const searchParams = useSearchParams();
   const invitationId = searchParams.get("invitation") ?? "";
+  const googleError = searchParams.get("erreur");
+
+  const login = useAuthStore((s) => s.login);
+  const requestEmailCode = useAuthStore((s) => s.requestEmailCode);
+  const loginWithEmailCode = useAuthStore((s) => s.loginWithEmailCode);
+  const verifyTwoFactor = useAuthStore((s) => s.verifyTwoFactor);
+  const resendTwoFactor = useAuthStore((s) => s.resendTwoFactor);
+  const completeGoogleSession = useAuthStore((s) => s.completeGoogleSession);
+
+  const destination = invitationId
+    ? `/accepter-invitation?token=${invitationId}`
+    : "/mes-agences";
+
+  // ── Retour de Google ──
+  // Le callback renvoie le token dans le fragment de l'URL. On l'absorbe puis
+  // on recharge la session auprès de l'API. Tout est fait dans une promesse :
+  // écrire dans l'état pendant l'effet provoquerait un rendu en cascade.
+  useEffect(() => {
+    const token = tokenFromHash();
+    if (!token) return;
+
+    // Le fragment contient le token : on le retire de l'URL tout de suite.
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+
+    void Promise.resolve().then(async () => {
+      const result = await completeGoogleSession(token);
+      if (result.ok) router.replace(destination);
+      else setError(result.error);
+    });
+  }, [completeGoogleSession, destination, router]);
 
   // --- Tilt 3D de la carte (rotation douce, type "spring") ---
   const rotateX = useSpring(useMotionValue(0), { stiffness: 200, damping: 22 });
@@ -56,22 +103,51 @@ function ConnexionContent() {
     e.currentTarget.style.boxShadow = "none";
   };
 
-  const login = useAuthStore((s) => s.login);
-  
+  // Message de retour du callback Google, affiché au-dessus du formulaire.
+  const banner = googleError ? messageForGoogleError(googleError) : null;
+
   // ✅ CORRIGÉ : Login asynchrone branché sur l'API backend
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setInfo(null);
     setLoading(true);
 
     const result = await login(email, password);
+
     if (!result.ok) {
       setError(result.error);
       setLoading(false);
       return;
     }
 
-    router.push(invitationId ? `/accepter-invitation?token=${invitationId}` : "/mes-agences");
+    // Mot de passe correct mais second facteur demandé : on bascule sur la
+    // saisie du code, aucune session n'a encore été ouverte.
+    if (result.twoFactor) {
+      setStep({ kind: "twoFactor", ticket: result.twoFactor.ticket, email });
+      setLoading(false);
+      return;
+    }
+
+    router.push(destination);
+  };
+
+  // --- Connexion sans mot de passe : on demande un code ---
+  const handleRequestCode = async () => {
+    setError(null);
+    setInfo(null);
+    setLoading(true);
+
+    const result = await requestEmailCode(email);
+    setLoading(false);
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+
+    setInfo(result.message);
+    setStep({ kind: "otp", email });
   };
 
   // --- Entrée en cascade : chaque enfant apparaît l'un après l'autre ---
@@ -122,6 +198,7 @@ function ConnexionContent() {
             src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=1600&auto=format&fit=crop"
             alt="Gestion de tâches"
             fill
+            sizes="100vw"
             style={{ objectFit: "cover" }}
           />
         </div>
@@ -254,6 +331,17 @@ function ConnexionContent() {
                   </div>
                 </motion.div>
 
+                {banner && (
+                  <motion.p
+                    initial={{ y: -10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    className="text-sm mb-4"
+                    style={{ color: "var(--color-error)", animation: "shake 0.4s" }}
+                  >
+                    {banner}
+                  </motion.p>
+                )}
+
                 {error && (
                   <motion.p
                     initial={{ y: -10, opacity: 0 }}
@@ -265,6 +353,48 @@ function ConnexionContent() {
                   </motion.p>
                 )}
 
+                {info && step.kind === "password" && (
+                  <motion.p
+                    initial={{ y: -10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    className="text-sm mb-4"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    {info}
+                  </motion.p>
+                )}
+
+                {step.kind === "otp" && (
+                  <CodeStep
+                    title="Votre code"
+                    subtitle={`Un code à 6 chiffres a été envoyé à ${step.email}.`}
+                    onSubmit={(code) => loginWithEmailCode(step.email, code)}
+                    onResend={() => requestEmailCode(step.email)}
+                    onBack={() => setStep({ kind: "password" })}
+                    backLabel="Changer d'e-mail"
+                  />
+                )}
+
+                {step.kind === "twoFactor" && (
+                  <CodeStep
+                    title="Vérification en deux étapes"
+                    subtitle={`Un code a été envoyé à ${step.email}.`}
+                    onSubmit={(code) => verifyTwoFactor(step.ticket, code)}
+                    onResend={async () => {
+                      const result = await resendTwoFactor(step.ticket);
+                      if (result.ticket) setStep({ ...step, ticket: result.ticket });
+                      return { ok: result.ok, error: result.error };
+                    }}
+                    onBack={() => {
+                      setStep({ kind: "password" });
+                      setError(null);
+                    }}
+                    backLabel="Revenir"
+                  />
+                )}
+
+                {step.kind === "password" && (
+                  <>
                 <form onSubmit={handleSubmit} className="space-y-5">
                   <motion.div variants={item}>
                     <div className="relative">
@@ -363,6 +493,36 @@ function ConnexionContent() {
                     </Link>
                   </motion.p>
                 </form>
+
+                {/* Séparation puis alternatives sans mot de passe. */}
+                <motion.div variants={item} className="flex items-center gap-3 pt-1">
+                  <span className="h-px flex-1" style={{ background: "var(--border-subtle)" }} />
+                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    ou
+                  </span>
+                  <span className="h-px flex-1" style={{ background: "var(--border-subtle)" }} />
+                </motion.div>
+
+                <motion.div variants={item}>
+                  <GoogleButton disabled={loading} />
+                </motion.div>
+
+                <motion.div variants={item} className="text-center">
+                  <button
+                    type="button"
+                    onClick={handleRequestCode}
+                    disabled={loading || !email}
+                    className="text-sm font-semibold transition-opacity hover:opacity-70 disabled:opacity-40"
+                    style={{ color: "#056cf2" }}
+                  >
+                    {loading ? "Envoi en cours..." : "Recevoir un code par email"}
+                  </button>
+                  <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                    Saisissez d&apos;abord votre adresse e-mail ci-dessus.
+                  </p>
+                </motion.div>
+                  </>
+                )}
               </motion.div>
             </AuthCard>
           </motion.div>

@@ -1,5 +1,7 @@
 "use client";
 
+import AccentApplier from "../(app)/components/AccentApplier";
+
 // Généré une seule fois au chargement du module (pas pendant le rendu)
 const PARTICLES = Array.from({ length: 18 }).map(() => {
   const size = Math.random() * 2 + 2;
@@ -24,6 +26,11 @@ export default function AuthLayout({
       className="relative min-h-screen overflow-hidden flex items-center justify-center"
       style={{ background: "var(--bg-obsidian)" }}
     >
+      {/* Les pages de connexion et d'inscription adoptent la couleur d'accent de
+          l'utilisateur, même sans session ouverte : les blobs aurora ci-dessous
+          lisent --blue / --blue-accent / --blue-mid. */}
+      <AccentApplier />
+
       {/* Aurora blobs */}
       <div
         className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full opacity-20"

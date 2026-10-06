@@ -1,22 +1,23 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
 import Cropper from "react-easy-crop";
 import {
   User, Mail, Briefcase, Pencil, Save, CheckCircle2, ShieldCheck,
-  Globe, Bell, Camera, Calendar, ClipboardList, Building2, ChevronRight, X, ZoomIn,
-  CheckSquare, AlertTriangle, Eye, Plus, Palette, ChevronDown, Check,
+  Camera, Calendar, ClipboardList, Building2, ChevronRight, X, ZoomIn,
+  CheckSquare, AlertTriangle, Eye, Plus,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
-import { userAgencies, userRoleInAgency, type MyTask } from "@/lib/types";
+import CustomSlider from "@/app/(app)/components/CustomSlider";
+import {
+  userAgencies, userRoleInAgency,
+  isTaskDone, type MyTask,
+} from "@/lib/types";
 import { useActiveAgencyId } from "@/lib/useActiveAgencyId";
 import AvatarViewer from "@/app/(app)/components/AvatarViewer";
-import Select from "@/app/(app)/components/Select";
-import { DEFAULT_ACCENT, PRESET_COLORS, toAccentHex } from "@/lib/accentTheme";
-import { applyAccent } from "@/lib/applyAccent";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -40,6 +41,12 @@ type CropperArea = { x: number; y: number; width: number; height: number };
 
 type TacheStatus = "Assignée" | "Terminée" | "En retard";
 
+const ROLE_LABEL: Record<"owner" | "admin" | "membre", string> = {
+  owner: "Propriétaire",
+  admin: "Administrateur",
+  membre: "Membre",
+};
+
 const STATUS_STYLE: Record<TacheStatus, React.CSSProperties> = {
   "Assignée": { background: "rgba(5,108,242,0.15)", color: "#0c79f2" },
   "Terminée": { background: "rgba(16,185,129,0.12)", color: "var(--color-success)" },
@@ -53,7 +60,7 @@ const statusIcon = (status: TacheStatus) => {
 };
 
 const displayStatus = (t: MyTask): TacheStatus => {
-  if (t.status === "terminee") return "Terminée";
+  if (isTaskDone(t)) return "Terminée";
   const today = new Date().toISOString().slice(0, 10);
   if (t.deadline && t.deadline < today) return "En retard";
   return "Assignée";
@@ -162,7 +169,8 @@ export default function ProfilPage() {
     const roles = myAgencies.map((a) => userRoleInAgency(a, user.email));
     if (roles.includes("owner")) return "owner";
     if (roles.includes("admin")) return "admin";
-    return "membre";
+    if (roles.includes("membre")) return "membre";
+    return null;
   })();
   const displayRole = contextRole ?? fallbackRole;
 
@@ -200,9 +208,57 @@ export default function ProfilPage() {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropperArea | null>(null);
   const [cropping, setCropping] = useState(false);
 
-  const [language, setLanguage] = useState("fr");
-  const [notifEnabled, setNotifEnabled] = useState(true);
-  const [showThemes, setShowThemes] = useState(false);
+  // ---------- Double authentification ----------
+  const fetchTwoFactor = useAuthStore((s) => s.fetchTwoFactor);
+  const toggleTwoFactor = useAuthStore((s) => s.toggleTwoFactor);
+  const [twoFactor, setTwoFactor] = useState(false);
+  const [twoFactorBusy, setTwoFactorBusy] = useState(false);
+  const [twoFactorError, setTwoFactorError] = useState<string | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [askPassword, setAskPassword] = useState(false);
+
+  // Un compte créé via Google n'a pas de mot de passe à confirmer.
+  const hasPassword = user?.hasPassword ?? true;
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(async () => {
+      const enabled = await fetchTwoFactor();
+      if (active) setTwoFactor(enabled);
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchTwoFactor]);
+
+  /**
+   * Activer la double authentification demande le mot de passe : sans cette
+   * confirmation, un accès volé au compte suffirait à le verrouiller.
+   */
+  const handleTwoFactor = async () => {
+    const enabling = !twoFactor;
+
+    if (enabling && hasPassword && !confirmPassword) {
+      setAskPassword(true);
+      return;
+    }
+
+    setTwoFactorBusy(true);
+    setTwoFactorError(null);
+
+    const result = await toggleTwoFactor(enabling, confirmPassword || undefined);
+
+    setTwoFactorBusy(false);
+
+    if (!result.ok) {
+      setTwoFactorError(result.error);
+      return;
+    }
+
+    setTwoFactor(!twoFactor);
+    setConfirmPassword("");
+    setAskPassword(false);
+  };
 
   const startEdit = () => {
     setDraft(infos);
@@ -227,19 +283,6 @@ export default function ProfilPage() {
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Impossible d'enregistrer les modifications.");
-    }
-  };
-
-  const userAccent = toAccentHex(user?.themeColor);
-
-  const handleAccentSelect = async (hex: string) => {
-    if (!user) return;
-    if (hex.toLowerCase() === userAccent.toLowerCase()) return;
-    applyAccent(hex);
-    try {
-      await updateUser({ themeColor: hex });
-    } catch {
-      setSaveError("Impossible d'enregistrer la couleur d'accent.");
     }
   };
 
@@ -360,7 +403,7 @@ export default function ProfilPage() {
                     style={{ background: "var(--gradient-button)", boxShadow: "0 4px 10px -4px rgba(var(--blue-rgb),0.4)" }}
                   >
                     <ShieldCheck size={13} />{" "}
-                    {displayRole === "owner" ? "Propriétaire" : displayRole === "admin" ? "Administrateur" : "Membre"}
+                    {ROLE_LABEL[displayRole]}
                   </span>
                 )}
               </div>
@@ -604,95 +647,81 @@ export default function ProfilPage() {
 
           <div className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
             <h2 className="text-lg font-bold flex items-center gap-2 mb-4" style={{ color: "var(--text-primary)" }}>
-              <Globe size={18} /> Préférences
+              <ShieldCheck size={18} /> Sécurité
             </h2>
             <div className="space-y-4">
-              <div>
-                <label className="text-xs uppercase tracking-wide block mb-1" style={{ color: "var(--text-secondary)" }}>
-                  Langue
-                </label>
-                <Select
-                  value={language}
-                  onChange={setLanguage}
-                  options={[
-                    { value: "fr", label: "Français" },
-                    { value: "en", label: "English" },
-                  ]}
-                  className="w-full"
-                />
-              </div>
-              <button
-                onClick={() => setNotifEnabled((n) => !n)}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-xl"
-                style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
-              >
+              {/* ---------- Sécurité : double authentification ---------- */}
+              <div className="space-y-2">
                 <span className="text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-                  <Bell size={15} style={{ color: "var(--text-secondary)" }} /> Notifications
+                  <ShieldCheck size={15} style={{ color: "var(--text-secondary)" }} /> Sécurité
                 </span>
-                <span
-                  className="w-10 h-6 rounded-full relative transition-colors"
-                  style={{ background: notifEnabled ? "var(--gradient-button)" : "var(--border-subtle)" }}
-                >
-                  <span
-                    className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all"
-                    style={{ left: notifEnabled ? "19px" : "2px", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }}
-                  />
-                </span>
-              </button>
-              <div>
-                <button
-                  onClick={() => setShowThemes((s) => !s)}
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl"
-                  style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
-                >
-                  <span className="text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-                    <Palette size={15} style={{ color: "var(--text-secondary)" }} /> Thème
-                  </span>
-                  <ChevronDown
-                    size={16}
-                    style={{ color: "var(--text-secondary)", transform: showThemes ? "rotate(180deg)" : "none" }}
-                  />
-                </button>
-                {showThemes && (
-                  <>
-                    <div className="mt-3 grid grid-cols-6 gap-x-1.5 gap-y-2">
-                      {[{ label: `Défaut (${DEFAULT_ACCENT})`, hex: DEFAULT_ACCENT }, ...PRESET_COLORS].map((item) => {
-                        const active = userAccent.toLowerCase() === item.hex.toLowerCase();
-                        return (
-                          <button
-                            key={item.label}
-                            onClick={() => handleAccentSelect(item.hex)}
-                            title={item.label}
-                            aria-label={`Couleur d'accent ${item.label}`}
-                            className="h-9 w-9 justify-self-center rounded-full flex items-center justify-center transition-transform hover:scale-110"
-                            style={{
-                              background: item.hex,
-                              border: active ? "2px solid var(--accent-text)" : "2px solid transparent",
-                              boxShadow: active ? "0 0 0 2px var(--surface), 0 0 0 4px var(--accent-text)" : "none",
-                            }}
-                          >
-                            {active && <Check size={13} style={{ color: "#fff", strokeWidth: 3 }} />}
-                          </button>
-                        );
-                      })}
+
+                <div className="rounded-xl px-4 py-3 space-y-3" style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                        Double authentification
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                        {twoFactor
+                          ? "Un code est envoyé par email après votre mot de passe."
+                          : "Ajoutez un code par email pour sécuriser votre connexion."}
+                      </p>
                     </div>
-                    <label
-                      className="mt-4 flex items-center gap-3 rounded-xl px-4 py-3 cursor-pointer"
-                      style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
+                    <button
+                      onClick={handleTwoFactor}
+                      disabled={twoFactorBusy}
+                      aria-pressed={twoFactor}
+                      className="w-10 h-6 rounded-full relative transition-colors shrink-0 disabled:opacity-50"
+                      style={{ background: twoFactor ? "var(--gradient-button)" : "var(--border-subtle)" }}
                     >
-                      <span className="text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-                        <Palette size={15} style={{ color: "var(--text-secondary)" }} /> Couleur personnalisée
-                      </span>
-                      <input
-                        type="color"
-                        value={userAccent}
-                        onChange={(e) => handleAccentSelect(e.target.value)}
-                        aria-label="Couleur personnalisée"
-                        className="ml-auto h-9 w-12 cursor-pointer rounded-lg border-none bg-transparent p-0"
+                      <span
+                        className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all"
+                        style={{ left: twoFactor ? "19px" : "2px", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }}
                       />
-                    </label>
-                  </>
-                )}
+                    </button>
+                  </div>
+
+                  {twoFactor && (
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                      La connexion par code email reste disponible et n&apos;est pas concernée.
+                    </p>
+                  )}
+
+                  {askPassword && (
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") void handleTwoFactor();
+                        }}
+                        placeholder="Votre mot de passe"
+                        className="flex-1 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                        style={{
+                          background: "var(--input-bg)",
+                          border: "1px solid var(--input-border)",
+                          color: "var(--text-primary)",
+                        }}
+                      />
+                      <button
+                        onClick={handleTwoFactor}
+                        disabled={twoFactorBusy || confirmPassword.length === 0}
+                        className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50"
+                        style={{ background: "var(--gradient-button)", color: "#fff" }}
+                      >
+                        {twoFactorBusy ? "Activation..." : "Confirmer"}
+                      </button>
+                    </div>
+                  )}
+
+                  {twoFactorError && (
+                    <p className="text-xs font-semibold" style={{ color: "var(--color-error)" }}>
+                      {twoFactorError}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -729,14 +758,12 @@ export default function ProfilPage() {
             <div className="px-5 py-4 space-y-4">
               <div className="flex items-center gap-3">
                 <ZoomIn size={18} style={{ color: "var(--text-secondary)" }} />
-                <input
-                  type="range"
+                <CustomSlider
+                  value={zoom}
+                  onChange={setZoom}
                   min={1}
                   max={3}
                   step={0.1}
-                  value={zoom}
-                  onChange={(e) => setZoom(Number(e.target.value))}
-                  className="flex-1"
                 />
               </div>
               <div className="flex justify-end gap-3">

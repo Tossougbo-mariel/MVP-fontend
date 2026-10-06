@@ -22,9 +22,45 @@ const RAMP_KEYS: readonly (keyof AccentRamp)[] = [
 ];
 
 /**
+ * Copie locale de l'accent, indépendante de la session.
+ *
+ * L'accent est choisi depuis la page Profil, donc quand la session existe. Or
+ * l'utilisateur doit le retrouver sur les pages de connexion et d'inscription,
+ * qui sont précisément consultées sans être connecté. Le stocker à part permet
+ * aussi de le conserver après une déconnexion.
+ */
+export const ACCENT_STORAGE_KEY = "mvp-accent";
+
+export const readStoredAccent = (): string | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(ACCENT_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+};
+
+export const storeAccent = (accent: string | null): void => {
+  if (typeof window === "undefined") return;
+  try {
+    if (accent) {
+      window.localStorage.setItem(ACCENT_STORAGE_KEY, accent);
+    } else {
+      window.localStorage.removeItem(ACCENT_STORAGE_KEY);
+    }
+  } catch {
+    // Stockage indisponible (navigation privée) : l'accent restera celui du profil.
+  }
+};
+
+/**
  * Pose les variables CSS de la rampe d'accent en inline sur <html>.
  * - null / invalide → bleu par défaut (:root et blocks thèmes).
  * - anciennes clés ("red", "teal", …) → migrées vers leur hex.
+ *
+ * Ne touche pas au localStorage : appliquer un accent n'est pas forcément un
+ * choix de l'utilisateur (c'est le cas des accents restaurés au chargement).
+ * Passer par `storeAccent` pour un choix explicite.
  */
 export const applyAccent = (accent: string | null | undefined): void => {
   const style = document.documentElement.style;

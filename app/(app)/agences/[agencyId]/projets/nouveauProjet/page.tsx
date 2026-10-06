@@ -19,7 +19,7 @@ import {
   Users,
 } from "lucide-react";
 import { useAppData } from "@/lib/appData";
-import { userRoleInAgency } from "@/lib/types";
+import { hasRight } from "@/lib/types";
 import { useAuthStore } from "@/app/store/authStore";
 import { createProject as apiCreateProject, addProjectMember, getApiErrorMessage } from "@/lib/services";
 import { WALLPAPERS } from "@/app/store/wallpapers";
@@ -45,8 +45,7 @@ export default function NouveauProjetPage() {
 
   const agency = agencyById(agencyId);
 
-  const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
-  const isAdmin = role === "owner" || role === "admin";
+  const canCreateProjects = hasRight(agency, user?.email ?? "", "createProjects");
 
   // ====== Champs du formulaire ======
   const [name, setName] = useState("");
@@ -193,8 +192,8 @@ export default function NouveauProjetPage() {
     );
   }
 
-  // ✅ Accès réservé à l'admin
-  if (!isAdmin) {
+  // ✅ Accès selon le réglage « qui peut créer des projets »
+  if (!canCreateProjects) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
         <div
@@ -207,7 +206,7 @@ export default function NouveauProjetPage() {
           Accès refusé
         </p>
         <p className="max-w-sm" style={{ color: "var(--text-secondary)" }}>
-          Cette page est réservée à l&apos;administrateur de l&apos;agence. Seul l&apos;admin peut créer un projet.
+          Cette page est réservée au propriétaire et aux admins de l&apos;agence. Seuls eux peuvent créer un projet.
         </p>
         <Link
           href={`/agences/${agencyId}/projets`}

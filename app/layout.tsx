@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Manrope, Geist_Mono } from "next/font/google";
 import ThemeProvider from "./(PageConnexion)/components/ThemeProvider";
-import ThemeToggle from "./(PageConnexion)/components/ThemeToggle";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -28,6 +27,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="fr"
       className={`${manrope.variable} ${geistMono.variable} h-full antialiased`}
       data-theme="dark"
+      // Indispensable avec `scroll-behavior: smooth` dans globals.css : sans
+      // cet attribut, Next ne peut pas supprimer le défilement lisse pendant
+      // une transition de route et affiche un avertissement a chaque clic.
+      data-scroll-behavior="smooth"
       suppressHydrationWarning
     >
       <head>
@@ -38,10 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         />
       </head>
       <body className="min-h-full flex flex-col">
-        <ThemeProvider>
-          {children}
-          <ThemeToggle />
-        </ThemeProvider>
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

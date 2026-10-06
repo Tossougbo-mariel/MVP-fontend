@@ -1,46 +1,44 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { Menu, Bell, LogOut, User, ImageIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Menu, Bell, LogOut, User, ImageIcon, CheckCheck, AtSign, Sparkles } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
-import { useActiveAgencyId } from "@/lib/useActiveAgencyId";
+import { markAllNotificationsRead } from "@/lib/services";
+import { useActiveAgencyId, profileHrefFor } from "@/lib/useActiveAgencyId";
 import AvatarViewer from "./AvatarViewer";
+import GlobalSearch from "./GlobalSearch";
 
 export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
-  const pathname = usePathname();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const { unreadCount: notificationCount, getTask } = useAppData();
-  const last = pathname.split("/").filter(Boolean).at(-1);
-  const title = last ? last.replace(/-/g, " ") : "Accueil";
-
-  // ✅ Si on consulte le détail d'une tâche, on affiche son titre réel
-  // dans le header (et non l'id présent dans l'URL).
-  const taskMatch = pathname.match(/\/taches\/([^/]+)$/);
-  const projectMatch = pathname.match(/\/projets\/([^/]+)$/);
-  const headerTitle =
-    projectMatch
-      ? "Détail"
-      : taskMatch && getTask(taskMatch[1])
-        ? getTask(taskMatch[1])!.title
-        : title;
+  const { unreadCount: notificationCount, data, reload } = useAppData();
 
   // ✅ Contexte d'agence active pour le lien "Mon profil" : le badge de rôle
   // sur la page profil dépend de l'agence dans laquelle on navigue. On le lit
   // depuis le pathname (/agences/{id}/...) ou depuis ?agency= sur /profil.
+  // profileHrefFor est la définition partagée avec le rail principal : les deux
+  // mènent donc au même écran avec le même contexte.
   const contextAgencyId = useActiveAgencyId();
-  const profileHref = contextAgencyId ? `/profil?agency=${contextAgencyId}` : "/profil";
+  const profileHref = profileHrefFor(contextAgencyId);
   const notificationsHref = contextAgencyId
     ? `/agences/${contextAgencyId}/notifications`
     : "/notifications";
 
   const [open, setOpen] = useState(false);
+  const [bellOpen, setBellOpen] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const bellRef = useRef<HTMLDivElement>(null);
+
+  const notifications = data.notifications.slice(0, 6);
+  const mentionUnread = useMemo(
+    () => data.notifications.some((n) => !n.readAt && n.type === "mention"),
+    [data.notifications],
+  );
 
   const handleLogout = () => {
     setOpen(false);
@@ -48,58 +46,188 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
     router.push("/connexion");
   };
 
+  const handleMarkAll = async () => {
+    if (notificationCount === 0) return;
+    try {
+      await markAllNotificationsRead();
+      await reload();
+    } catch {
+      // silencieux : la page notifications gère déjà les erreurs
+    }
+  };
+
   useEffect(() => {
     const onClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (menuRef.current && !menuRef.current.contains(target)) {
         setOpen(false);
       }
+      if (bellRef.current && !bellRef.current.contains(target)) {
+        setBellOpen(false);
+      }
     };
-    if (open) document.addEventListener("mousedown", onClickOutside);
+    if (open || bellOpen) document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
-  }, [open]);
+  }, [open, bellOpen]);
 
   return (
     <>
+    {/* Interface générale : le bandeau court sur toute la largeur, le rail
+        commence en dessous (cf. Sidebar). Ensemble ils forment le cadre ; la
+        feuille de contenu vient se poser dessus et ne laisse visible que cette
+        bande et la colonne de gauche. Aucun filet ni ombre : la couleur suffit à
+        délimiter le bandeau, et une bordure le ferait lire comme un rectangle
+        posé par-dessus plutôt que comme une pièce de l'interface.
+
+        La marque est dans le rail et le nom de la page est dans le contenu :
+        le bandeau ne porte que la recherche et les actions. */}
     <header
-      className="sticky top-0 z-20 flex items-center gap-4 px-6 lg:px-8 py-4"
+      className="sticky top-0 z-20 flex items-center gap-4 pr-6 h-[var(--header-h)] shrink-0"
       style={{
-        background: "var(--header-bar)",
-        backdropFilter: "blur(14px)",
-        WebkitBackdropFilter: "blur(14px)",
-        borderBottom: "1px solid var(--header-border)",
-        boxShadow: "0 10px 30px -20px rgba(0, 0, 0, 0.6)",
+        background: "var(--rail-bg)",
+        backgroundAttachment: "fixed",
       }}
     >
-      <button className="lg:hidden" onClick={onMenuClick} aria-label="Ouvrir le menu">
-        <Menu className="w-6 h-6" style={{ color: "var(--header-text)" }} />
+      <button className="lg:hidden ml-4" onClick={onMenuClick} aria-label="Ouvrir le menu">
+        <Menu className="w-6 h-6" style={{ color: "var(--rail-text)" }} />
       </button>
 
-      <h1 className="text-lg font-semibold capitalize" style={{ color: "var(--header-text)" }}>
-        {headerTitle}
-      </h1>
+      {/* Coin haut-gauche : la case du rail, au-dessus de lui. Aucune marge à
+          gauche, le bloc occupe exactement --rail-w, donc la marque tombe dans
+          l'alignement de la colonne de navigation et atteint le bord de
+          l'écran. */}
+      <Link
+        href="/mes-agences"
+        aria-label="MVP Studio"
+        title="MVP Studio"
+        className="hidden lg:flex items-center justify-center shrink-0 self-stretch"
+        style={{ width: "var(--rail-w)" }}
+      >
+        <span
+          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: "var(--gradient-primary)" }}
+        >
+          <Sparkles className="w-5 h-5 text-white" />
+        </span>
+      </Link>
+
+      {/* Recherche compacte, poussée vers la droite : le centre géométrique du
+          bandeau n'est pas le centre perçu, à cause du rail à gauche et des
+          actions de compte à droite. */}
+      <div className="flex-1 flex items-center justify-end px-2">
+        <GlobalSearch />
+      </div>
 
       <div className="ml-auto flex items-center gap-2">
-        <Link
-          href={notificationsHref}
-          className="relative p-2 rounded-lg transition-colors hover:bg-[var(--header-hover)]"
-          aria-label="Notifications"
-        >
-          <Bell className="w-5 h-5" style={{ color: "var(--header-text-secondary)" }} />
-          {notificationCount > 0 && (
-            <span
-              className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold text-white flex items-center justify-center"
-              style={{ background: "var(--blue-accent)" }}
+        <div className="relative" ref={bellRef}>
+          <button
+            onClick={() => setBellOpen((v) => !v)}
+            className="relative p-2 rounded-lg transition-colors hover:bg-[var(--rail-hover)]"
+            aria-label="Notifications"
+          >
+            <Bell className="w-5 h-5" style={{ color: "var(--rail-text-secondary)" }} />
+            {mentionUnread && (
+              <span
+                className="absolute -bottom-1 -left-1 w-[18px] h-[18px] rounded-full flex items-center justify-center"
+                style={{ background: "#C7961A" }}
+                title="Vous avez été mentionné dans un commentaire"
+              >
+                <AtSign size={11} className="text-white" />
+              </span>
+            )}
+            {notificationCount > 0 && (
+              <span
+                className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold text-white flex items-center justify-center"
+                style={{ background: "var(--blue-accent)" }}
+              >
+                {notificationCount > 9 ? "9+" : notificationCount}
+              </span>
+            )}
+          </button>
+
+          {bellOpen && (
+            <div
+              className="absolute right-0 mt-2 w-[340px] rounded-xl overflow-hidden z-50"
+              style={{
+                background: "var(--chrome-card)",
+                border: "1px solid var(--chrome-border)",
+                boxShadow: "0 16px 40px -12px rgba(0, 0, 0, 0.6)",
+              }}
             >
-              {notificationCount > 9 ? "9+" : notificationCount}
-            </span>
+              <div
+                className="flex items-center justify-between px-4 py-3 border-b"
+                style={{ borderColor: "var(--chrome-border)" }}
+              >
+                <p className="text-sm font-semibold" style={{ color: "var(--chrome-text)" }}>
+                  Notifications
+                </p>
+                {notificationCount > 0 && (
+                  <button
+                    onClick={handleMarkAll}
+                    className="flex items-center gap-1 text-xs font-medium"
+                    style={{ color: "#056cf2" }}
+                  >
+                    <CheckCheck size={13} /> Tout marquer lu
+                  </button>
+                )}
+              </div>
+
+              {notifications.length === 0 ? (
+                <p className="px-4 py-6 text-sm text-center" style={{ color: "var(--chrome-text-muted)" }}>
+                  Aucune notification.
+                </p>
+              ) : (
+                <ul className="max-h-[320px] overflow-y-auto">
+                  {notifications.map((n) => (
+                    <li key={n.id}>
+                      <Link
+                        href={n.link || "/notifications"}
+                        onClick={() => setBellOpen(false)}
+                        className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-[var(--chrome-hover)]"
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0 mt-1.5"
+                          style={{ background: n.type === "mention" && !n.readAt ? "#C7961A" : n.readAt ? "transparent" : "#0c79f2" }}
+                        />
+                        <span className="min-w-0">
+                          <span
+                            className="block text-sm font-medium truncate"
+                            style={{ color: "var(--chrome-text)" }}
+                          >
+                            {n.title}
+                          </span>
+                          {n.message && (
+                            <span
+                              className="block text-xs mt-0.5 truncate"
+                              style={{ color: "var(--chrome-text-muted)" }}
+                            >
+                              {n.message}
+                            </span>
+                          )}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <Link
+                href={notificationsHref}
+                onClick={() => setBellOpen(false)}
+                className="block px-4 py-3 text-center text-sm font-semibold border-t"
+                style={{ color: "var(--blue-accent)", borderColor: "var(--chrome-border)" }}
+              >
+                Voir toutes les notifications
+              </Link>
+            </div>
           )}
-        </Link>
+        </div>
 
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setOpen((v) => !v)}
             className="flex items-center gap-2 rounded-full transition-transform hover:scale-105 shrink-0"
-            style={{ border: "1px solid var(--header-border)", paddingLeft: "2px", paddingRight: "10px", paddingTop: "2px", paddingBottom: "2px" }}
+            style={{ border: "1px solid var(--rail-border)", paddingLeft: "2px", paddingRight: "10px", paddingTop: "2px", paddingBottom: "2px" }}
           >
             <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center shrink-0">
               {user?.avatar ? (
@@ -116,7 +244,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
                 </div>
               )}
             </div>
-            <span className="hidden sm:inline text-sm font-medium truncate max-w-[100px]" style={{ color: "var(--header-text)" }}>
+            <span className="hidden sm:inline text-sm font-medium truncate max-w-[100px]" style={{ color: "var(--rail-text)" }}>
               {user ? `${user.firstName} ${user.lastName}` : "Profil"}
             </span>
           </button>

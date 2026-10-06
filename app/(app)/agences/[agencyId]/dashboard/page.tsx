@@ -3,16 +3,19 @@
 import { useState } from "react";
 import { motion, type Variants } from "framer-motion";
 import {
-  FolderKanban, Users, CheckCircle2, Clock, AlertTriangle, Plus,
-  ShieldCheck, ListTodo, ArrowLeft, Activity, CalendarClock,
+  FolderKanban, Users, AlertTriangle, Plus,
+  ShieldCheck, ListTodo, ArrowLeft, CalendarClock,
   Lightbulb, Award, AlarmClock, Ban, Crown, TrendingUp,
+  History, CalendarPlus, Flag, UserRound, MessageSquare,
+  ChevronDown, ChevronUp, ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData, useAsync } from "@/lib/appData";
 import { fetchActivity } from "@/lib/services";
-import { userRoleInAgency, type AgencyRole, type Task } from "@/lib/types";
+import { userRoleInAgency, type AgencyRole, overdueTasks, ACTIVITY_LABELS, getProjectProgress } from "@/lib/types";
+import { useTaskStatuses } from "@/lib/useTaskStatuses";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -21,19 +24,6 @@ const container: Variants = {
 const item: Variants = {
   hidden: { y: 16, opacity: 0 },
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
-};
-
-const WEEKDAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-
-const buildWeeklyReport = (tasks: Task[]): { day: string; value: number }[] => {
-  const counts = new Array(7).fill(0);
-  for (const t of tasks) {
-    if (t.status !== "terminee" || !t.completedAt) continue;
-    const date = new Date(t.completedAt.includes("T") ? t.completedAt : t.completedAt.replace(" ", "T"));
-    if (Number.isNaN(date.getTime())) continue;
-    counts[(date.getDay() + 6) % 7] += 1;
-  }
-  return WEEKDAYS.map((day, i) => ({ day, value: counts[i] }));
 };
 
 const timeAgo = (iso: string | null | undefined): string => {
@@ -52,6 +42,15 @@ const timeAgo = (iso: string | null | undefined): string => {
   const weeks = Math.floor(days / 7);
   if (weeks < 5) return `il y a ${weeks} sem`;
   return new Date(iso).toLocaleDateString("fr-FR");
+};
+
+const activityConfig: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
+  creation: { label: ACTIVITY_LABELS["creation"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CalendarPlus },
+  changement_statut: { label: ACTIVITY_LABELS["changement_statut"], color: "#056cf2", bg: "var(--accent-soft)", icon: Flag },
+  changement_responsable: { label: ACTIVITY_LABELS["changement_responsable"], color: "#7c3aed", bg: "rgba(139,92,246,0.12)", icon: UserRound },
+  changement_priorite: { label: ACTIVITY_LABELS["changement_priorite"], color: "#d97706", bg: "rgba(245,158,11,0.15)", icon: Flag },
+  changement_echeance: { label: ACTIVITY_LABELS["changement_echeance"], color: "#db2777", bg: "rgba(219,39,119,0.12)", icon: CalendarClock },
+  commentaire: { label: ACTIVITY_LABELS["commentaire"], color: "var(--accent-text)", bg: "var(--accent-soft)", icon: MessageSquare },
 };
 
 const smoothCurve = (pts: { x: number; y: number }[]) => {
@@ -198,14 +197,15 @@ function AdminDashboard({
 }) {
   const isOwner = role === "owner";
   const { agencyById, tasksByAgency, projectsByAgency } = useAppData();
+  const { statuses, isTerminal } = useTaskStatuses();
   const agency = agencyById(agencyId);
 
   const { data: activity, loading: activityLoading } = useAsync(
     () => fetchActivity({ agencyId }),
     [agencyId],
   );
-
-  const [showAllActivities, setShowAllActivities] = useState(false);
+  const [activityExpanded, setActivityExpanded] = useState(false);
+  const ACTIVITY_VISIBLE = 5;
 
   const members = agency?.members ?? [];
   const totalMembers = members.length;
@@ -216,17 +216,59 @@ function AdminDashboard({
   const agencyProjects = projectsByAgency(agencyId);
   const totalTasks = agencyTasks.length;
   const totalProjects = agencyProjects.length;
-  const overdueCount = agencyTasks.filter((t) => t.deadlineStatus === "en_retard").length;
+const overdueCount = overdueTasks(
+    agencyTasks.map((t) => ({ deadline: t.dueDate, status: t.status })),
+    statuses,
+  ).length;
 
+  const WEEK_DAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+
+  // Lundi de la semaine courante à 00:00
+  const thisWeekStart = (() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return d;
+  })();
+
+  // Lundi de la semaine précédente
+  const lastWeekStart = new Date(thisWeekStart);
+  lastWeekStart.setDate(thisWeekStart.getDate() - 7);
+
+  // Compte les tâches terminées (completedAt) jour par jour dans un intervalle
+  const countDone = (from: Date, to: Date): number[] => {
+    const counts = Array(7).fill(0) as number[];
+    for (const t of agencyTasks) {
+      if (!isTerminal(t.status) || !t.completedAt) continue;
+      const completed = new Date(t.completedAt);
+      if (completed >= from && completed < to) {
+        counts[(completed.getDay() + 6) % 7]++;
+      }
+    }
+    return counts;
+  };
+
+  const thisWeek = countDone(thisWeekStart, new Date(thisWeekStart.getTime() + 7 * 86400000));
+  const lastWeek = countDone(lastWeekStart, thisWeekStart);
+
+  const weeklyReport = WEEK_DAY_LABELS.map((day, i) => ({ day, value: thisWeek[i] }));
+
+  const doneThisWeek = thisWeek.reduce((s, n) => s + n, 0);
+  const doneLastWeek = lastWeek.reduce((s, n) => s + n, 0);
+  const deltaPct: number | null =
+    doneLastWeek === 0
+      ? doneThisWeek > 0
+        ? 100
+        : null
+      : Math.round(((doneThisWeek - doneLastWeek) / doneLastWeek) * 100);
   const taskStatuses = [
     { label: "À faire", value: agencyTasks.filter((t) => t.status === "a_faire").length, color: "var(--blue-accent)" },
     { label: "En cours", value: agencyTasks.filter((t) => t.status === "en_cours").length, color: "var(--blue)" },
     { label: "En révision", value: agencyTasks.filter((t) => t.status === "en_revision").length, color: "var(--blue-mid)" },
-    { label: "Terminées", value: agencyTasks.filter((t) => t.status === "terminee").length, color: "var(--color-success)" },
+    { label: "Terminées", value: agencyTasks.filter((t) => isTerminal(t.status)).length, color: "var(--color-success)" },
     { label: "En retard", value: overdueCount, color: "var(--color-error)" },
   ];
 
-  const weeklyReport = buildWeeklyReport(agencyTasks);
   const totalCompleted = weeklyReport.reduce((s, r) => s + r.value, 0);
 
   const maxReport = Math.max(1, ...weeklyReport.map((r) => r.value));
@@ -247,7 +289,6 @@ function AdminDashboard({
   } Z`;
   const avg = weeklyReport.reduce((s, r) => s + r.value, 0) / weeklyReport.length;
   const avgY = chartTop + (1 - avg / chartMax) * (chartHeight - chartTop - chartBottom);
-  const deltaPct: number | null = null;
 
   const statCards = [
     { label: "Total projets", value: String(totalProjects), icon: FolderKanban, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
@@ -474,84 +515,97 @@ function AdminDashboard({
               </svg>
             </div>
           </motion.div>
-
-          {/* Activité récente */}
-          <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(139,92,246,0.14)" }}>
-                <Activity size={16} style={{ color: "#7C3AED" }} />
-              </div>
-              <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Activité récente</h2>
-            </div>
-            <motion.ul
-              initial="hidden"
-              animate="show"
-              variants={{ show: { transition: { staggerChildren: 0.12 } } }}
-              className="space-y-3"
-            >
-              {activityLoading ? (
-                <motion.li
-                  variants={{ hidden: { opacity: 0, x: -14 }, show: { opacity: 1, x: 0, transition: { duration: 0.4 } } }}
-                  className="text-sm"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  Chargement de l&apos;activité…
-                </motion.li>
-              ) : activity && activity.length > 0 ? (
-                activity.slice(0, showAllActivities ? activity.length : 10).map((a, i) => (
-                  <motion.li
-                    key={a.id}
-                    variants={{ hidden: { opacity: 0, x: -14 }, show: { opacity: 1, x: 0, transition: { duration: 0.4 } } }}
-                    whileHover={{ x: 4 }}
-                    className="flex items-start gap-3 text-sm"
-                  >
-                    <span className="relative w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: "var(--blue)" }}>
-                      <motion.span
-                        className="absolute inset-0 rounded-full"
-                        style={{ background: "var(--blue)" }}
-                        animate={{ scale: [1, 2.2], opacity: [0.6, 0] }}
-                        transition={{ duration: 1.8, repeat: Infinity, delay: i * 0.3 }}
-                      />
-                    </span>
-                    <div>
-                      <div style={{ color: "var(--text-primary)" }}>
-                        <span className="font-semibold">{a.actorName ?? a.actorEmail}</span>{" "}
-                        {a.description}
-                      </div>
-                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>{timeAgo(a.createdAt)}</div>
-                    </div>
-                  </motion.li>
-                ))
-              ) : (
-                <motion.li
-                  variants={{ hidden: { opacity: 0, x: -14 }, show: { opacity: 1, x: 0, transition: { duration: 0.4 } } }}
-                  className="text-sm"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  Aucune activité récente.
-                </motion.li>
-              )}
-            </motion.ul>
-            {!activityLoading && activity && activity.length > 10 && (
-              <motion.button
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.4 }}
-                onClick={() => setShowAllActivities((v) => !v)}
-                className="mt-4 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                style={{ background: "var(--banner-gradient)", boxShadow: "var(--banner-shadow)" }}
-              >
-                <Activity size={15} />
-                {showAllActivities
-                  ? "Voir moins"
-                  : `Voir toutes les activités (${activity.length})`}
-              </motion.button>
-            )}
-          </motion.div>
         </div>
 
         {/* Colonne droite */}
         <div className="space-y-6">
+          {/* Activité récente — à côté, comme l'historique des tâches */}
+          <motion.div variants={item} className="glass rounded-2xl p-5" style={{ boxShadow: "var(--shadow-card)" }}>
+            <h2 className="font-bold flex items-center gap-2.5 mb-3" style={{ color: "var(--text-primary)" }}>
+              <span
+                className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: "rgba(139,92,246,0.15)" }}
+              >
+                <History size={14} style={{ color: "#7c3aed" }} />
+              </span>
+              Activité récente
+            </h2>
+
+            {activityLoading ? (
+              <p className="text-sm text-center py-3" style={{ color: "var(--text-muted)" }}>
+                Chargement de l&apos;activité…
+              </p>
+            ) : activity && activity.length > 0 ? (
+              <>
+                {(() => {
+                  const visible = activity.slice(0, activityExpanded ? activity.length : ACTIVITY_VISIBLE);
+                  return (
+                    <div className="flex flex-col">
+                      {visible.map((a, idx) => {
+                        const cfg = activityConfig[a.action] ?? {
+                          label: a.action,
+                          color: "var(--text-secondary)",
+                          bg: "var(--hover-soft)",
+                          icon: History,
+                        };
+                        const Icon = cfg.icon;
+                        const isLast = idx === visible.length - 1;
+                        return (
+                          <div key={a.id} className="flex gap-3">
+                            <div className="flex flex-col items-center shrink-0">
+                              <div
+                                className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                                style={{ background: cfg.bg }}
+                              >
+                                <Icon className="w-3.5 h-3.5" style={{ color: cfg.color }} />
+                              </div>
+                              {!isLast && (
+                                <div className="w-px flex-1 min-h-3" style={{ background: "var(--border-subtle)" }} />
+                              )}
+                            </div>
+
+                            <div className={`flex-1 min-w-0 ${isLast ? "" : "pb-3"}`}>
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                                  {a.description ?? a.action}
+                                </span>
+                                <span
+                                  className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                                  style={{ color: cfg.color, background: cfg.bg }}
+                                >
+                                  {cfg.label}
+                                </span>
+                              </div>
+                              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                                {a.actorName ?? a.actorEmail} · {timeAgo(a.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+                {activity.length > ACTIVITY_VISIBLE && (
+                  <button
+                    onClick={() => setActivityExpanded((v) => !v)}
+                    className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors hover:bg-[var(--hover-soft)]"
+                    style={{ color: "#056cf2", background: "rgba(5,108,242,0.08)" }}
+                  >
+                    {activityExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    {activityExpanded
+                      ? "Voir moins"
+                      : `Voir plus (${activity.length - ACTIVITY_VISIBLE})`}
+                  </button>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-center py-3" style={{ color: "var(--text-muted)" }}>
+                Aucune activité récente.
+              </p>
+            )}
+          </motion.div>
+
           {/* Statut de l'équipe */}
           <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
             <div className="flex items-center gap-2 mb-4">
@@ -687,15 +741,20 @@ const badPractices = [
 ];
 
 function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: string }) {
-  const { myTasksInAgency } = useAppData();
+  const { myTasksInAgency, projectsByAgency, tasksByProject } = useAppData();
   const myT = myTasksInAgency(agencyId);
 
-  const memberTasks = [
-    { label: "À faire", value: myT.filter((t) => t.status === "a_faire").length, icon: CalendarClock, color: "var(--blue-mid)" },
-    { label: "En cours", value: myT.filter((t) => t.status === "en_cours").length, icon: Clock, color: "var(--blue)" },
-    { label: "Terminées", value: myT.filter((t) => t.status === "terminee").length, icon: CheckCircle2, color: "var(--color-success)" },
-    { label: "En retard", value: myT.filter((t) => t.status !== "terminee" && t.deadlineStatus === "en_retard").length, icon: AlertTriangle, color: "var(--color-error)" },
-  ];
+  // Projets dans lesquels le membre participe (au moins une tâche), non archivés
+  const projectIds = new Set(myT.map((t) => t.projectId));
+  const myProjects = projectsByAgency(agencyId).filter(
+    (p) => p.status !== "archive" && projectIds.has(p.id),
+  );
+
+  const projectStatusInfo: Record<string, { label: string; color: string; bg: string }> = {
+    a_venir: { label: "À venir", color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+    en_cours: { label: "En cours", color: "#056cf2", bg: "rgba(5,108,242,0.12)" },
+    termine: { label: "Terminé", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
+  };
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
@@ -703,51 +762,6 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
         name={userName}
         subtitle="Découvrez les bonnes pratiques pour exceller dans votre travail."
       />
-
-      {/* Mes statistiques */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {memberTasks.map((s) => (
-          <motion.div
-            key={s.label}
-            variants={item}
-            whileHover={{ y: -4, scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-            className="relative overflow-hidden glass rounded-2xl p-5 cursor-default"
-            style={{ boxShadow: "var(--shadow-card)" }}
-          >
-            <motion.div
-              className="absolute inset-0"
-              style={{ background: "linear-gradient(135deg, rgba(var(--blue-rgb),0.12) 0%, rgba(var(--blue-mid-rgb),0.28) 100%)", opacity: 0.4 }}
-              animate={{ opacity: [0.3, 0.5, 0.3] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <div className="relative flex items-center gap-3.5">
-              <motion.div
-                initial={{ scale: 0, rotate: -20 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: "spring", stiffness: 240, damping: 15 }}
-                whileHover={{ rotate: 8, scale: 1.1 }}
-                className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: `linear-gradient(135deg, rgba(var(--blue-rgb),0.12) 0%, rgba(var(--blue-mid-rgb),0.28) 100%)`, border: `1px solid rgba(var(--blue-rgb),0.35)` }}
-              >
-                <s.icon className="w-5 h-5" style={{ color: "var(--blue)" }} />
-              </motion.div>
-              <div className="min-w-0">
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                  className="text-xl font-black leading-none"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  {s.value}
-                </motion.div>
-                <div className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{s.label}</div>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
 
       {/* Bonnes pratiques / Erreurs à éviter */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -833,15 +847,78 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
       </div>
 
       <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(var(--blue-rgb),0.12)" }}>
-            <FolderKanban size={16} style={{ color: "var(--blue)" }} />
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(var(--blue-rgb),0.12)" }}>
+              <FolderKanban size={16} style={{ color: "var(--blue)" }} />
+            </div>
+            <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Vos projets</h2>
           </div>
-          <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Vos projets</h2>
+          <Link
+            href={`/agences/${agencyId}/projets`}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold transition-transform hover:scale-105"
+            style={{ color: "#056cf2" }}
+          >
+            Voir tous <ArrowRight size={13} />
+          </Link>
         </div>
-        <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          Ici s&apos;afficheront les projets auxquels vous participez.
-        </div>
+
+        {myProjects.length === 0 ? (
+          <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            Vous ne participez à aucun projet pour le moment. Vos projets apparaîtront ici dès qu&apos;une
+            tâche vous sera assignée.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {myProjects.slice(0, 4).map((p) => {
+              const info = projectStatusInfo[p.status] ?? projectStatusInfo.en_cours;
+              const progress = getProjectProgress(tasksByProject(p.id));
+              return (
+                <Link
+                  key={p.id}
+                  href={`/agences/${agencyId}/projets/${p.id}/kanban`}
+                  className="block rounded-xl px-4 py-3 transition-colors hover:bg-[var(--hover-soft)]"
+                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>
+                      {p.name}
+                    </span>
+                    <span
+                      className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full"
+                      style={{ background: info.bg, color: info.color }}
+                    >
+                      <FolderKanban size={10} /> {info.label}
+                    </span>
+                  </div>
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <div className="flex-1 h-1.5 rounded-full" style={{ background: "var(--surface)" }}>
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress}%` }}
+                        transition={{ duration: 0.8, ease: "easeOut" }}
+                        className="h-full rounded-full"
+                        style={{ background: "var(--gradient-button)" }}
+                      />
+                    </div>
+                    <span className="text-[11px] font-bold shrink-0" style={{ color: "var(--text-secondary)" }}>
+                      {progress}%
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+            {myProjects.length > 4 && (
+              <Link
+                href={`/agences/${agencyId}/projets`}
+                className="block text-center text-xs font-semibold pt-1 transition-colors hover:opacity-80"
+                style={{ color: "#056cf2" }}
+              >
+                +{myProjects.length - 4} autre{myProjects.length - 4 > 1 ? "s" : ""} projet{myProjects.length - 4 > 1 ? "s" : ""}…
+              </Link>
+            )}
+          </div>
+        )}
       </motion.div>
     </motion.div>
   );

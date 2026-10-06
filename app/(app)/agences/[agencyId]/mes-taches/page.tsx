@@ -21,7 +21,10 @@ import {
   type TaskDeadlineStatus,
   type TaskPriority,
   type TaskStatus,
+  type TaskStatusMeta,
 } from "@/lib/types";
+import { buildStatusStyleIndex, statusStyleOf } from "@/lib/taskStatusStyle";
+import { useTaskStatuses } from "@/lib/useTaskStatuses";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -32,12 +35,18 @@ const item: Variants = {
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
 };
 
-const statusConfig: Record<TaskStatus, { label: string; color: string; bg: string; border?: string }> = {
-  a_faire: { label: "À faire", color: "#FF6B6B", bg: "rgba(255,107,107,0.16)" },
-  en_cours: { label: "En cours", color: "#fbbf24", bg: "rgba(251,191,36,0.18)" },
-  en_revision: { label: "En révision", color: "#7db5ff", bg: "rgba(125,181,255,0.16)" },
-  terminee: { label: "Terminée", color: "#34d399", bg: "rgba(52,211,153,0.16)" },
-};
+type StatusFilter = "toutes" | "en_retard" | TaskStatus;
+
+/**
+ * Onglets de filtre : « Toutes », un onglet par statut réel de l'agence, puis
+ * « En retard ». La liste est donc aussi dynamique que le Kanban — une colonne
+ * personnalisée apparaît ici automatiquement.
+ */
+const buildWorkflow = (statuses: TaskStatusMeta[]): { key: StatusFilter; label: string; color?: string }[] => [
+  { key: "toutes", label: "Toutes" },
+  ...statuses.map((s) => ({ key: s.key as StatusFilter, label: s.label, color: s.color })),
+  { key: "en_retard", label: "En retard", color: "var(--color-error)" },
+];
 
 const priorityConfig: Record<TaskPriority, { label: string; color: string; bg: string; border?: string }> = {
   basse: { label: "Basse", color: "#e8edf5", bg: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.35)" },
@@ -45,17 +54,6 @@ const priorityConfig: Record<TaskPriority, { label: string; color: string; bg: s
   haute: { label: "Haute", color: "#fbbf24", bg: "rgba(251,191,36,0.18)" },
   urgente: { label: "Urgente", color: "#FF6B6B", bg: "rgba(255,107,107,0.16)" },
 };
-
-type StatusFilter = "toutes" | TaskStatus | "en_retard";
-
-const WORKFLOW: { key: StatusFilter; label: string; color?: string }[] = [
-  { key: "toutes", label: "Toutes" },
-  { key: "a_faire", label: "À faire", color: "var(--color-error)" },
-  { key: "en_cours", label: "En cours", color: "#f59e0b" },
-  { key: "en_revision", label: "En révision", color: "#589bff" },
-  { key: "terminee", label: "Terminées", color: "var(--color-success)" },
-  { key: "en_retard", label: "En retard", color: "var(--color-error)" },
-];
 
 const formatDate = (date: string | null) => {
   if (!date) return "—";
@@ -84,6 +82,9 @@ export default function MesTachesPage() {
   const { agencyById, myTasksInAgency, tasksByAgency, projectsByAgency, data } = useAppData();
 
   const agency = agencyById(agencyId);
+  const { statuses, isTerminal, labelOf } = useTaskStatuses();
+  const statusConfig = useMemo(() => buildStatusStyleIndex(statuses), [statuses]);
+  const WORKFLOW = useMemo(() => buildWorkflow(statuses), [statuses]);
 
   const [filter, setFilter] = useState<StatusFilter>("toutes");
   const [scope, setScope] = useState<"mine" | "all">("mine");
@@ -131,8 +132,13 @@ export default function MesTachesPage() {
   const visibleTasks = scope === "all" && isAdmin ? agencyTasks : mineTasks;
 
   const isLate = useCallback(
-    (t: RowTask) => t.status !== "terminee" && t.deadlineStatus === "en_retard",
-    [],
+    (t: RowTask) =>
+      // Le statut du backend fait foi quand il est connu ; sinon on retombe sur
+      // la comparaison de dates, comme pour une tâche sans `deadline_status`.
+      !isTerminal(t.status) &&
+      (t.deadlineStatus === "en_retard" ||
+        (!!t.dueDate && t.dueDate < new Date().toISOString().slice(0, 10))),
+    [isTerminal],
   );
 
   const filteredTasks = useMemo(() => {
@@ -147,12 +153,13 @@ export default function MesTachesPage() {
         const aLate = isLate(a) ? 1 : 0;
         const bLate = isLate(b) ? 1 : 0;
         if (aLate !== bLate) return bLate - aLate;
-        const aDone = a.status === "terminee" ? 1 : 0;
-        const bDone = b.status === "terminee" ? 1 : 0;
+        // Les tâches closes d'abord : elles n'ont plus rien à faire.
+        const aDone = isTerminal(a.status) ? 1 : 0;
+        const bDone = isTerminal(b.status) ? 1 : 0;
         if (aDone !== bDone) return aDone - bDone;
         return (a.dueDate ?? "9999-12-31").localeCompare(b.dueDate ?? "9999-12-31");
       }),
-    [filteredTasks, isLate],
+    [filteredTasks, isLate, isTerminal],
   );
 
   if (data.loading) {
@@ -322,15 +329,6 @@ export default function MesTachesPage() {
                         : { border: "1px solid var(--border-subtle)" }
                     }
                   />
-                  {active && (
-                    <motion.span
-                      initial={{ scale: 1, opacity: 1 }}
-                      animate={{ scale: [1, 2.2], opacity: [1, 0] }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "easeOut" }}
-                      className="absolute inset-0 rounded-full"
-                      style={{ background: accent }}
-                    />
-                  )}
                 </span>
                 {f.label}
               </button>
@@ -382,7 +380,7 @@ export default function MesTachesPage() {
               </thead>
               <tbody className="text-sm">
                 {sortedTasks.map((task) => {
-                  const status = statusConfig[task.status];
+                  const status = statusStyleOf(task.status, statusConfig, labelOf(task.status));
                   const prio = priorityConfig[task.priority];
                   const late = isLate(task);
                   const deadlineBadge =

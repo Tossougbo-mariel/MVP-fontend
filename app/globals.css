@@ -24,6 +24,15 @@
   --bg: #ffffff;
   --bg-light: #f4f6fa;
   --nav-h: 88px;
+  /* Hauteur du bandeau supérieur. Le rail d'icônes occupe toute la hauteur et
+     le header s'appuie sur son bord droit. */
+  --header-h: 48px;
+  /* Largeur du rail d'icônes : doit rester alignée sur MAIN_RAIL_WIDTH
+     (app/(app)/components/Sidebar.tsx). Assez large pour porter un libellé
+     sous chaque icône. */
+  --rail-w: 80px;
+  /* Respiration entre le chrome (rail + header) et la feuille de contenu. */
+  --sheet-gap: 16px;
   --ease: cubic-bezier(.4, 0, .2, 1);
   --t: .25s;
 }
@@ -75,6 +84,19 @@
   --sidebar-card: color-mix(in srgb, var(--blue) 3%, #ffffff);
   --sidebar-accent-soft: rgba(var(--blue-rgb), 0.14);
   --sidebar-accent-text: var(--blue);
+  /* Rail d'icônes : volontairement sombre pour se détacher du panneau clair. */
+  --rail-bg: linear-gradient(180deg, color-mix(in srgb, var(--blue) 70%, #061B40) 0%, color-mix(in srgb, var(--blue) 35%, #061B40) 100%);
+  --rail-border: rgba(4, 16, 38, 0.5);
+  --rail-text: color-mix(in srgb, var(--blue-light) 22%, #ffffff);
+  --rail-text-secondary: color-mix(in srgb, var(--blue-light) 65%, #ffffff);
+  --rail-text-muted: color-mix(in srgb, var(--blue-light) 92%, #ffffff);
+  --rail-hover: rgba(255, 255, 255, 0.12);
+  --rail-card: rgba(255, 255, 255, 0.1);
+  --rail-accent-soft: rgba(var(--blue-light-rgb), 0.22);
+  --rail-accent-text: #FFFFFF;
+  /* Panneau d'agence : surface claire, distincte du rail. */
+  --panel-bg: linear-gradient(180deg, color-mix(in srgb, var(--blue) 2%, #ffffff) 0%, color-mix(in srgb, var(--blue) 6%, #ffffff) 100%);
+  --panel-border: color-mix(in srgb, var(--blue) 16%, #ffffff);
   --header-bar: linear-gradient(90deg, color-mix(in srgb, var(--blue) 4%, #ffffff), color-mix(in srgb, var(--blue) 8%, #ffffff));
   --header-text: color-mix(in srgb, var(--blue) 45%, #0A1B3C);
   --header-text-secondary: color-mix(in srgb, var(--blue) 35%, #0A1B3C);
@@ -135,6 +157,19 @@
   --sidebar-card: color-mix(in srgb, var(--blue) 12%, rgba(20, 40, 80, 0.6));
   --sidebar-accent-soft: color-mix(in srgb, var(--blue-light) 22%, transparent);
   --sidebar-accent-text: var(--blue-light);
+  /* Rail d'icônes : plus profond que le panneau, pour lire la séparation. */
+  --rail-bg: linear-gradient(180deg, color-mix(in srgb, var(--blue) 22%, #01071A) 0%, color-mix(in srgb, var(--blue) 8%, #01071A) 100%);
+  --rail-border: rgba(0, 0, 0, 0.6);
+  --rail-text: color-mix(in srgb, var(--blue-light) 8%, #F4F7FF);
+  --rail-text-secondary: color-mix(in srgb, var(--blue-light) 42%, #F4F7FF);
+  --rail-text-muted: color-mix(in srgb, var(--blue-light) 78%, #F4F7FF);
+  --rail-hover: rgba(var(--blue-light-rgb), 0.14);
+  --rail-card: rgba(var(--blue-light-rgb), 0.12);
+  --rail-accent-soft: rgba(var(--blue-mid-rgb), 0.3);
+  --rail-accent-text: var(--blue-light);
+  /* Panneau d'agence : bleu nuit plus clair que le rail. */
+  --panel-bg: linear-gradient(180deg, color-mix(in srgb, var(--blue) 26%, #0C1B39) 0%, color-mix(in srgb, var(--blue) 14%, #08132B) 100%);
+  --panel-border: rgba(var(--blue-light-rgb), 0.18);
   --header-bar: linear-gradient(90deg, color-mix(in srgb, var(--blue) 50%, #0A1B3C), color-mix(in srgb, var(--blue) 72%, #0A1B3C));
   --header-text: #F4F7FF;
   --header-text-secondary: color-mix(in srgb, var(--blue-light) 70%, #F4F7FF);
@@ -439,6 +474,17 @@ input::placeholder {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 /* Coupe les transitions pendant l'application d'une couleur d'accent (snap instantané). */
 .app-no-transition,
 .app-no-transition * {
