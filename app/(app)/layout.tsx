@@ -17,7 +17,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           }
         >
           <AppShell>
-            <main className="flex-1 p-6 lg:p-8">{children}</main>
+            <main className="flex-1 p-6 lg:p-8">
+              <div className="mx-auto w-full max-w-[1200px]">{children}</div>
+            </main>
           </AppShell>
         </Suspense>
       </AppDataProvider>
