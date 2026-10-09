@@ -128,21 +128,21 @@ export default function CustomSelectField({
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     style={
                       selected
-                        ? { background: "rgba(5,108,242,0.08)" }
+                        ? { background: "rgba(var(--blue-rgb),0.08)" }
                         : undefined
                     }
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = selected ? "rgba(5,108,242,0.08)" : "rgba(5,108,242,0.05)";
+                      e.currentTarget.style.background = selected ? "rgba(var(--blue-rgb),0.08)" : "rgba(var(--blue-rgb),0.05)";
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = selected ? "rgba(5,108,242,0.08)" : "transparent";
+                      e.currentTarget.style.background = selected ? "rgba(var(--blue-rgb),0.08)" : "transparent";
                     }}
                   >
                     {opt.icon ? <span className="shrink-0">{opt.icon}</span> : null}
                     <span className="flex-1 truncate" style={{ color: "var(--text-primary)" }}>
                       {opt.label}
                     </span>
-                    {selected && <Check size={16} style={{ color: "var(--accent, #056cf2)" }} />}
+                    {selected && <Check size={16} style={{ color: "var(--accent-text)" }} />}
                   </button>
                 );
               })
@@ -163,7 +163,7 @@ export default function CustomSelectField({
           setOpen((v) => !v);
         }}
         className={`inline-flex items-center justify-between gap-2 rounded-xl px-4 py-2.5 text-sm font-medium outline-none disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
-        style={{ ...DEFAULT_STYLE, ...style, cursor: disabled ? "not-allowed" : "pointer", boxShadow: open ? "0 0 0 3px rgba(5,108,242,0.12)" : "none" }}
+        style={{ ...DEFAULT_STYLE, ...style, cursor: disabled ? "not-allowed" : "pointer", boxShadow: open ? "0 0 0 3px rgba(var(--blue-rgb),0.12)" : "none" }}
         aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}

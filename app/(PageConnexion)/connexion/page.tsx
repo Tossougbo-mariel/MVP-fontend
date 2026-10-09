@@ -513,7 +513,7 @@ function ConnexionContent() {
                     onClick={handleRequestCode}
                     disabled={loading || !email}
                     className="text-sm font-semibold transition-opacity hover:opacity-70 disabled:opacity-40"
-                    style={{ color: "#056cf2" }}
+                    style={{ color: "var(--accent-text)" }}
                   >
                     {loading ? "Envoi en cours..." : "Recevoir un code par email"}
                   </button>

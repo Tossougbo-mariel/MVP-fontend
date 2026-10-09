@@ -48,7 +48,7 @@ const ROLE_LABEL: Record<"owner" | "admin" | "membre", string> = {
 };
 
 const STATUS_STYLE: Record<TacheStatus, React.CSSProperties> = {
-  "Assignée": { background: "rgba(5,108,242,0.15)", color: "#0c79f2" },
+  "Assignée": { background: "rgba(var(--blue-rgb),0.15)", color: "var(--accent-text)" },
   "Terminée": { background: "rgba(16,185,129,0.12)", color: "var(--color-success)" },
   "En retard": { background: "rgba(239,68,68,0.12)", color: "var(--color-error)" },
 };
@@ -536,7 +536,7 @@ export default function ProfilPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             {[
-              { label: "Tâches assignées", count: taches.filter((t) => displayStatus(t) === "Assignée").length, icon: CheckSquare, color: "#0c79f2" },
+              { label: "Tâches assignées", count: taches.filter((t) => displayStatus(t) === "Assignée").length, icon: CheckSquare, color: "var(--accent-text)" },
               { label: "Tâches terminées", count: taches.filter((t) => displayStatus(t) === "Terminée").length, icon: CheckCircle2, color: "var(--color-success)" },
               { label: "Tâches en retard", count: taches.filter((t) => displayStatus(t) === "En retard").length, icon: AlertTriangle, color: "var(--color-error)" },
             ].map((s) => (

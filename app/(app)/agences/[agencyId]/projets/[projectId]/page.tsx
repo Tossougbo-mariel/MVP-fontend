@@ -839,7 +839,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
           >
             <div
               className="mx-auto w-14 h-14 rounded-2xl flex items-center justify-center"
-              style={{ background: "rgba(5,108,242,0.12)" }}
+              style={{ background: "rgba(var(--blue-rgb),0.12)" }}
             >
               <Archive className="w-7 h-7" style={{ color: "var(--accent-text)" }} />
             </div>

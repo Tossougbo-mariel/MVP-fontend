@@ -149,7 +149,7 @@ export default function CodeStep({
           style={{
             background: "var(--gradient-button)",
             backgroundSize: "200% 200%",
-            boxShadow: "0 10px 30px -10px rgba(5,108,242,0.55)",
+            boxShadow: "0 10px 30px -10px rgba(var(--blue-rgb),0.55)",
             animation: "gradient-shift 3s ease infinite",
             color: "#fff",
             width: "100%",
@@ -182,7 +182,7 @@ export default function CodeStep({
             onClick={handleResend}
             disabled={resending}
             className="font-semibold transition-opacity hover:opacity-70 disabled:opacity-50"
-            style={{ color: "#056cf2" }}
+            style={{ color: "var(--accent-text)" }}
           >
             {resending ? "Envoi..." : resendLabel}
           </button>

@@ -98,7 +98,7 @@ export default function CustomSlider({
         style={{
           left: `calc(${pct}% - 8px)`,
           background: "#fff",
-          border: "2px solid var(--accent, #056cf2)",
+          border: "2px solid var(--blue)",
           cursor: disabled ? "not-allowed" : "grab",
         }}
       />

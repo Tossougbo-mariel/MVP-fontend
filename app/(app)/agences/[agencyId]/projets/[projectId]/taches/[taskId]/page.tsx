@@ -101,7 +101,7 @@ const item: Variants = {
 
 const priorityConfig: Record<TaskPriority, { label: string; color: string; bg: string; border?: string }> = {
   basse: { label: "Basse", color: "#e8edf5", bg: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.35)" },
-  moyenne: { label: "Moyenne", color: "#7db5ff", bg: "rgba(125,181,255,0.16)" },
+  moyenne: { label: "Moyenne", color: "var(--blue-mid)", bg: "rgba(var(--blue-mid-rgb),0.16)" },
   haute: { label: "Haute", color: "#fbbf24", bg: "rgba(251,191,36,0.18)" },
   urgente: { label: "Urgente", color: "#FF6B6B", bg: "rgba(255,107,107,0.16)" },
 };
@@ -866,7 +866,7 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
             <button
               onClick={() => setHistoryExpanded((v) => !v)}
               className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors hover:bg-[var(--hover-soft)]"
-              style={{ color: "#056cf2", background: "rgba(5,108,242,0.08)" }}
+              style={{ color: "var(--accent-text)", background: "var(--accent-soft)" }}
             >
               {historyExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               {historyExpanded ? "Voir moins" : `Voir plus (${history.length - HISTORY_VISIBLE})`}
@@ -1070,7 +1070,7 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
               onClick={handleRestore}
               disabled={actionLoading}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-transform hover:scale-105 disabled:opacity-60"
-              style={{ background: "var(--gradient-button)", color: "#fff", boxShadow: "0 6px 14px -6px rgba(37,99,235,0.45)" }}
+              style={{ background: "var(--gradient-button)", color: "#fff", boxShadow: "0 6px 14px -6px rgba(var(--blue-rgb),0.45)" }}
             >
               <ArchiveRestore size={15} /> Restaurer
             </button>
@@ -1880,7 +1880,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
           >
             <div
               className="mx-auto w-14 h-14 rounded-2xl flex items-center justify-center"
-              style={{ background: "rgba(5,108,242,0.12)" }}
+              style={{ background: "rgba(var(--blue-rgb),0.12)" }}
             >
               <Archive className="w-7 h-7" style={{ color: "var(--accent-text)" }} />
             </div>

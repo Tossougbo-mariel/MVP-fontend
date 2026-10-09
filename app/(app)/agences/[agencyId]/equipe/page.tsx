@@ -979,7 +979,7 @@ export default function EquipePage() {
                                 m.status === "inactif"
                                   ? "var(--border-subtle)"
                                   : isOwnerMember(m)
-                                    ? "linear-gradient(145deg, #056cf2, #0a2a6b)"
+                                    ? "var(--gradient-button)"
                                     : accentOf(m),
                             }}
                           >

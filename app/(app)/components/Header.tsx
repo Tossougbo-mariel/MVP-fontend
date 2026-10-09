@@ -177,7 +177,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
                   <button
                     onClick={handleMarkAll}
                     className="flex items-center gap-1 text-xs font-medium"
-                    style={{ color: "#056cf2" }}
+                    style={{ color: "var(--accent-text)" }}
                   >
                     <CheckCheck size={13} /> Tout marquer lu
                   </button>

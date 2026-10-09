@@ -46,7 +46,7 @@ const timeAgo = (iso: string | null | undefined): string => {
 
 const activityConfig: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
   creation: { label: ACTIVITY_LABELS["creation"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CalendarPlus },
-  changement_statut: { label: ACTIVITY_LABELS["changement_statut"], color: "#056cf2", bg: "var(--accent-soft)", icon: Flag },
+  changement_statut: { label: ACTIVITY_LABELS["changement_statut"], color: "var(--accent-text)", bg: "var(--accent-soft)", icon: Flag },
   changement_responsable: { label: ACTIVITY_LABELS["changement_responsable"], color: "#7c3aed", bg: "rgba(139,92,246,0.12)", icon: UserRound },
   changement_priorite: { label: ACTIVITY_LABELS["changement_priorite"], color: "#d97706", bg: "rgba(245,158,11,0.15)", icon: Flag },
   changement_echeance: { label: ACTIVITY_LABELS["changement_echeance"], color: "#db2777", bg: "rgba(219,39,119,0.12)", icon: CalendarClock },
@@ -624,7 +624,7 @@ const overdueCount = overdueTasks(
                   <button
                     onClick={() => setActivityExpanded((v) => !v)}
                     className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors hover:bg-[var(--hover-soft)]"
-                    style={{ color: "#056cf2", background: "rgba(5,108,242,0.08)" }}
+                    style={{ color: "var(--accent-text)", background: "var(--accent-soft)" }}
                   >
                     {activityExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                     {activityExpanded
@@ -751,7 +751,7 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
 
   const projectStatusInfo: Record<string, { label: string; color: string; bg: string }> = {
     a_venir: { label: "À venir", color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
-    en_cours: { label: "En cours", color: "#056cf2", bg: "rgba(5,108,242,0.12)" },
+    en_cours: { label: "En cours", color: "var(--accent-text)", bg: "var(--accent-soft)" },
     termine: { label: "Terminé", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
   };
 
@@ -856,7 +856,7 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
           <Link
             href={`/agences/${agencyId}/projets`}
             className="inline-flex items-center gap-1.5 text-xs font-semibold transition-transform hover:scale-105"
-            style={{ color: "#056cf2" }}
+            style={{ color: "var(--accent-text)" }}
           >
             Voir tous <ArrowRight size={13} />
           </Link>
@@ -911,7 +911,7 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
               <Link
                 href={`/agences/${agencyId}/projets`}
                 className="block text-center text-xs font-semibold pt-1 transition-colors hover:opacity-80"
-                style={{ color: "#056cf2" }}
+                style={{ color: "var(--accent-text)" }}
               >
                 +{myProjects.length - 4} autre{myProjects.length - 4 > 1 ? "s" : ""} projet{myProjects.length - 4 > 1 ? "s" : ""}…
               </Link>

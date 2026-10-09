@@ -8,9 +8,9 @@
 }
 
 :root {
-  --d-dark: #010b25;
-  --d-mid: #011648;
-  --d-deep: #002989;
+  --d-dark: #0a0b0e;
+  --d-mid: #101216;
+  --d-deep: #1b1e24;
   --blue: #056cf2;
   --blue-accent: #0c79f2;
   --blue-light: #9dc7ff;
@@ -45,11 +45,11 @@
 [data-theme="light"] {
   color-scheme: light;
   --background: color-mix(in srgb, var(--blue) 9%, #ffffff);
-  --foreground: #0A1B3C;
+  --foreground: #14161b;
   --bg-obsidian: color-mix(in srgb, var(--blue) 9%, #ffffff);
   --surface: color-mix(in srgb, var(--blue) 3%, rgba(255, 255, 255, 0.94));
   --border-subtle: rgba(var(--blue-rgb), 0.16);
-  --text-primary: #0A1B3C;
+  --text-primary: #14161b;
   --text-secondary: #4B5767;
   --text-muted: #5B6E96;
   --card-bg: rgba(255, 255, 255, 0.97);
@@ -68,7 +68,7 @@
   --chrome-bg: linear-gradient(180deg, color-mix(in srgb, var(--blue) 5%, #ffffff), color-mix(in srgb, var(--blue) 9%, #ffffff));
   --chrome-bar: color-mix(in srgb, var(--blue) 5%, rgba(255, 255, 255, 0.94));
   --chrome-border: rgba(var(--blue-rgb), 0.22);
-  --chrome-text: #0A1B3C;
+  --chrome-text: #14161b;
   --chrome-text-secondary: #4B5767;
   --chrome-text-muted: #5B6E96;
   --chrome-hover: rgba(var(--blue-rgb), 0.06);
@@ -77,15 +77,15 @@
   --chrome-accent-text: var(--blue);
   --sidebar-bg: linear-gradient(180deg, color-mix(in srgb, var(--blue) 16%, #ffffff), color-mix(in srgb, var(--blue) 24%, #ffffff));
   --sidebar-border: rgba(var(--blue-rgb), 0.24);
-  --sidebar-text: color-mix(in srgb, var(--blue) 45%, #0A1B3C);
-  --sidebar-text-secondary: color-mix(in srgb, var(--blue) 35%, #0A1B3C);
-  --sidebar-text-muted: color-mix(in srgb, var(--blue) 30%, #0A1B3C);
+  --sidebar-text: color-mix(in srgb, var(--blue) 45%, #14161b);
+  --sidebar-text-secondary: color-mix(in srgb, var(--blue) 35%, #14161b);
+  --sidebar-text-muted: color-mix(in srgb, var(--blue) 30%, #14161b);
   --sidebar-hover: rgba(255, 255, 255, 0.65);
   --sidebar-card: color-mix(in srgb, var(--blue) 3%, #ffffff);
   --sidebar-accent-soft: rgba(var(--blue-rgb), 0.14);
   --sidebar-accent-text: var(--blue);
   /* Rail d'icônes : volontairement sombre pour se détacher du panneau clair. */
-  --rail-bg: linear-gradient(180deg, color-mix(in srgb, var(--blue) 70%, #061B40) 0%, color-mix(in srgb, var(--blue) 35%, #061B40) 100%);
+  --rail-bg: linear-gradient(180deg, color-mix(in srgb, var(--blue) 70%, #0a0c10) 0%, color-mix(in srgb, var(--blue) 35%, #0a0c10) 100%);
   --rail-border: rgba(4, 16, 38, 0.5);
   --rail-text: color-mix(in srgb, var(--blue-light) 22%, #ffffff);
   --rail-text-secondary: color-mix(in srgb, var(--blue-light) 65%, #ffffff);
@@ -98,18 +98,18 @@
   --panel-bg: linear-gradient(180deg, color-mix(in srgb, var(--blue) 2%, #ffffff) 0%, color-mix(in srgb, var(--blue) 6%, #ffffff) 100%);
   --panel-border: color-mix(in srgb, var(--blue) 16%, #ffffff);
   --header-bar: linear-gradient(90deg, color-mix(in srgb, var(--blue) 4%, #ffffff), color-mix(in srgb, var(--blue) 8%, #ffffff));
-  --header-text: color-mix(in srgb, var(--blue) 45%, #0A1B3C);
-  --header-text-secondary: color-mix(in srgb, var(--blue) 35%, #0A1B3C);
-  --header-text-muted: color-mix(in srgb, var(--blue) 30%, #0A1B3C);
+  --header-text: color-mix(in srgb, var(--blue) 45%, #14161b);
+  --header-text-secondary: color-mix(in srgb, var(--blue) 35%, #14161b);
+  --header-text-muted: color-mix(in srgb, var(--blue) 30%, #14161b);
   --header-border: rgba(var(--blue-rgb), 0.16);
   --header-hover: rgba(var(--blue-rgb), 0.07);
-  --banner-gradient: linear-gradient(135deg, color-mix(in srgb, var(--blue) 65%, #0A1B3C), color-mix(in srgb, var(--blue) 35%, #0A1B3C));
+  --banner-gradient: linear-gradient(135deg, color-mix(in srgb, var(--blue) 65%, #14161b), color-mix(in srgb, var(--blue) 35%, #14161b));
   --banner-glow: rgba(var(--blue-light-rgb), 0.28);
   --banner-circle: rgba(var(--blue-light-rgb), 0.32);
   --banner-shadow: 0 16px 40px -16px rgba(var(--blue-rgb), 0.5);
-  --d-dark: color-mix(in srgb, var(--blue) 12%, #010b25);
-  --d-mid: color-mix(in srgb, var(--blue) 45%, #010b25);
-  --d-deep: color-mix(in srgb, var(--blue) 70%, #010b25);
+  --d-dark: color-mix(in srgb, var(--blue) 12%, #0a0b0e);
+  --d-mid: color-mix(in srgb, var(--blue) 45%, #0a0b0e);
+  --d-deep: color-mix(in srgb, var(--blue) 70%, #0a0b0e);
 }
 
 /* ------------------------------------------------------------------
@@ -117,16 +117,16 @@
 ------------------------------------------------------------------- */
 [data-theme="dark"] {
   color-scheme: dark;
-  --background: color-mix(in srgb, var(--blue) 18%, #010b25);
+  --background: color-mix(in srgb, var(--blue) 18%, #0a0b0e);
   --foreground: #F4F7FF;
-  --bg-obsidian: color-mix(in srgb, var(--blue) 18%, #010b25);
-  --surface: color-mix(in srgb, var(--blue) 10%, rgba(7, 20, 48, 0.85));
+  --bg-obsidian: color-mix(in srgb, var(--blue) 18%, #0a0b0e);
+  --surface: color-mix(in srgb, var(--blue) 10%, rgba(15, 17, 22, 0.85));
   --border-subtle: rgba(var(--blue-light-rgb), 0.16);
   --text-primary: #F4F7FF;
   --text-secondary: #B7BFCB;
   --text-muted: #8FA7D8;
-  --card-bg: color-mix(in srgb, var(--blue) 12%, #0A1B3C);
-  --input-bg: #0A1B3C;
+  --card-bg: color-mix(in srgb, var(--blue) 12%, #14161b);
+  --input-bg: #14161b;
   --input-border: rgba(var(--blue-light-rgb), 0.22);
   --gradient-primary: linear-gradient(135deg, var(--blue), var(--blue-light));
   --gradient-button: linear-gradient(135deg, var(--blue), var(--blue-accent));
@@ -138,51 +138,51 @@
   --color-success: #34D399;
   --particle-color: rgba(var(--blue-light-rgb), 0.4);
   --shadow-card: 0 12px 30px -12px rgba(0, 0, 0, 0.6);
-  --chrome-bg: linear-gradient(180deg, color-mix(in srgb, var(--blue) 20%, #021034), color-mix(in srgb, var(--blue) 15%, #010b25));
-  --chrome-bar: color-mix(in srgb, var(--blue) 16%, rgba(8, 22, 52, 0.92));
+  --chrome-bg: linear-gradient(180deg, color-mix(in srgb, var(--blue) 20%, #0c0e12), color-mix(in srgb, var(--blue) 15%, #0a0b0e));
+  --chrome-bar: color-mix(in srgb, var(--blue) 16%, rgba(16, 18, 24, 0.92));
   --chrome-border: rgba(var(--blue-light-rgb), 0.14);
   --chrome-text: #F4F7FF;
   --chrome-text-secondary: #B7BFCB;
   --chrome-text-muted: #8FA7D8;
   --chrome-hover: rgba(var(--blue-light-rgb), 0.08);
-  --chrome-card: color-mix(in srgb, var(--blue) 12%, #0A1B3C);
+  --chrome-card: color-mix(in srgb, var(--blue) 12%, #14161b);
   --chrome-accent-soft: rgba(var(--blue-rgb), 0.20);
   --chrome-accent-text: var(--blue-light);
-  --sidebar-bg: linear-gradient(180deg, color-mix(in srgb, var(--blue) 28%, #101c36), color-mix(in srgb, var(--blue) 22%, #0a1428));
+  --sidebar-bg: linear-gradient(180deg, color-mix(in srgb, var(--blue) 28%, #181b21), color-mix(in srgb, var(--blue) 22%, #121419));
   --sidebar-border: rgba(var(--blue-light-rgb), 0.16);
-  --sidebar-text: #F4F7FF;
-  --sidebar-text-secondary: color-mix(in srgb, var(--blue-light) 70%, #F4F7FF);
-  --sidebar-text-muted: color-mix(in srgb, var(--blue-light) 45%, #F4F7FF);
+  --sidebar-text: #FFFFFF;
+  --sidebar-text-secondary: #FFFFFF;
+  --sidebar-text-muted: #FFFFFF;
   --sidebar-hover: rgba(var(--blue-light-rgb), 0.1);
-  --sidebar-card: color-mix(in srgb, var(--blue) 12%, rgba(20, 40, 80, 0.6));
+  --sidebar-card: color-mix(in srgb, var(--blue) 12%, rgba(32, 34, 42, 0.6));
   --sidebar-accent-soft: color-mix(in srgb, var(--blue-light) 22%, transparent);
-  --sidebar-accent-text: var(--blue-light);
+  --sidebar-accent-text: #FFFFFF;
   /* Rail d'icônes : plus profond que le panneau, pour lire la séparation. */
-  --rail-bg: linear-gradient(180deg, color-mix(in srgb, var(--blue) 22%, #01071A) 0%, color-mix(in srgb, var(--blue) 8%, #01071A) 100%);
+  --rail-bg: linear-gradient(180deg, color-mix(in srgb, var(--blue) 22%, #070809) 0%, color-mix(in srgb, var(--blue) 8%, #070809) 100%);
   --rail-border: rgba(0, 0, 0, 0.6);
-  --rail-text: color-mix(in srgb, var(--blue-light) 8%, #F4F7FF);
-  --rail-text-secondary: color-mix(in srgb, var(--blue-light) 42%, #F4F7FF);
-  --rail-text-muted: color-mix(in srgb, var(--blue-light) 78%, #F4F7FF);
+  --rail-text: #FFFFFF;
+  --rail-text-secondary: #FFFFFF;
+  --rail-text-muted: #FFFFFF;
   --rail-hover: rgba(var(--blue-light-rgb), 0.14);
   --rail-card: rgba(var(--blue-light-rgb), 0.12);
   --rail-accent-soft: rgba(var(--blue-mid-rgb), 0.3);
-  --rail-accent-text: var(--blue-light);
-  /* Panneau d'agence : bleu nuit plus clair que le rail. */
-  --panel-bg: linear-gradient(180deg, color-mix(in srgb, var(--blue) 26%, #0C1B39) 0%, color-mix(in srgb, var(--blue) 14%, #08132B) 100%);
+  --rail-accent-text: #FFFFFF;
+  /* Panneau d'agence : surface plus claire que le rail. */
+  --panel-bg: linear-gradient(180deg, color-mix(in srgb, var(--blue) 26%, #15171d) 0%, color-mix(in srgb, var(--blue) 14%, #101216) 100%);
   --panel-border: rgba(var(--blue-light-rgb), 0.18);
-  --header-bar: linear-gradient(90deg, color-mix(in srgb, var(--blue) 50%, #0A1B3C), color-mix(in srgb, var(--blue) 72%, #0A1B3C));
+  --header-bar: linear-gradient(90deg, color-mix(in srgb, var(--blue) 50%, #14161b), color-mix(in srgb, var(--blue) 72%, #14161b));
   --header-text: #F4F7FF;
   --header-text-secondary: color-mix(in srgb, var(--blue-light) 70%, #F4F7FF);
   --header-text-muted: color-mix(in srgb, var(--blue-light) 45%, #F4F7FF);
   --header-border: rgba(var(--blue-light-rgb), 0.2);
   --header-hover: rgba(var(--blue-light-rgb), 0.1);
-  --banner-gradient: linear-gradient(135deg, color-mix(in srgb, var(--blue) 55%, #0A1B3C), color-mix(in srgb, var(--blue) 75%, #0A1B3C));
+  --banner-gradient: linear-gradient(135deg, color-mix(in srgb, var(--blue) 68%, #14161b), color-mix(in srgb, var(--blue) 75%, #14161b));
   --banner-glow: rgba(var(--blue-light-rgb), 0.15);
   --banner-circle: rgba(var(--blue-light-rgb), 0.25);
   --banner-shadow: 0 16px 40px -16px rgba(var(--blue-rgb), 0.6);
-  --d-dark: #010b25;
-  --d-mid: color-mix(in srgb, var(--blue) 40%, #010b25);
-  --d-deep: color-mix(in srgb, var(--blue) 65%, #010b25);
+  --d-dark: #0a0b0e;
+  --d-mid: color-mix(in srgb, var(--blue) 40%, #0a0b0e);
+  --d-deep: color-mix(in srgb, var(--blue) 65%, #0a0b0e);
 }
 
 /* Aurora */
@@ -420,6 +420,61 @@ html[data-theme="light"] .icon-theme-sun {
 
 input::placeholder {
   color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------------
+   Styles natifs du navigateur alignés sur le thème (accent utilisateur).
+   Remplace les couleurs par défaut (sélection, focus, autofill, scrollbars).
+------------------------------------------------------------------- */
+::selection {
+  background: rgba(var(--blue-rgb), 0.28);
+}
+
+:focus-visible {
+  outline-color: var(--accent-text);
+}
+
+html {
+  accent-color: var(--blue);
+  scrollbar-color: rgba(var(--blue-rgb), 0.45) transparent;
+}
+
+input,
+textarea {
+  caret-color: var(--accent-text);
+}
+
+/* Autofill : neutralise le fond jaune/bleu imposé par le navigateur. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--text-primary);
+  -webkit-box-shadow: 0 0 0 1000px var(--input-bg) inset;
+  box-shadow: 0 0 0 1000px var(--input-bg) inset;
+  caret-color: var(--text-primary);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(var(--blue-rgb), 0.45);
+  background-clip: content-box;
+  border: 2px solid transparent;
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--blue-rgb), 0.65);
+  background-clip: content-box;
 }
 
 .text-gradient {

@@ -47,7 +47,7 @@ export default function TokenPage() {
       <Link
         href="/mes-agences"
         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 active:scale-95"
-        style={{ background: "var(--gradient-button)", boxShadow: "0 10px 24px -8px rgba(5,108,242,0.5)" }}
+        style={{ background: "var(--gradient-button)", boxShadow: "0 10px 24px -8px rgba(var(--blue-rgb),0.5)" }}
       >
         <Home size={16} /> Retour à mes agences
       </Link>

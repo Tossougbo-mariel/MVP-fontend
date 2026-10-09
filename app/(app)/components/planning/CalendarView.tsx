@@ -14,7 +14,7 @@ import { useTaskStatuses } from "@/lib/useTaskStatuses";
 
 const PRIORITY_COLOR: Record<Task["priority"], string> = {
   basse: "var(--text-muted)",
-  moyenne: "#056cf2",
+  moyenne: "var(--blue)",
   haute: "#d97706",
   urgente: "#ef4444",
 };

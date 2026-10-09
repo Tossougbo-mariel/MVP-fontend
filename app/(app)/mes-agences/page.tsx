@@ -80,19 +80,27 @@ function AvatarStack({ members, max = 5, size = 28 }: { members: DisplayMember[]
       {shown.map((m, i) => (
         <span
           key={`${m.user.id}-${i}`}
-          className="rounded-full"
-          style={{ marginLeft: i === 0 ? 0 : -overlap, border: "2px solid var(--surface)", zIndex: shown.length - i }}
+          className="inline-flex items-center justify-center rounded-full overflow-hidden shrink-0"
+          style={{
+            width: size,
+            height: size,
+            boxSizing: "border-box",
+            border: "2px solid var(--surface)",
+            marginLeft: i === 0 ? 0 : -overlap,
+            zIndex: shown.length - i,
+          }}
         >
-          <Avatar src={m.user.avatar} initials={memberInitials(m)} color={m.color} size={size} />
+          <Avatar src={m.user.avatar} initials={memberInitials(m)} color={m.color} size={size - 4} />
         </span>
       ))}
       {rest > 0 && (
         <span
-          className="inline-flex items-center justify-center rounded-full text-[10px] font-bold"
+          className="inline-flex items-center justify-center rounded-full text-[10px] font-bold shrink-0"
           style={{
             marginLeft: -overlap,
             width: size,
             height: size,
+            boxSizing: "border-box",
             background: "var(--surface)",
             color: "var(--text-secondary)",
             border: "2px solid var(--surface)",
