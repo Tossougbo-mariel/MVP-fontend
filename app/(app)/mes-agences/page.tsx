@@ -80,19 +80,27 @@ function AvatarStack({ members, max = 5, size = 28 }: { members: DisplayMember[]
       {shown.map((m, i) => (
         <span
           key={`${m.user.id}-${i}`}
-          className="rounded-full"
-          style={{ marginLeft: i === 0 ? 0 : -overlap, border: "2px solid var(--surface)", zIndex: shown.length - i }}
+          className="inline-flex items-center justify-center rounded-full overflow-hidden shrink-0"
+          style={{
+            width: size,
+            height: size,
+            boxSizing: "border-box",
+            border: "2px solid var(--surface)",
+            marginLeft: i === 0 ? 0 : -overlap,
+            zIndex: shown.length - i,
+          }}
         >
-          <Avatar src={m.user.avatar} initials={memberInitials(m)} color={m.color} size={size} />
+          <Avatar src={m.user.avatar} initials={memberInitials(m)} color={m.color} size={size - 4} />
         </span>
       ))}
       {rest > 0 && (
         <span
-          className="inline-flex items-center justify-center rounded-full text-[10px] font-bold"
+          className="inline-flex items-center justify-center rounded-full text-[10px] font-bold shrink-0"
           style={{
             marginLeft: -overlap,
             width: size,
             height: size,
+            boxSizing: "border-box",
             background: "var(--surface)",
             color: "var(--text-secondary)",
             border: "2px solid var(--surface)",
@@ -212,7 +220,7 @@ export default function MesAgencesPage() {
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
               {enriched.map(({ agency: a, members, projectCount, runningCount, taskCount }) => {
                 const role = userRoleInAgency(a, user?.email ?? "");
                 return (
@@ -222,7 +230,7 @@ export default function MesAgencesPage() {
                     variants={item}
                     whileHover={{ y: -6 }}
                     transition={{ duration: 0.25, ease: "easeOut" }}
-                    className="glass relative rounded-3xl p-4 pt-4 cursor-pointer overflow-hidden group"
+                    className="glass relative rounded-2xl p-3.5 cursor-pointer overflow-hidden group"
                     style={{ boxShadow: "var(--shadow-card)" }}
                   >
                     {/* Couleurs de l'agence : mélange de 2 teintes douces selon la 1re lettre du nom */}
@@ -231,23 +239,23 @@ export default function MesAgencesPage() {
                       style={{ backgroundImage: isDark ? agencyDarkGradientOf(a.name) : agencyGradientOf(a.name) }}
                     />
                     <div
-                      className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl"
+                      className="absolute top-0 left-0 right-0 h-[3px] rounded-t-2xl"
                       style={{ background: "var(--gradient-primary)" }}
                     />
-                    <div className="relative flex flex-col gap-2.5">
+                    <div className="relative flex flex-col gap-2">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-2 min-w-0">
                           <div
-                            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                             style={{
                               background: "var(--gradient-primary)",
                               boxShadow: "0 6px 16px -6px rgba(var(--blue-rgb),0.45)",
                             }}
                           >
-                            <Building2 className="w-4 h-4 text-white" />
+                            <Building2 className="w-3.5 h-3.5 text-white" />
                           </div>
                           <div className="min-w-0">
-                            <div className="font-bold truncate text-[15px] leading-tight" style={{ color: "var(--text-primary)" }}>
+                            <div className="font-bold truncate text-sm leading-tight" style={{ color: "var(--text-primary)" }}>
                               {a.name}
                             </div>
                             <span
@@ -292,9 +300,9 @@ export default function MesAgencesPage() {
                       )}
 
                       {/* Effectif d'un coup d'œil, sans entrer dans l'agence. */}
-                      <AvatarStack members={members} size={22} />
+                      <AvatarStack members={members} size={18} />
 
-                      <div className="flex items-center justify-between gap-3 pt-2.5 text-[11px]" style={{ borderTop: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}>
+                      <div className="flex items-center justify-between gap-3 pt-2 text-[11px]" style={{ borderTop: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}>
                         <span>
                           {projectCount} projet{projectCount > 1 ? "s" : ""}
                           {runningCount > 0 && ` · ${runningCount} en cours`}

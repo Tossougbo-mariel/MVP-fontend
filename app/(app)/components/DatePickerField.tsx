@@ -138,7 +138,7 @@ export default function DatePickerField({
         title={display}
       >
         <span className="flex items-center gap-2 min-w-0 truncate">
-          <CalendarIcon size={15} className="shrink-0" style={{ color: value ? "var(--accent-text, #056cf2)" : "var(--text-muted)" }} />
+          <CalendarIcon size={15} className="shrink-0" style={{ color: value ? "var(--accent-text)" : "var(--text-muted)" }} />
           <span className="truncate" style={{ color: value ? (style?.color ?? "var(--text-primary)") : "var(--text-muted)" }}>
             {display}
           </span>
@@ -210,9 +210,9 @@ export default function DatePickerField({
                     className="h-9 rounded-lg text-xs font-semibold transition-colors disabled:opacity-35 disabled:cursor-not-allowed"
                     style={
                       selected
-                        ? { background: "var(--gradient-button)", color: "#fff", boxShadow: "0 6px 14px -6px rgba(37,99,235,0.45)" }
+                        ? { background: "var(--gradient-button)", color: "#fff", boxShadow: "0 6px 14px -6px rgba(var(--blue-rgb),0.45)" }
                         : isToday
-                          ? { background: "rgba(5,108,242,0.10)", color: "#056cf2", border: "1px solid rgba(5,108,242,0.4)" }
+                          ? { background: "var(--accent-soft)", color: "var(--accent-text)", border: "1px solid var(--accent-text)" }
                           : { color: "var(--text-primary)", border: "1px solid transparent" }
                     }
                     onMouseEnter={(e) => {
@@ -234,7 +234,7 @@ export default function DatePickerField({
                 type="button"
                 onClick={() => { onChange(todayISO); close(); }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors hover:bg-[var(--hover-soft)]"
-                style={{ color: "#056cf2" }}
+                style={{ color: "var(--accent-text)" }}
               >
                 <Check size={12} /> Aujourd&apos;hui
               </button>

@@ -90,7 +90,7 @@ export default function ConfirmDialog({
                 style={
                   tone === "danger"
                     ? { background: "var(--color-error)" }
-                    : { background: "var(--gradient-button)", boxShadow: "0 6px 14px -6px rgba(37,99,235,0.45)" }
+                    : { background: "var(--gradient-button)", boxShadow: "0 6px 14px -6px rgba(var(--blue-rgb),0.45)" }
                 }
               >
                 {confirmLabel}

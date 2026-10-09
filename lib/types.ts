@@ -630,6 +630,8 @@ export const isTaskBlocked = (
 // ---------- Notifications ----------
 export type AppNotification = {
   id: number;
+  /** Agence d'origine : null pour ce qui ne relève d'aucune agence. */
+  agencyId: number | null;
   type: string;
   title: string;
   message: string | null;

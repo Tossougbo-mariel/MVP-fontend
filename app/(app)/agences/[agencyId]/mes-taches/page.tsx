@@ -50,7 +50,7 @@ const buildWorkflow = (statuses: TaskStatusMeta[]): { key: StatusFilter; label: 
 
 const priorityConfig: Record<TaskPriority, { label: string; color: string; bg: string; border?: string }> = {
   basse: { label: "Basse", color: "#e8edf5", bg: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.35)" },
-  moyenne: { label: "Moyenne", color: "#7db5ff", bg: "rgba(125,181,255,0.16)" },
+  moyenne: { label: "Moyenne", color: "var(--blue-mid)", bg: "rgba(var(--blue-mid-rgb),0.16)" },
   haute: { label: "Haute", color: "#fbbf24", bg: "rgba(251,191,36,0.18)" },
   urgente: { label: "Urgente", color: "#FF6B6B", bg: "rgba(255,107,107,0.16)" },
 };
@@ -320,14 +320,10 @@ export default function MesTachesPage() {
                       }
                 }
               >
-                <span className="relative w-2.5 h-2.5 shrink-0">
+                <span className="relative flex items-center justify-center w-2.5 h-2.5 shrink-0">
                   <span
-                    className="w-2.5 h-2.5 rounded-full"
-                    style={
-                      hasTasks
-                        ? { background: accent }
-                        : { border: "1px solid var(--border-subtle)" }
-                    }
+                    className="block w-2.5 h-2.5 rounded-full"
+                    style={{ background: accent }}
                   />
                 </span>
                 {f.label}

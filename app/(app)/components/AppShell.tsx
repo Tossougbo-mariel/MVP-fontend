@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import AgencyPanel from "./AgencyPanel";
 import Header from "./Header";
 import AiAgentPanel from "./AiAgentPanel";
+import DeadlineAlertCenter from "./DeadlineAlertCenter";
 import { useActiveAgencyId } from "@/lib/useActiveAgencyId";
 
 /** Second sidebar : 260px, première colonne de la feuille de contenu.
@@ -25,6 +27,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [railCollapsed, setRailCollapsed] = useState(false);
   const agencyId = useActiveAgencyId();
   const isInAgency = agencyId !== null;
+  const pathname = usePathname();
+  // Sur la page « Mes agences », l'image d'accueil reste en fond, floutée,
+  // derrière les cartes. Sur toutes les autres pages, le fond est uniforme.
+  const isAgenciesPage = pathname === "/mes-agences";
 
   useEffect(() => {
     try {
@@ -86,15 +92,48 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         style={{ background: "var(--rail-bg)", backgroundAttachment: "fixed" }}
       >
         <div
-          className="flex flex-1 overflow-hidden rounded-tl-2xl lg:h-[calc(100dvh-var(--header-h)-var(--sheet-gap))]"
+          className="relative flex flex-1 overflow-hidden rounded-tl-2xl lg:h-[calc(100dvh-var(--header-h)-var(--sheet-gap))]"
           style={{
             background: "var(--background)",
             boxShadow: "0 18px 40px -28px rgba(0, 0, 0, 0.55)",
           }}
         >
+          {/* Sur « Mes agences » uniquement : l'image d'accueil en fond, floutée,
+              derrière les cartes d'agences. Elle apparaît en douceur lors de la
+              navigation depuis la page de bienvenue. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              overflow: "hidden",
+              opacity: isAgenciesPage ? 1 : 0,
+              transition: "opacity 0.6s ease",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                backgroundImage: "url(/image/welcome.jpg)",
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                filter: "blur(16px)",
+                transform: "scale(1.06)",
+              }}
+            />
+            {/* Voile assorti au thème pour garder les cartes lisibles. */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "color-mix(in srgb, var(--background) 78%, transparent)",
+              }}
+            />
+          </div>
+
           {isInAgency && (
             <aside
-              className="hidden lg:flex shrink-0 min-h-0 border-r"
+              className="relative z-10 hidden lg:flex shrink-0 min-h-0 border-r"
               style={{
                 background: "var(--panel-bg)",
                 borderColor: "var(--panel-border)",
@@ -107,7 +146,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           )}
 
           {/* Seul ce conteneur défile : la colonne de gauche reste immobile. */}
-          <div className="flex-1 min-w-0 min-h-0 overflow-y-auto">
+          <div className="relative z-10 flex-1 min-w-0 min-h-0 overflow-y-auto">
             {children}
           </div>
         </div>
@@ -119,6 +158,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         onOpen={() => setAiOpen(true)}
         agencyId={agencyId}
       />
+
+      {/* Alertes d'échéance : bannière rouge en bas + lecture vocale. */}
+      <DeadlineAlertCenter />
 
       {open && (
         <div
