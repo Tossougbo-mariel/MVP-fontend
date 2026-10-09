@@ -96,67 +96,6 @@ export const deadlineAlertTone = (
 ): { label: string; color: string; bg: string } =>
   alert.stage === "retard" ? DEADLINE_META.en_retard : DEADLINE_META.a_echeance;
 
-export type DeadlineAlertsSummary = {
-  /** « 2 tâches en retard · 3 tâches à échéance proche » (zéros masqués). */
-  counts: string;
-  /** Phrase complète : les deux nombres, puis l'alerte la plus urgente. */
-  message: string;
-  /** Alerte la plus urgente — la liste est déjà triée par urgence. */
-  most: DeadlineAlert;
-  late: number;
-  soon: number;
-};
-
-const plural = (n: number, one: string, many: string): string =>
-  `${n} ${n > 1 ? many : one}`;
-
-/**
- * Synthèse affichée par la bannière de la sidebar : plutôt qu'un message par
- * tâche (le premier à être montré, les autres restant invisibles), elle dit
- * combien de tâches sont en retard et combien arrivent à échéance, puis nomme
- * la plus urgente.
- */
-export const deadlineAlertsSummary = (
-  alerts: DeadlineAlert[],
-): DeadlineAlertsSummary | null => {
-  if (alerts.length === 0) return null;
-
-  const late = alerts.filter((alert) => alert.stage === "retard").length;
-  const soon = alerts.length - late;
-  const most = alerts[0];
-
-  const countParts: string[] = [];
-  if (late > 0) countParts.push(plural(late, "tâche en retard", "tâches en retard"));
-  if (soon > 0) {
-    countParts.push(plural(soon, "tâche à échéance proche", "tâches à échéance proche"));
-  }
-
-  const bodyParts: string[] = [];
-  if (late > 0) {
-    bodyParts.push(plural(late, "tâche est en retard", "tâches sont en retard"));
-  }
-  if (soon > 0) {
-    bodyParts.push(
-      `${plural(soon, "tâche arrive à échéance", "tâches arrivent à échéance")} dans moins de deux jours`,
-    );
-  }
-
-  const detail =
-    alerts.length === 1
-      ? `« ${most.taskTitle} »`
-      : `La plus urgente : « ${most.taskTitle} »`;
-
-  return {
-    counts: countParts.join(" · "),
-    message:
-      `${bodyParts.join(" et ")}. ${detail} — ` +
-      `${deadlineAlertLabel(most)}, le ${formatDueDate(most.dueDate)}.`,
-    most,
-    late,
-    soon,
-  };
-};
-
 /** Tâches en situation d'alerte (≤ 2 jours ou en retard), triées par urgence. */
 export const activeDeadlineAlerts = (
   tasks: Task[],

@@ -11,7 +11,6 @@ import { getNotificationMeta, relativeTime } from "@/lib/notifications";
 import type { AppNotification } from "@/lib/types";
 import { useActiveAgencyId, profileHrefFor } from "@/lib/useActiveAgencyId";
 import AvatarViewer from "./AvatarViewer";
-import DeadlineAlertsMenu from "./DeadlineAlertsMenu";
 import GlobalSearch from "./GlobalSearch";
 
 export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
@@ -132,9 +131,6 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
-        {/* Alertes d'échéance : même panneau que les notifications. */}
-        <DeadlineAlertsMenu />
-
         <div className="relative" ref={bellRef}>
           <button
             onClick={() => setBellOpen((v) => !v)}

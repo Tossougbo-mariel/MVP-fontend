@@ -15,19 +15,34 @@ import { useActiveAgencyId } from "@/lib/useActiveAgencyId";
 /** Nombre d'alertes montrées dans le panneau, comme pour les notifications. */
 const PREVIEW_COUNT = 6;
 
+type MenuVariant = "rail" | "drawer";
+
 /**
- * Menu d'alertes d'échéance du header : même présentation que la liste des
- * notifications (panneau de 340px, 6 lignes, lien « voir toutes » en pied).
- * Il ne fait qu'afficher les alertes déjà relevées par DeadlineAlertCenter :
- * la bannière clignotante et le son restent gérés là-bas, sans changement.
+ * Menu d'alertes d'échéance : même présentation que la liste des notifications
+ * (panneau de 340px, 6 lignes, lien « voir toutes » en pied).
+ *
+ * Deux points d'ancrage — le rail desktop et le tiroir mobile — partagent ce
+ * panneau, pour qu'un clic ouvre partout la même liste. L'icône prend un cercle
+ * d'état (vert/rouge) et le panneau se déplie tout seul à l'apparition d'une
+ * alerte ; le son reste joué par DeadlineAlertCenter, qui les détecte.
  */
-export default function DeadlineAlertsMenu() {
+export default function DeadlineAlertsMenu({ variant }: { variant: MenuVariant }) {
   const { getProject } = useAppData();
   const alerts = useDeadlineAlertStore((s) => s.active);
   const contextAgencyId = useActiveAgencyId();
 
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+
+  // Une alerte vient d'être détectée : le menu latéral se déplie tout seul,
+  // comme si on avait cliqué sur l'icône (le son est joué par le centre). On
+  // s'abonne au store plutôt que de dépendre de la valeur, pour n'ouvrir qu'au
+  // moment précis où l'alerte tombe, sans rouvrir à chaque rendu.
+  useEffect(() => {
+    return useDeadlineAlertStore.subscribe((state, prev) => {
+      if (state.deployTick !== prev.deployTick) setOpen(true);
+    });
+  }, []);
 
   const alertsHref = contextAgencyId
     ? `/agences/${contextAgencyId}/alertes`
@@ -63,33 +78,87 @@ export default function DeadlineAlertsMenu() {
 
   const preview = alerts.slice(0, PREVIEW_COUNT);
   const lateCount = alerts.filter((a) => a.stage === "retard").length;
+  const hasAlerts = alerts.length > 0;
 
-  return (
-    <div className="relative" ref={wrapRef}>
+  // L'icône est posée en bas de l'écran : le panneau s'ouvre donc vers le haut,
+  // sinon sa moitié basse sort de la fenêtre sans qu'on puisse la rejoindre.
+  const panelClass =
+    variant === "rail"
+      ? "absolute left-full bottom-full mb-2 w-[340px]"
+      : "absolute left-0 bottom-full mb-2";
+  // L'icône occupée est déjà à ~100px du bas : on réserve cette marge pour que
+  // le haut du panneau ne sorte jamais de l'écran.
+  const panelHeightClass = "max-h-[calc(100vh-11rem)]";
+
+  // Badge calqué sur ceux du rail, inversé (blanc/rouge) pour rester lisible
+  // sur le fond coloré du cercle d'état.
+  const badgeClass = "absolute -top-1 -right-2 min-w-[15px] h-[15px] text-[9px] font-bold";
+
+  const badge = hasAlerts && (
+    <span
+      className={`${badgeClass} px-1 rounded-full flex items-center justify-center`}
+      style={{ background: "#fff", color: "var(--color-error)" }}
+    >
+      {alerts.length > 9 ? "9+" : alerts.length}
+    </span>
+  );
+
+  // Pastille d'état : verte au calme, rouge dès qu'une alerte tombe.
+  const circleBg = hasAlerts ? "var(--color-error)" : "var(--color-success)";
+
+  const triggerColor = hasAlerts ? "var(--color-error)" : "var(--rail-text-secondary)";
+  const title = hasAlerts ? `Alertes d'échéance (${alerts.length})` : "Alertes d'échéance";
+
+  const trigger =
+    variant === "rail" ? (
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative p-2 rounded-lg transition-colors hover:bg-[var(--rail-hover)]"
         aria-label="Alertes d'échéance"
         aria-expanded={open}
-        title={alerts.length > 0 ? `Alertes d'échéance (${alerts.length})` : "Alertes d'échéance"}
+        title={title}
+        className="w-full flex flex-col items-center gap-1 px-1 py-2 rounded-xl shrink-0 transition-colors"
+        style={{ color: triggerColor }}
       >
-        <AlertTriangle
-          className="w-5 h-5"
-          style={{ color: alerts.length > 0 ? "var(--color-error)" : "var(--rail-text-secondary)" }}
-        />
-        {alerts.length > 0 && (
-          <span
-            className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold text-white flex items-center justify-center"
-            style={{ background: "var(--color-error)" }}
-          >
-            {alerts.length > 9 ? "9+" : alerts.length}
-          </span>
-        )}
+        <span
+          className={`relative flex items-center justify-center rounded-full shrink-0 p-1 ${hasAlerts ? "deadline-alert-blink" : ""}`}
+          style={{ background: circleBg, transition: "background 300ms ease" }}
+        >
+          <AlertTriangle size={18} color="#fff" strokeWidth={2.25} />
+          {badge}
+        </span>
+        <span className="text-[10px] font-semibold leading-[12px] tracking-tight text-center max-w-full truncate">
+          Alertes
+        </span>
       </button>
+    ) : (
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Alertes d'échéance"
+        aria-expanded={open}
+        title={title}
+        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+        style={{ color: triggerColor }}
+      >
+        <span
+          className={`relative flex items-center justify-center rounded-full shrink-0 p-1 ${hasAlerts ? "deadline-alert-blink" : ""}`}
+          style={{ background: circleBg, transition: "background 300ms ease" }}
+        >
+          <AlertTriangle size={19} color="#fff" strokeWidth={2.25} />
+          {badge}
+        </span>
+        Alertes d&rsquo;échéance
+      </button>
+    );
+
+  return (
+    <div className="relative w-full" ref={wrapRef}>
+      {trigger}
 
       {open && (
         <div
-          className="absolute right-0 mt-2 w-[340px] rounded-xl overflow-hidden z-50"
+          className={`${panelClass} ${panelHeightClass} ${hasAlerts ? "deadline-alert-blink-panel" : ""} flex flex-col rounded-xl overflow-hidden z-50`}
           style={{
             background: "var(--chrome-card)",
             border: "1px solid var(--chrome-border)",
@@ -119,7 +188,7 @@ export default function DeadlineAlertsMenu() {
               Aucune alerte d&apos;échéance.
             </p>
           ) : (
-            <ul className="max-h-[320px] overflow-y-auto">
+            <ul className="min-h-0 overflow-y-auto overscroll-contain">
               {preview.map((alert) => {
                 const tone = deadlineAlertTone(alert);
                 const Icon = alert.stage === "retard" ? AlertTriangle : CalendarClock;

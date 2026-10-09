@@ -741,14 +741,13 @@ const badPractices = [
 ];
 
 function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: string }) {
-  const { myTasksInAgency, projectsByAgency, tasksByProject } = useAppData();
-  const myT = myTasksInAgency(agencyId);
+  const { projectsByAgency, tasksByProject } = useAppData();
 
-  // Projets dans lesquels le membre participe (au moins une tâche), non archivés
-  const projectIds = new Set(myT.map((t) => t.projectId));
-  const myProjects = projectsByAgency(agencyId).filter(
-    (p) => p.status !== "archive" && projectIds.has(p.id),
-  );
+  // Projets du membre, non archivés. L'API ne renvoie déjà que les projets où
+  // le membre est rattaché (cf. ProjectController@index) ; on ne filtre donc
+  // plus sur les tâches assignées : appartenir au projet suffit à le voir ici,
+  // même sans aucune tâche assignée.
+  const myProjects = projectsByAgency(agencyId).filter((p) => p.status !== "archive");
 
   const projectStatusInfo: Record<string, { label: string; color: string; bg: string }> = {
     a_venir: { label: "À venir", color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
@@ -865,8 +864,8 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
 
         {myProjects.length === 0 ? (
           <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            Vous ne participez à aucun projet pour le moment. Vos projets apparaîtront ici dès qu&apos;une
-            tâche vous sera assignée.
+            Vous ne participez à aucun projet pour le moment. Les projets auxquels
+            vous serez rattaché apparaîtront ici.
           </div>
         ) : (
           <div className="space-y-3">

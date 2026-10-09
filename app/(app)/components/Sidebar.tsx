@@ -13,7 +13,7 @@ import {
   userAgencies, userRoleInAgency, type AgencyRole,
 } from "@/lib/types";
 import { useActiveAgencyId, profileHrefFor } from "@/lib/useActiveAgencyId";
-import DeadlineAlertIcon from "./DeadlineAlertIcon";
+import DeadlineAlertsMenu from "./DeadlineAlertsMenu";
 
 /** Rail principal : 80px, sous le header. Doit rester égal à --rail-w (globals.css). */
 export const MAIN_RAIL_WIDTH = 80;
@@ -240,7 +240,7 @@ export default function Sidebar({
         </div>
 
         {/* Alertes d'échéance : juste au-dessus de la déconnexion. */}
-        <DeadlineAlertIcon variant="rail" />
+        <DeadlineAlertsMenu variant="rail" />
 
         {railItem({
           label: "Se déconnecter",
@@ -395,7 +395,7 @@ export default function Sidebar({
         {/* Alertes d'échéance : poussées en bas, juste au-dessus de la
             déconnexion (le bouton d'alerte porte le mt-auto). */}
         <div className="mt-auto flex flex-col gap-1">
-          <DeadlineAlertIcon variant="drawer" />
+          <DeadlineAlertsMenu variant="drawer" />
           <button
             onClick={handleLogout}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-left"

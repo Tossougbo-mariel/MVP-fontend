@@ -320,14 +320,10 @@ export default function MesTachesPage() {
                       }
                 }
               >
-                <span className="relative w-2.5 h-2.5 shrink-0">
+                <span className="relative flex items-center justify-center w-2.5 h-2.5 shrink-0">
                   <span
-                    className="w-2.5 h-2.5 rounded-full"
-                    style={
-                      hasTasks
-                        ? { background: accent }
-                        : { border: "1px solid var(--border-subtle)" }
-                    }
+                    className="block w-2.5 h-2.5 rounded-full"
+                    style={{ background: accent }}
                   />
                 </span>
                 {f.label}
