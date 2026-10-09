@@ -180,6 +180,7 @@ const mapComment = (r: any): TaskComment => ({
 });
 
 const mapNotification = (r: any): AppNotification => ({  id: Number(r.id),
+  agencyId: r.agency_id != null ? Number(r.agency_id) : null,
   type: String(r.type ?? ""),
   title: str(r.title) ?? "",
   message: str(r.message),
@@ -689,8 +690,24 @@ export const markNotificationRead = async (
 ): Promise<AppNotification> =>
   mapNotification((await api.patch(`/notifications/${notificationId}/read`)).data);
 
+/** Repasse une notification en non lue (l'utilisateur re-tri sa boîte). */
+export const markNotificationUnread = async (
+  notificationId: number | string,
+): Promise<AppNotification> =>
+  mapNotification((await api.patch(`/notifications/${notificationId}/unread`)).data);
+
 export const markAllNotificationsRead = async (): Promise<void> => {
   await api.post("/notifications/read-all");
+};
+
+/** Supprime une notification (menu ⋯). */
+export const deleteNotification = async (notificationId: number | string): Promise<void> => {
+  await api.delete(`/notifications/${notificationId}`);
+};
+
+/** Supprime une sélection de notifications (cases à cocher). */
+export const deleteNotifications = async (ids: (number | string)[]): Promise<void> => {
+  await api.delete("/notifications", { data: { ids } });
 };
 
 // ---------- Préférences de notifications ----------

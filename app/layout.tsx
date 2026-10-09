@@ -36,6 +36,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script
           dangerouslySetInnerHTML={{
+            // Le fond (clair/sombre) suit le thème choisi partout, y compris
+            // sur les pages de connexion : seul l'accent bleu y est forcé
+            // (voir app/(PageConnexion)/layout.tsx).
             __html: `(function(){try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light"){document.documentElement.setAttribute("data-theme",t)}else{document.documentElement.setAttribute("data-theme","dark")}}catch(e){document.documentElement.setAttribute("data-theme","dark")}})()`,
           }}
         />

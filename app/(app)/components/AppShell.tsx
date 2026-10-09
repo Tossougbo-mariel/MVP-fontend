@@ -5,6 +5,7 @@ import Sidebar from "./Sidebar";
 import AgencyPanel from "./AgencyPanel";
 import Header from "./Header";
 import AiAgentPanel from "./AiAgentPanel";
+import DeadlineAlertCenter from "./DeadlineAlertCenter";
 import { useActiveAgencyId } from "@/lib/useActiveAgencyId";
 
 /** Second sidebar : 260px, première colonne de la feuille de contenu.
@@ -89,6 +90,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         onOpen={() => setAiOpen(true)}
         agencyId={agencyId}
       />
+
+      {/* Alertes d'échéance : bannière rouge en bas + lecture vocale. */}
+      <DeadlineAlertCenter />
 
       {open && (
         <div

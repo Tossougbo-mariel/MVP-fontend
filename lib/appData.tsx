@@ -10,9 +10,9 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
-import { Bell } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { getEcho, disconnectEcho } from "./echo";
+import { getNotificationMeta, notificationAction } from "./notifications";
 import {
   fetchAgencies,
   fetchBootstrap,
@@ -212,6 +212,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
       const incoming: AppNotification = {
         id: Number(raw.id),
+        agencyId: raw.agency_id != null ? Number(raw.agency_id) : null,
         type: String(raw.type ?? ""),
         title: String(raw.title ?? ""),
         message: raw.message != null ? String(raw.message) : null,
@@ -308,6 +309,10 @@ function RealtimeToast({
   notification: AppNotification;
   onClose: () => void;
 }) {
+  const meta = getNotificationMeta(notification.type);
+  const action = notificationAction(notification);
+  const Icon = meta.icon;
+
   return (
     <div
       className="fixed bottom-5 right-5 z-[60] w-[320px] rounded-2xl p-4 flex items-start gap-3"
@@ -318,28 +323,31 @@ function RealtimeToast({
         animation: "toastIn 0.25s ease-out",
       }}
     >
-      <div
-        className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
-        style={{ background: "rgba(5,108,242,0.14)" }}
+      <span
+        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+        style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}
       >
-        <Bell size={16} style={{ color: "#056cf2" }} />
-      </div>
+        <Icon size={16} />
+      </span>
       <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: meta.color }}>
+          {meta.label}
+        </p>
         <p className="text-sm font-bold truncate" style={{ color: "var(--chrome-text)" }}>
           {notification.title}
         </p>
         {notification.message && (
-          <p className="text-xs mt-0.5" style={{ color: "var(--chrome-text-muted)" }}>
+          <p className="text-xs mt-0.5 line-clamp-2" style={{ color: "var(--chrome-text-muted)" }}>
             {notification.message}
           </p>
         )}
         <Link
-          href={notification.link || "/notifications"}
+          href={action?.href ?? notification.link ?? "/notifications"}
           onClick={onClose}
           className="inline-block mt-1.5 text-xs font-semibold"
-          style={{ color: "#056cf2" }}
+          style={{ color: meta.color }}
         >
-          Voir la notification
+          {action?.label ?? "Voir la notification"}
         </Link>
       </div>
       <button

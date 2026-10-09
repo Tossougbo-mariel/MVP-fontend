@@ -6,9 +6,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Menu, Bell, LogOut, User, ImageIcon, CheckCheck, AtSign, Sparkles } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
-import { markAllNotificationsRead } from "@/lib/services";
+import { markAllNotificationsRead, markNotificationRead } from "@/lib/services";
+import { getNotificationMeta, relativeTime } from "@/lib/notifications";
+import type { AppNotification } from "@/lib/types";
 import { useActiveAgencyId, profileHrefFor } from "@/lib/useActiveAgencyId";
 import AvatarViewer from "./AvatarViewer";
+import DeadlineAlertsMenu from "./DeadlineAlertsMenu";
 import GlobalSearch from "./GlobalSearch";
 
 export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
@@ -53,6 +56,16 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
       await reload();
     } catch {
       // silencieux : la page notifications gère déjà les erreurs
+    }
+  };
+
+  // Ouvrir une notification la donne pour lue : on l'a affichée en passant.
+  const markRead = async (n: AppNotification) => {
+    try {
+      await markNotificationRead(n.id);
+      await reload();
+    } catch {
+      // silencieux
     }
   };
 
@@ -119,6 +132,9 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
+        {/* Alertes d'échéance : même panneau que les notifications. */}
+        <DeadlineAlertsMenu />
+
         <div className="relative" ref={bellRef}>
           <button
             onClick={() => setBellOpen((v) => !v)}
@@ -178,36 +194,65 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
                 </p>
               ) : (
                 <ul className="max-h-[320px] overflow-y-auto">
-                  {notifications.map((n) => (
-                    <li key={n.id}>
-                      <Link
-                        href={n.link || "/notifications"}
-                        onClick={() => setBellOpen(false)}
-                        className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-[var(--chrome-hover)]"
-                      >
-                        <span
-                          className="w-2 h-2 rounded-full shrink-0 mt-1.5"
-                          style={{ background: n.type === "mention" && !n.readAt ? "#C7961A" : n.readAt ? "transparent" : "#0c79f2" }}
-                        />
-                        <span className="min-w-0">
+                  {notifications.map((n) => {
+                    const meta = getNotificationMeta(n.type);
+                    const Icon = meta.icon;
+                    const unread = !n.readAt;
+                    return (
+                      <li key={n.id}>
+                        <Link
+                          href={n.link || notificationsHref}
+                          onClick={() => {
+                            setBellOpen(false);
+                            if (unread) void markRead(n);
+                          }}
+                          className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-[var(--chrome-hover)]"
+                          style={{ background: unread ? "rgba(var(--blue-rgb),0.06)" : undefined }}
+                        >
                           <span
-                            className="block text-sm font-medium truncate"
-                            style={{ color: "var(--chrome-text)" }}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                            style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}
                           >
-                            {n.title}
+                            <Icon size={14} />
                           </span>
-                          {n.message && (
-                            <span
-                              className="block text-xs mt-0.5 truncate"
-                              style={{ color: "var(--chrome-text-muted)" }}
-                            >
-                              {n.message}
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center gap-1.5">
+                              <span
+                                className="text-[10px] font-bold uppercase tracking-wide"
+                                style={{ color: meta.color }}
+                              >
+                                {meta.label}
+                              </span>
+                              <span className="text-[10px]" style={{ color: "var(--chrome-text-muted)" }}>
+                                {relativeTime(n.createdAt)}
+                              </span>
                             </span>
+                            <span
+                              className={`block text-sm truncate ${unread ? "font-semibold" : "font-medium"}`}
+                              style={{ color: "var(--chrome-text)" }}
+                            >
+                              {n.title}
+                            </span>
+                            {n.message && (
+                              <span
+                                className="block text-xs truncate"
+                                style={{ color: "var(--chrome-text-muted)" }}
+                              >
+                                {n.message}
+                              </span>
+                            )}
+                          </span>
+                          {unread && (
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0 mt-1.5"
+                              style={{ background: meta.color }}
+                              aria-label="Non lu"
+                            />
                           )}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
+                        </Link>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
 
