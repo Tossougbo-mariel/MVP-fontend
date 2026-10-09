@@ -14,7 +14,7 @@ import { useParams } from "next/navigation";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData, useAsync } from "@/lib/appData";
 import { fetchActivity } from "@/lib/services";
-import { userRoleInAgency, type AgencyRole, overdueTasks, ACTIVITY_LABELS, getProjectProgress } from "@/lib/types";
+import { userRoleInAgency, type AgencyRole, overdueTasks, ACTIVITY_LABELS, getProjectProgress, getProjectStatusFromTasks } from "@/lib/types";
 import { useTaskStatuses } from "@/lib/useTaskStatuses";
 
 const container: Variants = {
@@ -196,7 +196,7 @@ function AdminDashboard({
   agencyName: string;
 }) {
   const isOwner = role === "owner";
-  const { agencyById, tasksByAgency, projectsByAgency } = useAppData();
+  const { agencyById, tasksByAgency, projectsByAgency, tasksByProject } = useAppData();
   const { statuses, isTerminal } = useTaskStatuses();
   const agency = agencyById(agencyId);
 
@@ -216,9 +216,17 @@ function AdminDashboard({
   const agencyProjects = projectsByAgency(agencyId);
   const totalTasks = agencyTasks.length;
   const totalProjects = agencyProjects.length;
-const overdueCount = overdueTasks(
+  const overdueCount = overdueTasks(
     agencyTasks.map((t) => ({ deadline: t.dueDate, status: t.status })),
     statuses,
+  ).length;
+
+  // Projets en retard : échéance projet dépassée (avec tâches restantes) ou
+  // tâches en retard. Exclut les projets archivés/vides/terminés.
+  const overdueProjectsCount = agencyProjects.filter(
+    (p) =>
+      p.status !== "archive" &&
+      getProjectStatusFromTasks(p.status, tasksByProject(p.id), statuses, p.dueDate) === "en_retard",
   ).length;
 
   const WEEK_DAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
@@ -294,7 +302,8 @@ const overdueCount = overdueTasks(
     { label: "Total projets", value: String(totalProjects), icon: FolderKanban, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
     { label: "Total tâches", value: String(totalTasks), icon: ListTodo, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
     { label: "Membres", value: String(totalMembers), icon: Users, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
-    { label: "En retard", value: String(overdueCount), icon: AlarmClock, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+    { label: "Tâches en retard", value: String(overdueCount), icon: AlarmClock, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+    { label: "Projets en retard", value: String(overdueProjectsCount), icon: CalendarClock, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
   ];
 
   return (
@@ -311,7 +320,7 @@ const overdueCount = overdueTasks(
       />
 
       {/* Indicateurs clés */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {statCards.map((s) => (
           <motion.div
             key={s.label}
@@ -711,6 +720,7 @@ function MemberDashboard({ userName, agencyId, agencyName }: { userName: string;
   const projectStatusInfo: Record<string, { label: string; color: string; bg: string }> = {
     a_venir: { label: "À venir", color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
     en_cours: { label: "En cours", color: "#056cf2", bg: "rgba(5,108,242,0.12)" },
+    en_retard: { label: "En retard", color: "#D85A30", bg: "rgba(216,90,48,0.14)" },
     termine: { label: "Terminé", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
   };
 
@@ -831,7 +841,8 @@ function MemberDashboard({ userName, agencyId, agencyName }: { userName: string;
         ) : (
           <div className="space-y-3">
             {myProjects.slice(0, 4).map((p) => {
-              const info = projectStatusInfo[p.status] ?? projectStatusInfo.en_cours;
+              const projectStatus = getProjectStatusFromTasks(p.status, tasksByProject(p.id), undefined, p.dueDate);
+              const info = projectStatusInfo[projectStatus] ?? projectStatusInfo.en_cours;
               const progress = getProjectProgress(tasksByProject(p.id));
               return (
                 <Link

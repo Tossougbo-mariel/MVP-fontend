@@ -389,14 +389,23 @@ export const getProjectStatusFromTasks = (
   currentStatus: ProjectStatus,
   projectTasks: Task[],
   statuses?: TaskStatusMeta[],
+  dueDate?: string | null,
 ): ProjectStatus => {
   if (currentStatus === "archive") return "archive";
+  // Un projet sans tâche reste « à venir » même si son échéance est passée :
+  // sans tâche, on ne peut rien conclure sur un retard de livraison.
   if (projectTasks.length === 0) return "a_venir";
   if (projectTasks.every((t) => t.status === "terminee")) return "termine";
   // Une tâche dont l'échéance est passée met le projet en retard.
   // deadline_status est déjà null pour les tâches terminées (Task.php:21-23).
   if (projectTasks.some((t) => t.deadlineStatus === "en_retard")) return "en_retard";
   if (projectTasks.every((t) => isTerminalStatus(t.status, statuses))) return "termine";
+  // L'échéance du projet elle-même est dépassée : le projet est en retard,
+  // puisque les tâches restantes ne peuvent plus tenir dans l'intervalle.
+  if (dueDate) {
+    const today = new Date().toISOString().slice(0, 10);
+    if (dueDate < today) return "en_retard";
+  }
   return "en_cours";
 };
 
