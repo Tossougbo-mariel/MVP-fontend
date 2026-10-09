@@ -55,10 +55,11 @@ function ConnexionContent() {
   const verifyTwoFactor = useAuthStore((s) => s.verifyTwoFactor);
   const resendTwoFactor = useAuthStore((s) => s.resendTwoFactor);
   const completeGoogleSession = useAuthStore((s) => s.completeGoogleSession);
+  const status = useAuthStore((s) => s.status);
 
   const destination = invitationId
     ? `/accepter-invitation?token=${invitationId}`
-    : "/mes-agences";
+    : "/bienvenue";
 
   // ── Retour de Google ──
   // Le callback renvoie le token dans le fragment de l'URL. On l'absorbe puis
@@ -77,6 +78,14 @@ function ConnexionContent() {
       else setError(result.error);
     });
   }, [completeGoogleSession, destination, router]);
+
+  // Un code OTP ou 2FA valide ouvre la session dans le store (le composant
+  // CodeStep ne fait que rendre le résultat) : on rejoint alors la destination.
+  useEffect(() => {
+    if (status === "authenticated" && step.kind !== "password") {
+      router.push(destination);
+    }
+  }, [status, step.kind, destination, router]);
 
   // --- Tilt 3D de la carte (rotation douce, type "spring") ---
   const rotateX = useSpring(useMotionValue(0), { stiffness: 200, damping: 22 });
