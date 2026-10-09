@@ -22,9 +22,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const agencyId = useActiveAgencyId();
   const isInAgency = agencyId !== null;
   const pathname = usePathname();
-  // Sur la page « Mes agences », l'image d'accueil reste en fond, floutée,
-  // derrière les cartes. Sur toutes les autres pages, le fond est uniforme.
+  // L'image d'accueil reste en fond, floutée, derrière le contenu sur « Mes
+  // agences » et « Créer une agence ». Sur toutes les autres pages, le fond
+  // est uniforme.
   const isAgenciesPage = pathname === "/mes-agences";
+  const isNewAgencyPage = pathname === "/agences/nouvelle";
+  const showBackdrop = isAgenciesPage || isNewAgencyPage;
+  const backdropImage = isNewAgencyPage ? "/image/slide1.jpg" : "/image/welcome.jpg";
 
   return (
     <div className="app-zone flex min-h-screen flex-col">
@@ -68,15 +72,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             boxShadow: "0 18px 40px -28px rgba(0, 0, 0, 0.55)",
           }}
         >
-          {/* Sur « Mes agences » uniquement : l'image d'accueil en fond, floutée,
-              derrière les cartes d'agences. Elle apparaît en douceur lors de la
-              navigation depuis la page de bienvenue. */}
+          {/* Sur « Mes agences » et « Créer une agence » uniquement : une image
+              d'accueil en fond, floutée, derrière le contenu. Elle apparaît en
+              douceur lors de la navigation depuis la page de bienvenue. */}
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0"
             style={{
               overflow: "hidden",
-              opacity: isAgenciesPage ? 1 : 0,
+              opacity: showBackdrop ? 1 : 0,
               transition: "opacity 0.6s ease",
             }}
           >
@@ -84,7 +88,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               style={{
                 position: "absolute",
                 inset: 0,
-                backgroundImage: "url(/image/welcome.jpg)",
+                backgroundImage: `url(${backdropImage})`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 filter: "blur(16px)",
