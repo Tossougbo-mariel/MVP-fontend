@@ -160,7 +160,6 @@ export type TaskPlatformRight =
   | "manageUsers"
   | "manageTeams"
   | "createProjects"
-  | "deleteProjects"
   | "createTasks"
   | "modifyTasks"
   | "assignTasks"

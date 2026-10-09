@@ -7,8 +7,8 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import {
   Users, Mail, ShieldCheck, UserRound, UserPlus, Plus,
-  Settings, CheckCircle2, MoreHorizontal, Trash2, ArrowLeft, Crown, Sparkles,
-  Ban, UserCheck, ClipboardList, Copy, Calendar, Clock, RefreshCw, X, AlertTriangle,
+  CheckCircle2, MoreHorizontal, Trash2, ArrowLeft, Crown, Sparkles,
+  Ban, UserCheck, ClipboardList, Calendar, Clock, RefreshCw, X, AlertTriangle,
   Search,
 } from "lucide-react";
 import {
@@ -16,7 +16,7 @@ import {
 } from "@/lib/appData";
 import { hexToRgba } from "@/lib/color";
 import {
-  userRoleInAgency, hasRight, OWNER_COLOR, colorizeMembers,
+  hasRight, OWNER_COLOR, colorizeMembers,
   type AgencyMember, type AgencyMemberStatus, type DisplayMember, type AgencyInvitation,
 } from "@/lib/types";
 import {
@@ -380,8 +380,6 @@ export default function EquipePage() {
   const [inviteRole, setInviteRole] = useState<"admin" | "membre">("membre");
   const [confirmEmail, setConfirmEmail] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
-  const [inviteLink, setInviteLink] = useState<string | null>(null);
-  const [inviteCopied, setInviteCopied] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -450,8 +448,6 @@ export default function EquipePage() {
     m.user.id === agency.ownerId;
   const accentOf = (m: DisplayMember): string =>
     isOwnerMember(m) ? OWNER_COLOR : m.color;
-  const myRole = user ? userRoleInAgency(agency, user.email) : "membre";
-  const isAdmin = myRole === "owner" || myRole === "admin";
 
   const canInvite = hasRight(agency, user?.email ?? "", "invite");
   const canManageUsers = hasRight(agency, user?.email ?? "", "manageUsers");
@@ -615,31 +611,15 @@ export default function EquipePage() {
     setConfirmEmail(null);
     setInviteError(null);
     try {
-      const created = await createInvitation(agencyId, { email: inviteEmail, role: inviteRole });
+      await createInvitation(agencyId, { email: inviteEmail, role: inviteRole });
       setEmail("");
       setInviteSuccess(inviteEmail);
-      setInviteLink(`${window.location.origin}/accepter-invitation?token=${created.token}`);
-      setTimeout(() => {
-        setInviteSuccess(null);
-        setInviteLink(null);
-        setInviteCopied(false);
-      }, 5000);
+      setTimeout(() => setInviteSuccess(null), 5000);
       void reload();
       void refreshInvitations();
     } catch (err) {
       setInviteError(getApiErrorMessage(err));
       setTimeout(() => setInviteError(null), 4000);
-    }
-  };
-
-  const copyInviteLink = async () => {
-    if (!inviteLink) return;
-    try {
-      await navigator.clipboard.writeText(inviteLink);
-      setInviteCopied(true);
-      setTimeout(() => setInviteCopied(false), 2000);
-    } catch {
-      window.prompt("Copiez le lien d'invitation :", inviteLink);
     }
   };
 
@@ -743,31 +723,9 @@ export default function EquipePage() {
                 <span className="font-semibold">Invitation envoyée à {inviteSuccess}.</span>{" "}
                 Un e-mail lui a été envoyé pour rejoindre {agency.name}.
               </p>
-              {inviteLink && (
-                <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2">
-                  <code
-                    className="flex-1 truncate rounded-lg px-3 py-2 text-xs"
-                    style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
-                  >
-                    {inviteLink}
-                  </code>
-                  <button
-                    onClick={copyInviteLink}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold shrink-0"
-                    style={{ background: "var(--gradient-button)", color: "#fff" }}
-                  >
-                    {inviteCopied ? <CheckCircle2 size={13} /> : <Copy size={13} />}
-                    {inviteCopied ? "Lien copié" : "Copier le lien"}
-                  </button>
-                </div>
-              )}
             </div>
             <button
-              onClick={() => {
-                setInviteSuccess(null);
-                setInviteLink(null);
-                setInviteCopied(false);
-              }}
+              onClick={() => setInviteSuccess(null)}
               aria-label="Fermer"
               className="shrink-0 self-start rounded-lg p-1 transition-opacity hover:opacity-70"
               style={{ color: "var(--color-success)" }}
@@ -1263,27 +1221,6 @@ export default function EquipePage() {
             </motion.button>
           </div>
         </motion.form>
-      )}
-
-      {!canInvite && isAdmin && (
-        <motion.div
-          variants={item}
-          className="glass rounded-2xl p-4 flex items-center gap-3"
-          style={{ boxShadow: "var(--shadow-card)" }}
-        >
-          <div
-            className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
-            style={{ background: "var(--accent-soft)" }}
-          >
-            <Settings size={15} style={{ color: "var(--blue)" }} />
-          </div>
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            Seul le propriétaire peut inviter des membres.{" "}
-            <Link href={`/agences/${agencyId}/parametres`} className="font-semibold" style={{ color: "var(--blue)" }}>
-              Modifier ce réglage
-            </Link>
-          </p>
-        </motion.div>
       )}
 
       {pendingAction && (() => {

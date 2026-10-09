@@ -718,16 +718,4 @@ export const fetchActivity = async (params: {
   return (list as any[]).map(mapActivity);
 };
 
-export const getApiErrorMessage = (err: unknown): string => {
-  const axiosErr = err as any;
-  if (axiosErr?.response?.data?.errors) {
-    const errors = axiosErr.response.data.errors;
-    const first = Object.values(errors)[0] as string[] | string;
-    if (Array.isArray(first)) return first[0];
-    if (typeof first === "string") return first;
-  }
-  if (axiosErr?.response?.data?.message) return axiosErr.response.data.message;
-  if (axiosErr?.response?.data?.error) return axiosErr.response.data.error;
-  if (axiosErr?.response?.status >= 500) return "Le serveur ne répond pas. Réessayez plus tard.";
-  return "Une erreur est survenue.";
-};
+export { getApiErrorMessage } from "./api";

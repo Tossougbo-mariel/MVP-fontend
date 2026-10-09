@@ -47,7 +47,28 @@ function ConnexionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const invitationId = searchParams.get("invitation") ?? "";
-  const googleError = searchParams.get("erreur");
+  const [googleError, setGoogleError] = useState<string | null>(
+    searchParams.get("erreur"),
+  );
+  // Message de succès après inscription : affiché quelques secondes, puis
+  // retiré dès la première interaction avec le formulaire.
+  const [registeredOk, setRegisteredOk] = useState(
+    searchParams.get("inscrit") === "1",
+  );
+
+  // Le message de succès s'efface de lui-même après quelques secondes.
+  useEffect(() => {
+    if (!registeredOk) return;
+    const timer = setTimeout(() => setRegisteredOk(false), 4000);
+    return () => clearTimeout(timer);
+  }, [registeredOk]);
+
+  // Le message d'erreur Google s'efface de lui-même après quelques secondes.
+  useEffect(() => {
+    if (!googleError) return;
+    const timer = setTimeout(() => setGoogleError(null), 4000);
+    return () => clearTimeout(timer);
+  }, [googleError]);
 
   const login = useAuthStore((s) => s.login);
   const requestEmailCode = useAuthStore((s) => s.requestEmailCode);
@@ -109,6 +130,7 @@ function ConnexionContent() {
   // ✅ CORRIGÉ : Login asynchrone branché sur l'API backend
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setRegisteredOk(false);
     setError(null);
     setInfo(null);
     setLoading(true);
@@ -134,6 +156,7 @@ function ConnexionContent() {
 
   // --- Connexion sans mot de passe : on demande un code ---
   const handleRequestCode = async () => {
+    setRegisteredOk(false);
     setError(null);
     setInfo(null);
     setLoading(true);
@@ -161,13 +184,13 @@ function ConnexionContent() {
   };
 
   return (
-    <div className="flex w-full min-h-screen">
+    <div className="flex flex-col lg:flex-row items-stretch">
       {/* ====== VISUEL GAUCHE : image + aurores + cartes flottantes ====== */}
       <motion.div
         initial={{ x: -60, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.7, ease: "easeOut" }}
-        className="hidden lg:block lg:w-[58%] relative overflow-hidden min-h-screen"
+        className="hidden lg:block lg:w-[60%] relative overflow-hidden min-h-screen"
       >
         {/* Aurores lumineuses qui respirent */}
         <div
@@ -276,10 +299,10 @@ function ConnexionContent() {
       </motion.div>
 
       {/* ====== DROITE : formulaire avec carte 3D ====== */}
-      <div className="w-full lg:w-[42%] min-h-screen flex items-center justify-center px-4 lg:px-8 relative">
+      <div className="w-full lg:w-[40%] lg:h-screen flex items-center justify-center px-4 lg:px-6 relative">
         <Link
           href="/accueil"
-          className="absolute top-6 left-6 inline-flex items-center gap-2 text-sm font-semibold transition-opacity hover:opacity-70"
+          className="absolute top-6 left-4 lg:left-6 z-10 inline-flex items-center gap-2 text-sm font-semibold transition-opacity hover:opacity-70"
           style={{ color: "var(--text-secondary)" }}
         >
           <ArrowLeft className="w-4 h-4" />
@@ -294,7 +317,7 @@ function ConnexionContent() {
           }}
         />
 
-        <div style={{ perspective: 1200 }} className="w-full max-w-[350px]">
+        <div style={{ perspective: 1200 }} className="w-full max-w-md">
           <motion.div
             onMouseMove={handleTilt}
             onMouseLeave={resetTilt}
@@ -331,10 +354,22 @@ function ConnexionContent() {
                   </div>
                 </motion.div>
 
-                {banner && (
+                {registeredOk && (
                   <motion.p
                     initial={{ y: -10, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
+                    className="text-sm mb-4 inline-flex items-center gap-2"
+                    style={{ color: "var(--color-success)" }}
+                  >
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    Votre compte a été créé avec succès. Connectez-vous.
+                  </motion.p>
+                )}
+
+                {banner && (
+                  <motion.p
+                    initial={{ y: -10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1   }}
                     className="text-sm mb-4"
                     style={{ color: "var(--color-error)", animation: "shake 0.4s" }}
                   >
@@ -407,7 +442,10 @@ function ConnexionContent() {
                         placeholder="Adresse e-mail"
                         required
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChange={(e) => {
+                          setRegisteredOk(false);
+                          setEmail(e.target.value);
+                        }}
                         className="w-full rounded-xl pl-12 pr-4 py-2.5 transition-all focus:outline-none"
                         style={inputStyle}
                         onFocus={handleFocus}
@@ -427,7 +465,10 @@ function ConnexionContent() {
                         placeholder="Mot de passe"
                         required
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onChange={(e) => {
+                          setRegisteredOk(false);
+                          setPassword(e.target.value);
+                        }}
                         className="w-full rounded-xl pl-12 pr-12 py-2.5 transition-all focus:outline-none"
                         style={inputStyle}
                         onFocus={handleFocus}

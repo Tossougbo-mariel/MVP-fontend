@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
 import AgencyPanel from "./AgencyPanel";
 import Header from "./Header";
@@ -14,11 +14,40 @@ import { useActiveAgencyId } from "@/lib/useActiveAgencyId";
  */
 export const AGENCY_PANEL_WIDTH = 260;
 
+/** Clé du repli du rail principal, mémorisé entre deux visites. */
+const RAIL_COLLAPSED_KEY = "rail-collapsed";
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  // Init neutre puis lecture dans un effect : localStorage n'existe pas côté
+  // serveur, lire ici dans l'initialiser provoquerait un mismatch d'hydratation.
+  const [railCollapsed, setRailCollapsed] = useState(false);
   const agencyId = useActiveAgencyId();
   const isInAgency = agencyId !== null;
+
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(RAIL_COLLAPSED_KEY) === "1") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage n'existe pas côté serveur : l'état persisté ne peut être lu qu'après le montage, sans quoi l'hydratation casse.
+        setRailCollapsed(true);
+      }
+    } catch {
+      // stockage indisponible : on reste ouvert
+    }
+  }, []);
+
+  const toggleRail = () => {
+    setRailCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(RAIL_COLLAPSED_KEY, next ? "1" : "0");
+      } catch {
+        // stockage indisponible : l'état tient le temps de la session
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="app-zone flex min-h-screen flex-col">
@@ -29,8 +58,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         open={open}
         onClose={() => setOpen(false)}
         onOpenAi={() => setAiOpen(true)}
+        collapsed={railCollapsed}
       />
-      <Header onMenuClick={() => setOpen(true)} />
+      <Header onMenuClick={() => setOpen(true)} railCollapsed={railCollapsed} onToggleRail={toggleRail} />
 
       {/* ---------- Feuille de contenu (premier plan) ----------
           Le second sidebar et la page partagent une seule surface posée sur le
@@ -52,7 +82,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           calé sur la hauteur de ce conteneur et non sur celle de la fenêtre, et
           la couture avec le rail apparaîtrait. */}
       <div
-        className="flex flex-1 lg:pt-[var(--sheet-gap)] lg:pl-[var(--rail-w)]"
+        className={`flex flex-1 lg:pt-[var(--sheet-gap)] ${railCollapsed ? "lg:pl-0" : "lg:pl-[var(--rail-w)]"}`}
         style={{ background: "var(--rail-bg)", backgroundAttachment: "fixed" }}
       >
         <div

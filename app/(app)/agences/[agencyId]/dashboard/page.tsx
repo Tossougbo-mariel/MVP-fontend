@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { motion, type Variants } from "framer-motion";
 import {
-  FolderKanban, Users, AlertTriangle, Plus,
+  FolderKanban, Users, AlertTriangle,
   ShieldCheck, ListTodo, ArrowLeft, CalendarClock,
-  Lightbulb, Award, AlarmClock, Ban, Crown, TrendingUp,
+  Lightbulb, Award, AlarmClock, Ban, TrendingUp,
   History, CalendarPlus, Flag, UserRound, MessageSquare,
   ChevronDown, ChevronUp, ArrowRight,
 } from "lucide-react";
@@ -126,7 +126,7 @@ export default function AgencyDashboardPage() {
   return isAdmin ? (
     <AdminDashboard agencyId={agencyId} role={role} userName={me?.user.firstName ?? user.firstName ?? "vous"} agencyName={agency.name} />
   ) : (
-    <MemberDashboard userName={me?.user.firstName ?? user.firstName ?? "vous"} agencyId={agencyId} />
+    <MemberDashboard userName={me?.user.firstName ?? user.firstName ?? "vous"} agencyId={agencyId} agencyName={agency.name} />
   );
 }
 
@@ -640,48 +640,6 @@ const overdueCount = overdueTasks(
             )}
           </motion.div>
 
-          {/* Gestion (masqué pour le propriétaire) */}
-          {!isOwner && (
-            <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(221,166,28,0.14)" }}>
-                  <Crown size={16} style={{ color: "#C7961A" }} />
-                </div>
-                <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Gestion</h2>
-              </div>
-              <div className="space-y-3">
-                {[
-                  { label: "Créer un projet", href: `/agences/${agencyId}/projets/nouveauProjet`, icon: Plus },
-                  { label: "Gérer l'équipe", href: `/agences/${agencyId}/equipe`, icon: Users },
-                  { label: "Voir les tâches", href: `/agences/${agencyId}/mes-taches`, icon: ListTodo },
-                ].map((b, index) => (
-                  <motion.div
-                    key={b.label}
-                    initial={{ opacity: 0, x: -12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.3 + index * 0.1 }}
-                    className="group"
-                  >
-                    <Link
-                      href={b.href}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl transition-colors duration-200"
-                      style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
-                    >
-                      <motion.span
-                        whileHover={{ rotate: 8, scale: 1.12 }}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
-                        style={{ background: "rgba(var(--blue-rgb),0.12)" }}
-                      >
-                        <b.icon className="w-4.5 h-4.5" style={{ color: "var(--blue)" }} />
-                      </motion.span>
-                      <span className="font-medium text-sm group-hover:text-[color:var(--blue-mid)] transition-colors duration-200">{b.label}</span>
-                    </Link>
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
           {/* Droits */}
           <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
             <div className="flex items-center gap-2 mb-3">
@@ -740,7 +698,7 @@ const badPractices = [
   },
 ];
 
-function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: string }) {
+function MemberDashboard({ userName, agencyId, agencyName }: { userName: string; agencyId: string; agencyName: string }) {
   const { myTasksInAgency, projectsByAgency, tasksByProject } = useAppData();
   const myT = myTasksInAgency(agencyId);
 
@@ -758,6 +716,8 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+      <Breadcrumb title="Tableau de bord" agencyName={agencyName} />
+
       <WelcomeBanner
         name={userName}
         subtitle="Découvrez les bonnes pratiques pour exceller dans votre travail."

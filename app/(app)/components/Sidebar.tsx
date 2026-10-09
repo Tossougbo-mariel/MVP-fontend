@@ -59,10 +59,12 @@ export default function Sidebar({
   open,
   onClose,
   onOpenAi,
+  collapsed = false,
 }: {
   open: boolean;
   onClose: () => void;
   onOpenAi: () => void;
+  collapsed?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -193,9 +195,10 @@ export default function Sidebar({
       {/* Rail principal : c'est la bande de gauche de l'interface générale. Il
           démarre sous le header (pleine largeur, cf. Header) et descend jusqu'en
           bas : le header et le rail forment le cadre, la feuille de contenu se
-          pose dessus à droite. */}
+          pose dessus à droite. Replié depuis le logo du coin haut-gauche, il
+          disparaît et la feuille prend toute la largeur (cf. AppShell). */}
       <aside
-        className="hidden lg:flex fixed left-0 bottom-0 z-40 flex-col items-center gap-2.5 px-1.5 py-4"
+        className={`${collapsed ? "hidden" : "hidden lg:flex"} fixed left-0 bottom-0 z-40 flex-col items-center gap-2.5 px-1.5 py-4`}
         style={{ ...railStyle, top: "var(--header-h)", width: MAIN_RAIL_WIDTH }}
       >
         {/* La marque est dans le coin haut-gauche du header (cf. Header), juste

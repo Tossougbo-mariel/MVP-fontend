@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Menu, Bell, LogOut, User, ImageIcon, CheckCheck, AtSign, Sparkles } from "lucide-react";
+import { Menu, Bell, LogOut, User, ImageIcon, CheckCheck, AtSign, Sparkles, ChevronsRight } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
 import { markAllNotificationsRead } from "@/lib/services";
@@ -11,7 +11,15 @@ import { useActiveAgencyId, profileHrefFor } from "@/lib/useActiveAgencyId";
 import AvatarViewer from "./AvatarViewer";
 import GlobalSearch from "./GlobalSearch";
 
-export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
+export default function Header({
+  onMenuClick,
+  railCollapsed = false,
+  onToggleRail,
+}: {
+  onMenuClick: () => void;
+  railCollapsed?: boolean;
+  onToggleRail?: () => void;
+}) {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -95,21 +103,36 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
       {/* Coin haut-gauche : la case du rail, au-dessus de lui. Aucune marge à
           gauche, le bloc occupe exactement --rail-w, donc la marque tombe dans
           l'alignement de la colonne de navigation et atteint le bord de
-          l'écran. */}
-      <Link
-        href="/mes-agences"
-        aria-label="MVP Studio"
-        title="MVP Studio"
-        className="hidden lg:flex items-center justify-center shrink-0 self-stretch"
+          l'écran.
+
+          C'est aussi l'interrupteur du rail : un clic replie la colonne de
+          gauche (le contenu prend toute la largeur) et le même coin la ramène,
+          flèche à l'appui quand elle est repliée. */}
+      <button
+        type="button"
+        onClick={onToggleRail}
+        aria-label={railCollapsed ? "Afficher le menu" : "Replier le menu"}
+        title={railCollapsed ? "Afficher le menu" : "Replier le menu"}
+        aria-pressed={railCollapsed}
+        className="hidden lg:flex items-center justify-center shrink-0 self-stretch transition-colors hover:bg-[var(--rail-hover)]"
         style={{ width: "var(--rail-w)" }}
       >
-        <span
-          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: "var(--gradient-primary)" }}
-        >
-          <Sparkles className="w-5 h-5 text-white" />
-        </span>
-      </Link>
+        {railCollapsed ? (
+          <span
+            className="w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{ border: "1px solid var(--rail-border)" }}
+          >
+            <ChevronsRight className="w-5 h-5" style={{ color: "var(--rail-text-secondary)" }} />
+          </span>
+        ) : (
+          <span
+            className="w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{ background: "var(--gradient-primary)" }}
+          >
+            <Sparkles className="w-5 h-5 text-white" />
+          </span>
+        )}
+      </button>
 
       {/* Recherche compacte, poussée vers la droite : le centre géométrique du
           bandeau n'est pas le centre perçu, à cause du rail à gauche et des
