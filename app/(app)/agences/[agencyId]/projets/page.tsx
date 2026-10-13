@@ -278,7 +278,7 @@ export default function ProjetsPage() {
             const progress =
               typeof p.progress === "number" ? p.progress : getProjectProgress(projectTasks);
 
-            const projectStatus = getProjectStatusFromTasks(p.status, projectTasks);
+            const projectStatus = getProjectStatusFromTasks(p.status, projectTasks, undefined, p.dueDate);
             const startBadge = statusConfig[projectStatus];
             const owner = agency.members?.find(
               (m) => m.user.id === p.ownerId

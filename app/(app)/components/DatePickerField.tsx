@@ -44,8 +44,7 @@ const formatDisplay = (s: string | null | undefined): string => {
   const p = parseISO(s);
   if (!p) return "";
   const d = new Date(p.y, p.m, p.d);
-  const label = d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} — ${label}`;
+  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 };
 
 export default function DatePickerField({

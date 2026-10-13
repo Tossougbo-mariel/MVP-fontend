@@ -55,7 +55,14 @@ export default function AiAgentPanel({
     if (!open) return;
     fetchAiStatus()
       .then(setStatus)
-      .catch(() => setStatus({ configured: false, model: null, read_only: true }));
+      .catch(() => {
+        // Backend injoignable ou erreur passagere : on ne retombe pas sur
+        // "Non configure" (ce qui verrouillerait le panneau a tort). On garde
+        // un etat inconnu et on laisse l'envoi tenter sa chance : l'erreur
+        // reelle s'affichera dans la zone dediee si l'envoi echoue.
+        setStatus(null);
+        setError("Impossible de vérifier l'état de l'assistant. Réessayez ou envoyez un message.");
+      });
   }, [open]);
 
   useEffect(() => {
@@ -84,7 +91,10 @@ export default function AiAgentPanel({
       setInput("");
       setPending(true);
 
-      const history: AiTurn[] = messages.map(({ role, content }) => ({ role, content }));
+      // Le backend valide `history` a 20 entrees maximum ; seul le panel garde
+      // la conversation, on lui renvoie donc seulement la fin de l'echange
+      // (les 18 derniers messages = 9 tours) pour ne jamais provoquer de 422.
+      const history: AiTurn[] = messages.slice(-18).map(({ role, content }) => ({ role, content }));
 
       setMessages((prev) => [...prev, { id: nextId(), role: "user", content: trimmed }]);
 

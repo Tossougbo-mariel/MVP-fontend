@@ -53,9 +53,11 @@ api.interceptors.response.use(
 
 type ApiErrorShape = {
   response?: {
+    status?: number;
     data?: {
       message?: string;
-      errors?: Record<string, string[]>;
+      error?: string;
+      errors?: Record<string, string[] | string>;
     };
   };
 };
@@ -63,10 +65,17 @@ type ApiErrorShape = {
 export const getApiErrorMessage = (error: unknown): string => {
   const data = (error as ApiErrorShape)?.response?.data;
   if (data?.errors) {
-    const first = Object.values(data.errors)[0]?.[0];
-    if (first) return first;
+    const first = Object.values(data.errors)[0];
+    if (Array.isArray(first)) return first[0];
+    if (typeof first === "string") return first;
   }
-  return data?.message ?? "Une erreur est survenue.";
+  if (data?.message) return data.message;
+  if (data?.error) return data.error;
+  const status = (error as ApiErrorShape)?.response?.status;
+  if (typeof status === "number" && status >= 500) {
+    return "Le serveur ne répond pas. Réessayez plus tard.";
+  }
+  return "Une erreur est survenue.";
 };
 
 export default api;

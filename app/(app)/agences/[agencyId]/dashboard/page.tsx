@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { motion, type Variants } from "framer-motion";
 import {
-  FolderKanban, Users, AlertTriangle, Plus,
+  FolderKanban, Users, AlertTriangle,
   ShieldCheck, ListTodo, ArrowLeft, CalendarClock,
-  Lightbulb, Award, AlarmClock, Ban, Crown, TrendingUp,
+  Lightbulb, Award, AlarmClock, Ban, TrendingUp,
   History, CalendarPlus, Flag, UserRound, MessageSquare,
   ChevronDown, ChevronUp, ArrowRight,
 } from "lucide-react";
@@ -14,7 +14,7 @@ import { useParams } from "next/navigation";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData, useAsync } from "@/lib/appData";
 import { fetchActivity } from "@/lib/services";
-import { userRoleInAgency, type AgencyRole, overdueTasks, ACTIVITY_LABELS, getProjectProgress } from "@/lib/types";
+import { userRoleInAgency, type AgencyRole, overdueTasks, ACTIVITY_LABELS, getProjectProgress, getProjectStatusFromTasks } from "@/lib/types";
 import { useTaskStatuses } from "@/lib/useTaskStatuses";
 
 const container: Variants = {
@@ -126,7 +126,7 @@ export default function AgencyDashboardPage() {
   return isAdmin ? (
     <AdminDashboard agencyId={agencyId} role={role} userName={me?.user.firstName ?? user.firstName ?? "vous"} agencyName={agency.name} />
   ) : (
-    <MemberDashboard userName={me?.user.firstName ?? user.firstName ?? "vous"} agencyId={agencyId} />
+    <MemberDashboard userName={me?.user.firstName ?? user.firstName ?? "vous"} agencyId={agencyId} agencyName={agency.name} />
   );
 }
 
@@ -196,7 +196,7 @@ function AdminDashboard({
   agencyName: string;
 }) {
   const isOwner = role === "owner";
-  const { agencyById, tasksByAgency, projectsByAgency } = useAppData();
+  const { agencyById, tasksByAgency, projectsByAgency, tasksByProject } = useAppData();
   const { statuses, isTerminal } = useTaskStatuses();
   const agency = agencyById(agencyId);
 
@@ -216,9 +216,17 @@ function AdminDashboard({
   const agencyProjects = projectsByAgency(agencyId);
   const totalTasks = agencyTasks.length;
   const totalProjects = agencyProjects.length;
-const overdueCount = overdueTasks(
+  const overdueCount = overdueTasks(
     agencyTasks.map((t) => ({ deadline: t.dueDate, status: t.status })),
     statuses,
+  ).length;
+
+  // Projets en retard : échéance projet dépassée (avec tâches restantes) ou
+  // tâches en retard. Exclut les projets archivés/vides/terminés.
+  const overdueProjectsCount = agencyProjects.filter(
+    (p) =>
+      p.status !== "archive" &&
+      getProjectStatusFromTasks(p.status, tasksByProject(p.id), statuses, p.dueDate) === "en_retard",
   ).length;
 
   const WEEK_DAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
@@ -294,7 +302,8 @@ const overdueCount = overdueTasks(
     { label: "Total projets", value: String(totalProjects), icon: FolderKanban, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
     { label: "Total tâches", value: String(totalTasks), icon: ListTodo, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
     { label: "Membres", value: String(totalMembers), icon: Users, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
-    { label: "En retard", value: String(overdueCount), icon: AlarmClock, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+    { label: "Tâches en retard", value: String(overdueCount), icon: AlarmClock, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+    { label: "Projets en retard", value: String(overdueProjectsCount), icon: CalendarClock, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
   ];
 
   return (
@@ -311,7 +320,7 @@ const overdueCount = overdueTasks(
       />
 
       {/* Indicateurs clés */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {statCards.map((s) => (
           <motion.div
             key={s.label}
@@ -640,48 +649,6 @@ const overdueCount = overdueTasks(
             )}
           </motion.div>
 
-          {/* Gestion (masqué pour le propriétaire) */}
-          {!isOwner && (
-            <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(221,166,28,0.14)" }}>
-                  <Crown size={16} style={{ color: "#C7961A" }} />
-                </div>
-                <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Gestion</h2>
-              </div>
-              <div className="space-y-3">
-                {[
-                  { label: "Créer un projet", href: `/agences/${agencyId}/projets/nouveauProjet`, icon: Plus },
-                  { label: "Gérer l'équipe", href: `/agences/${agencyId}/equipe`, icon: Users },
-                  { label: "Voir les tâches", href: `/agences/${agencyId}/mes-taches`, icon: ListTodo },
-                ].map((b, index) => (
-                  <motion.div
-                    key={b.label}
-                    initial={{ opacity: 0, x: -12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.3 + index * 0.1 }}
-                    className="group"
-                  >
-                    <Link
-                      href={b.href}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl transition-colors duration-200"
-                      style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
-                    >
-                      <motion.span
-                        whileHover={{ rotate: 8, scale: 1.12 }}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
-                        style={{ background: "rgba(var(--blue-rgb),0.12)" }}
-                      >
-                        <b.icon className="w-4.5 h-4.5" style={{ color: "var(--blue)" }} />
-                      </motion.span>
-                      <span className="font-medium text-sm group-hover:text-[color:var(--blue-mid)] transition-colors duration-200">{b.label}</span>
-                    </Link>
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
           {/* Droits */}
           <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
             <div className="flex items-center gap-2 mb-3">
@@ -740,8 +707,9 @@ const badPractices = [
   },
 ];
 
-function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: string }) {
-  const { projectsByAgency, tasksByProject } = useAppData();
+function MemberDashboard({ userName, agencyId, agencyName }: { userName: string; agencyId: string; agencyName: string }) {
+  const { myTasksInAgency, projectsByAgency, tasksByProject } = useAppData();
+  const myT = myTasksInAgency(agencyId);
 
   // Projets du membre, non archivés. L'API ne renvoie déjà que les projets où
   // le membre est rattaché (cf. ProjectController@index) ; on ne filtre donc
@@ -751,12 +719,15 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
 
   const projectStatusInfo: Record<string, { label: string; color: string; bg: string }> = {
     a_venir: { label: "À venir", color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
-    en_cours: { label: "En cours", color: "var(--accent-text)", bg: "var(--accent-soft)" },
+    en_cours: { label: "En cours", color: "#056cf2", bg: "rgba(5,108,242,0.12)" },
+    en_retard: { label: "En retard", color: "#D85A30", bg: "rgba(216,90,48,0.14)" },
     termine: { label: "Terminé", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
   };
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+      <Breadcrumb title="Tableau de bord" agencyName={agencyName} />
+
       <WelcomeBanner
         name={userName}
         subtitle="Découvrez les bonnes pratiques pour exceller dans votre travail."
@@ -870,7 +841,8 @@ function MemberDashboard({ userName, agencyId }: { userName: string; agencyId: s
         ) : (
           <div className="space-y-3">
             {myProjects.slice(0, 4).map((p) => {
-              const info = projectStatusInfo[p.status] ?? projectStatusInfo.en_cours;
+              const projectStatus = getProjectStatusFromTasks(p.status, tasksByProject(p.id), undefined, p.dueDate);
+              const info = projectStatusInfo[projectStatus] ?? projectStatusInfo.en_cours;
               const progress = getProjectProgress(tasksByProject(p.id));
               return (
                 <Link

@@ -208,7 +208,6 @@ export default function ProfilPage() {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropperArea | null>(null);
   const [cropping, setCropping] = useState(false);
 
-  // ---------- Double authentification ----------
   const fetchTwoFactor = useAuthStore((s) => s.fetchTwoFactor);
   const toggleTwoFactor = useAuthStore((s) => s.toggleTwoFactor);
   const [twoFactor, setTwoFactor] = useState(false);

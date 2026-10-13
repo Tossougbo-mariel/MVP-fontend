@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   Archive,
   ArchiveRestore,
+  AlertTriangle,
   CalendarClock,
   Check,
   CheckSquare,
@@ -124,6 +125,11 @@ const formatDate = (date: string | null) => {
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 };
 
+const todayISO = (() => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+})();
+
 export default function ProjectKanbanPage() {
   const { agencyId, projectId } = useParams<{ agencyId: string; projectId: string }>();
   const router = useRouter();
@@ -157,6 +163,7 @@ export default function ProjectKanbanPage() {
 
   // ====== Nouvelle tâche ======
   const [creating, setCreating] = useState(false);
+  const [overdueNotice, setOverdueNotice] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
   const [taskPriority, setTaskPriority] = useState<TaskPriority>("moyenne");
@@ -255,29 +262,9 @@ export default function ProjectKanbanPage() {
     );
   }
 
-  // ✅ Accès au Kanban : admin toujours, membre uniquement s'il est assigné au projet
-  const hasProjectAccess =
-    isAdmin || projectMembers.some((pm) => pm.user.id === user.id);
-
-  if (!hasProjectAccess) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
-        <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Accès refusé
-        </p>
-        <p className="max-w-sm" style={{ color: "var(--text-secondary)" }}>
-          Vous devez être assigné à ce projet pour consulter son Kanban.
-        </p>
-        <Link
-          href={`/agences/${agencyId}/projets`}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
-          style={{ background: "var(--gradient-button)" }}
-        >
-          <ArrowLeft size={16} /> Retour aux projets
-        </Link>
-      </div>
-    );
-  }
+  // ✅ Accès au Kanban : normal pour tous les membres du projet (comme admin/propriétaire).
+  // Le filtrage par appartenance est déjà fait côté backend ; si le projet n'existe pas
+  // pour cet utilisateur, le garde « Projet introuvable » ci-dessus s'en charge.
 
   const projectTasks = tasksByProject(project.id);
   const archivedTasks = project
@@ -293,9 +280,12 @@ export default function ProjectKanbanPage() {
     ...t,
     status: localStatuses[String(t.id)] ?? t.status,
   })) as Task[];
-  const badge = statusConfig[
-    getProjectStatusFromTasks(project.status, effectiveProjectTasks, statuses)
-  ];
+  const projectStatus = getProjectStatusFromTasks(project.status, effectiveProjectTasks, statuses, project.dueDate);
+  const badge = statusConfig[projectStatus];
+  // Un projet dont l'échéance est passée ne peut plus recevoir de tâches :
+  // toutes les dates valides seraient antérieures à aujourd'hui.
+  const projectDuePassed = !!project.dueDate && project.dueDate < todayISO;
+  const taskStartMin = project.startDate && project.startDate > todayISO ? project.startDate : todayISO;
   const wallpaperSrc = getWallpaperBg(project.wallpaper);
 
   // Map email→membre pour afficher l'assigné sur les cartes
@@ -362,6 +352,10 @@ export default function ProjectKanbanPage() {
   };
 
   const openCreateModal = () => {
+    if (projectDuePassed) {
+      setOverdueNotice(true);
+      return;
+    }
     setTaskTitle("");
     setTaskDescription("");
     setTaskPriority("moyenne");
@@ -391,6 +385,8 @@ export default function ProjectKanbanPage() {
     if (!taskTitle.trim()) fe.title = "Le titre de la tâche est obligatoire.";
     if (!taskStartDate) {
       fe.startDate = "La date de début est obligatoire.";
+    } else if (taskStartDate < todayISO) {
+      fe.startDate = "La date de début ne peut pas être antérieure à aujourd'hui.";
     } else if (project.startDate && taskStartDate < project.startDate) {
       fe.startDate = `Doit être postérieure ou égale au début du projet (${project.startDate}).`;
     }
@@ -1021,7 +1017,7 @@ export default function ProjectKanbanPage() {
                   Date de début *
                 </label>
 <DatePickerField
-                  min={project.startDate || undefined}
+                  min={taskStartMin}
                   max={project.dueDate || undefined}
                   value={taskStartDate}
                   onChange={(v) => {
@@ -1043,7 +1039,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                   Date d&apos;échéance *
                 </label>
 <DatePickerField
-                  min={taskStartDate || project.startDate || undefined}
+                  min={taskStartDate || taskStartMin}
                   max={project.dueDate || undefined}
                   value={taskDueDate}
                   onChange={(v) => {
@@ -1120,6 +1116,62 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
               </button>
             </div>
           </motion.form>
+        </motion.div>
+      )}
+
+      {/* Popup : projet échu, création de tâche impossible */}
+      {overdueNotice && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        >
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setOverdueNotice(false)} />
+          <motion.div
+            initial={{ scale: 0.96, y: 10 }}
+            animate={{ scale: 1, y: 0 }}
+            className="relative w-full max-w-md glass rounded-2xl p-6 space-y-4"
+            style={{ boxShadow: "var(--shadow-card)" }}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: "rgba(216,90,48,0.14)", color: "#D85A30" }}
+              >
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>
+                  Projet arrivé à échéance
+                </h2>
+                <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+                  L&apos;échéance de ce projet est dépassée
+                  {project.dueDate ? ` (${formatDate(project.dueDate)})` : ""}. Il n&apos;est plus possible
+                  d&apos;ajouter une tâche à des dates passées : modifiez d&apos;abord la date d&apos;échéance
+                  du projet pour continuer.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setOverdueNotice(false)}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
+                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
+              >
+                Fermer
+              </button>
+              <Link
+                href={`/agences/${agencyId}/projets/${projectId}`}
+                onClick={() => setOverdueNotice(false)}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
+                style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
+              >
+                <FolderKanban size={16} /> Voir le projet
+              </Link>
+            </div>
+          </motion.div>
         </motion.div>
       )}
     <ConfirmDialog

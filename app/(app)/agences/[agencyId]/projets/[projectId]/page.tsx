@@ -70,9 +70,6 @@ const formatDate = (date: string | null) => {
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 };
 
-const today = new Date();
-const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-
 export default function ProjectDetailPage() {
   const { agencyId, projectId } = useParams<{ agencyId: string; projectId: string }>();
   const router = useRouter();
@@ -141,10 +138,11 @@ export default function ProjectDetailPage() {
 
     const fe: Record<string, string> = {};
     if (!editName.trim()) fe.name = "Le nom du projet est obligatoire.";
-    if (editStartDate && editStartDate < todayISO) {
-      fe.startDate = "La date de début ne peut pas être antérieure à aujourd'hui.";
-    } else if (editStartDate && editDueDate && editDueDate < editStartDate) {
+    if (editStartDate && editDueDate && editDueDate < editStartDate) {
       fe.dueDate = "La date d'échéance doit être postérieure ou égale à la date de début.";
+    }
+    if (project.dueDate && (!editDueDate || editDueDate < project.dueDate)) {
+      fe.dueDate = "La date d'échéance ne peut pas être antérieure à l'échéance déjà définie.";
     }
     if (Object.keys(fe).length > 0) {
       setEditFieldErrors(fe);
@@ -156,7 +154,7 @@ export default function ProjectDetailPage() {
       await apiUpdateProject(project.id, {
         name: editName.trim(),
         description: editDescription.trim() || null,
-        status: editStatus,
+        status: editStatus !== project.status ? editStatus : undefined,
         start_date: editStartDate || null,
         due_date: editDueDate || null,
         wallpaper: editWallpaper,
@@ -371,7 +369,14 @@ export default function ProjectDetailPage() {
   }
 
   const projectTasks = tasksByProject(project.id);
-  const badge = statusConfig[getProjectStatusFromTasks(project.status, projectTasks)];
+  const allProjectTaskCount = data.tasks.filter(
+    (t) => Number(t.projectId) === Number(project.id),
+  ).length;
+  const editDueMin = [project.dueDate, editStartDate]
+    .filter((v): v is string => !!v)
+    .sort()
+    .pop();
+  const badge = statusConfig[getProjectStatusFromTasks(project.status, projectTasks, undefined, project.dueDate)];
 
   // Membres de l'agence pas encore dans le projet (pour l'ajout)
   const addableMembers = (agency.members ?? []).filter(
@@ -709,7 +714,7 @@ ariaLabel="Statut du projet"
                 </label>
 <DatePickerField
                   value={editStartDate}
-                  min={todayISO}
+                  min={project.startDate || undefined}
                   onChange={(v) => {
                     setEditStartDate(v);
                     clearEditFieldError("startDate");
@@ -730,6 +735,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 </label>
 <DatePickerField
                   value={editDueDate}
+                  min={editDueMin || undefined}
                   onChange={(v) => {
                     setEditDueDate(v);
                     clearEditFieldError("dueDate");
@@ -900,7 +906,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 Supprimer définitivement ?
               </h2>
               <p className="text-sm mt-1.5" style={{ color: "var(--text-secondary)" }}>
-                «&nbsp;{project.name}&nbsp;» et toutes ses tâches, sous-tâches, fichiers et commentaires seront définitivement supprimés. Cette action est irréversible.
+                «&nbsp;{project.name}&nbsp;» et ses {allProjectTaskCount} tâche{allProjectTaskCount > 1 ? "s" : ""}, sous-tâches, fichiers et commentaires seront définitivement supprimés. Cette action est irréversible.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-1">
