@@ -199,24 +199,26 @@ export default function ProfilPage() {
               >
                 {firstName} {lastName}
               </motion.h1>
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.1 }}
-                className="flex items-center justify-center md:justify-start gap-2 mt-2"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                <Briefcase size={14} />
-                <span
-                  className="rounded-full px-3 py-0.5 text-xs"
-                  style={{
-                    background: "var(--gradient-button)",
-                    boxShadow: "0 0 15px var(--glow-pink)",
-                  }}
+              {user.jobTitle ? (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.1 }}
+                  className="flex items-center justify-center md:justify-start gap-2 mt-2"
+                  style={{ color: "var(--text-secondary)" }}
                 >
-                  {user.role === "admin" ? "Administrateur" : "Membre"}
-                </span>
-              </motion.p>
+                  <Briefcase size={14} />
+                  <span
+                    className="rounded-full px-3 py-0.5 text-xs"
+                    style={{
+                      background: "var(--gradient-button)",
+                      boxShadow: "0 0 15px var(--glow-pink)",
+                    }}
+                  >
+                    {user.jobTitle}
+                  </span>
+                </motion.p>
+              ) : null}
             </div>
 
             <motion.button

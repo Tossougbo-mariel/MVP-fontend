@@ -1,9 +1,4 @@
 "use client";
-
-// Page d'accueil post-connexion : un diaporama de 4 images professionnelles
-// qui défilent en fondu. En cliquant sur « Mes agences » (bouton ou rail), les
-// agences passent au premier plan et le fond devient l'image floutée — posée
-// par AppShell sur la seule page /mes-agences.
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";

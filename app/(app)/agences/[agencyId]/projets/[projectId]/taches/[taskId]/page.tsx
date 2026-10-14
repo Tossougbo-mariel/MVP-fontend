@@ -43,6 +43,7 @@ import {
   userRoleInAgency,
   getHistoryByTask,
   ACTIVITY_LABELS,
+  formatActivitySentence,
 subtaskProgress,
   formatFileSize,
   isTaskBlocked,
@@ -845,7 +846,10 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
                   <div className={`flex-1 min-w-0 ${isLast ? "" : "pb-3"}`}>
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                        {h.description}
+                        {formatActivitySentence(
+                          h,
+                          actor ? `${actor.user.firstName} ${actor.user.lastName}` : null,
+                        )}
                       </span>
                       <span
                         className="text-[10px] font-bold px-2 py-0.5 rounded-full"
@@ -855,7 +859,7 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
                       </span>
                     </div>
                     <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                      {actor ? `${actor.user.firstName} ${actor.user.lastName}` : h.actorName ?? h.actorEmail} · {formatDateTime(h.createdAt)}
+                      {formatDateTime(h.createdAt)}
                     </p>
                   </div>
                 </div>

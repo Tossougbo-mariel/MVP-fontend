@@ -199,6 +199,9 @@ const mapActivity = (r: any): ActivityEntry => ({
   taskId: readonly(r.task_id),
   projectId: readonly(r.project_id),
   agencyId: readonly(r.agency_id),
+  agencyName: str(r.agency?.name),
+  projectName: str(r.project?.name),
+  taskTitle: str(r.task?.title),
 });
 
 const toApiDate = (d: unknown): string | null => {
@@ -328,7 +331,7 @@ export const acceptInvitation = async (token: string): Promise<void> => {
 
 // ---------- Équipes ----------
 const mapTeamMember = (u: any): UserLite =>
-  u ? { id: Number(u.id), name: str(u.name) ?? "", firstName: str(u.first_name) ?? "", lastName: str(u.last_name) ?? "", email: String(u.email ?? ""), avatar: str(u.avatar) } : null as any;
+  u ? { id: Number(u.id), name: str(u.name) ?? "", firstName: str(u.first_name) ?? "", lastName: str(u.last_name) ?? "", email: String(u.email ?? ""), avatar: str(u.avatar), jobTitle: str(u.job_title) } : null as any;
 
 const mapTeam = (r: any): AgencyTeam => ({
   id: Number(r.id),
@@ -548,19 +551,6 @@ export const bulkUpdateTasks = async (
     ...(options?.force ? { force: true } : {}),
   });
   return (data as any[] ?? []).map(mapTask);
-};
-
-// ---------- Export CSV ----------
-export const downloadAgencyTasksCsv = async (agencyId: number | string): Promise<void> => {
-  const { data } = await api.get(`/agencies/${agencyId}/tasks/export`, { responseType: "blob" });
-  const url = URL.createObjectURL(data as Blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `taches-${agencyId}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
 };
 
 // ---------- Étiquettes ----------
