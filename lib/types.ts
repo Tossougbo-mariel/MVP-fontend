@@ -54,27 +54,20 @@ export type AgencyRole = "owner" | "admin" | "membre";
 
 // ---------- Réglages d'agence (gérés par le propriétaire) ----------
 export type AgencyPermission = "owner" | "admin" | "all";
-export type AgencyTaskView = "grid" | "list" | "kanban";
 export type AgencyTeamMembership = "ouverte" | "fermee";
 
 export type AgencySettings = {
   whoCanInvite: AgencyPermission;
   whoCanCreateProjects: AgencyPermission;
-  defaultTaskView: AgencyTaskView;
   defaultMemberRole: AgencyMemberRole;
   emailNotifications: boolean;
-  whoCanManageTeams: AgencyPermission;
-  defaultTeamMembership: AgencyTeamMembership;
 };
 
 export const DEFAULT_AGENCY_SETTINGS: AgencySettings = {
   whoCanInvite: "owner",
   whoCanCreateProjects: "admin",
-  defaultTaskView: "grid",
   defaultMemberRole: "membre",
   emailNotifications: true,
-  whoCanManageTeams: "admin",
-  defaultTeamMembership: "fermee",
 };
 
 export type AgencyTeam = {
@@ -158,7 +151,6 @@ export const userAgencies = (agencies: Agency[], email: string): Agency[] => {
 export type TaskPlatformRight =
   | "invite"
   | "manageUsers"
-  | "manageTeams"
   | "createProjects"
   | "createTasks"
   | "modifyTasks"
@@ -191,10 +183,6 @@ export const hasRight = (
 
   if (right === "createProjects") {
     return settings.whoCanCreateProjects === "all";
-  }
-
-  if (right === "manageTeams") {
-    return settings.whoCanManageTeams === "all";
   }
 
   return MEMBRE_RIGHTS.includes(right);
@@ -271,6 +259,20 @@ export const isTerminalStatus = (status: TaskStatus, statuses?: TaskStatusMeta[]
     : ["terminee", "termine", "done"].includes(status);
 };
 
+/**
+ * Statut cible quand on rouvre une tâche terminée. Miroir de
+ * `TaskStatusResolver::reopenKey()` côté backend : priorité à « En révision »
+ * s'il existe et ne clôture pas la tâche, sinon premier statut ouvert, sinon
+ * premier statut connu.
+ */
+export const getReopenStatusKey = (statuses?: TaskStatusMeta[]): TaskStatus => {
+  const list = statuses ?? DEFAULT_TASK_STATUSES;
+  const revision = list.find((s) => s.key === "en_revision");
+  if (revision && !revision.is_terminal) return "en_revision";
+  const first = list.find((s) => !s.is_terminal);
+  return first?.key ?? list[0]?.key ?? "a_faire";
+};
+
 export const taskStatusLabel = (status: TaskStatus, statuses?: TaskStatusMeta[]): string =>
   (statuses ?? DEFAULT_TASK_STATUSES).find((s) => s.key === status)?.label ??
   LABEL_STATUS[status] ??
@@ -314,6 +316,9 @@ export type Task = {
   createdAt: string;
   archivedAt: string | null;
   tags: Tag[];
+  comments?: TaskComment[];
+  subtasks?: Subtask[];
+  attachments?: Attachment[];
   dependencies?: TaskDepRef[];
   dependents?: TaskDepRef[];
   deadlineStatus: TaskDeadlineStatus;
@@ -480,7 +485,7 @@ export const LABEL_PROJECT_STATUS: Record<ProjectStatus, string> = {
 // ---------- Étiquettes ----------
 export type Tag = {
   id: number;
-  agencyId: number;
+  projectId: number;
   name: string;
   color: string;
 };
@@ -599,6 +604,7 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   creation: "Tâche créée",
   changement_statut: "Statut modifié",
   tache_terminee: "Tâche terminée",
+  reouverture: "Tâche réouverte",
   changement_responsable: "Responsable modifié",
   changement_priorite: "Priorité modifiée",
   changement_echeance: "Échéance modifiée",
@@ -626,6 +632,32 @@ export const isTaskBlocked = (
   task: Pick<Task, "dependencies">,
   statuses?: TaskStatusMeta[],
 ): boolean => (task.dependencies ?? []).some((d) => !isTerminalStatus(d.status, statuses));
+
+/**
+ * Miroir front de `Task::deadlineStatus()` (backend).
+ *
+ * Sert à mettre à jour le badge d'échéance instantanément lors d'un déplacement
+ * optimiste : le serveur ne recalcule `deadline_status` qu'au prochain
+ * rafraîchissement, ce qui laissait le badge figé. Une tâche terminale n'a plus
+ * d'échéance (null), une tâche bloquée est neutralisée (« a_venir »).
+ */
+export const computeDeadlineStatus = (
+  task: Pick<Task, "status" | "dueDate" | "dependencies">,
+  statuses?: TaskStatusMeta[],
+): TaskDeadlineStatus => {
+  if (isTerminalStatus(task.status, statuses)) return null;
+  if (isTaskBlocked(task, statuses)) return "a_venir";
+  if (!task.dueDate) return "a_venir";
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(`${task.dueDate}T00:00:00`);
+  if (Number.isNaN(due.getTime())) return "a_venir";
+
+  if (due.getTime() < today.getTime()) return "en_retard";
+  const diffDays = Math.round((due.getTime() - today.getTime()) / 86_400_000);
+  return diffDays <= 3 ? "a_echeance" : "a_venir";
+};
 
 // ---------- Notifications ----------
 export type AppNotification = {

@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { motion, type Variants } from "framer-motion";
 import {
   ShieldCheck, ArrowLeft, Settings, Users, Trash2, CheckCircle2, Save, Pencil,
-  AlertTriangle, Globe, Mail, X, Clock, LayoutGrid, List, Kanban, RefreshCw,
+  AlertTriangle, Globe, Mail, X, Clock, LayoutGrid, RefreshCw,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
@@ -486,10 +486,10 @@ export default function ParametresPage() {
         )}
       </Section>
 
-      {/* SECTION 4 : Projets et tâches */}
-      <Section icon={<LayoutGrid size={18} style={{ color: "var(--blue)" }} />} title="Projets et tâches">
+      {/* SECTION 4 : Projets */}
+      <Section icon={<LayoutGrid size={18} style={{ color: "var(--blue)" }} />} title="Projets">
         <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
-          Contrôlez qui peut créer des projets et la vue par défaut.
+          Contrôlez qui peut créer des projets.
         </p>
 
         <div className="mb-6">
@@ -516,33 +516,6 @@ export default function ParametresPage() {
                   <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{opt.label}</div>
                 </div>
                 {settings.whoCanCreateProjects === opt.value && <CheckCircle2 size={18} style={{ color: "var(--blue)" }} />}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <label className="text-xs font-semibold mb-2 block" style={{ color: "var(--text-secondary)" }}>
-            Vue par défaut des tâches
-          </label>
-          <div className="flex gap-2">
-            {([
-              { value: "grid" as const, icon: <LayoutGrid size={16} />, label: "Grille" },
-              { value: "list" as const, icon: <List size={16} />, label: "Liste" },
-              { value: "kanban" as const, icon: <Kanban size={16} />, label: "Kanban" },
-            ]).map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => saveSettings({ defaultTaskView: opt.value })}
-                disabled={settingsSaving}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-60"
-                style={
-                  settings.defaultTaskView === opt.value
-                    ? { background: "var(--gradient-button)", color: "#fff" }
-                    : { background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }
-                }
-              >
-                {opt.icon} {opt.label}
               </button>
             ))}
           </div>

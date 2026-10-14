@@ -153,7 +153,7 @@ export default function PhoneMockup() {
       >
         <p className="text-[8.5px] font-extrabold text-white">
           MVP{" "}
-          <span style={{ color: "var(--blue-light)" }}>Manager</span>
+          <span style={{ color: "var(--blue-light)" }}>Studio</span>
         </p>
         <Avatar initials="AK" gradient={GRAD.blue} />
       </div>

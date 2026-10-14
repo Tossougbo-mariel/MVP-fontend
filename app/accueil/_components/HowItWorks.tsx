@@ -1,4 +1,5 @@
 import { Building2, FolderKanban, ListTodo } from "lucide-react";
+import { Reveal, RevealGroup, RevealItem } from "./Reveal";
 
 const steps = [
   {
@@ -43,10 +44,17 @@ export default function HowItWorks() {
         </div>
 
         <div className="relative mt-16">
-          <div className="absolute left-1/2 top-6 hidden h-0.5 w-2/3 -translate-x-1/2 lg:block" style={{ background: "linear-gradient(90deg, transparent, var(--blue-light), transparent)" }} />
-          <div className="grid gap-8 lg:grid-cols-3">
-            {steps.map(({ icon: Icon, step, title, description }) => (
+          <div className="absolute left-1/2 top-6 hidden w-2/3 -translate-x-1/2 lg:block">
+            <Reveal y={0}>
               <div
+                className="h-0.5 w-full"
+                style={{ background: "linear-gradient(90deg, transparent, var(--blue-light), transparent)" }}
+              />
+            </Reveal>
+          </div>
+          <RevealGroup className="grid gap-8 lg:grid-cols-3">
+            {steps.map(({ icon: Icon, step, title, description }) => (
+              <RevealItem
                 key={step}
                 className="relative flex flex-col items-center text-center"
               >
@@ -64,9 +72,9 @@ export default function HowItWorks() {
                 <p className="mt-3 max-w-sm text-base font-medium leading-7" style={{ color: "#4B5767" }}>
                   {description}
                 </p>
-              </div>
+              </RevealItem>
             ))}
-          </div>
+          </RevealGroup>
         </div>
       </div>
     </section>

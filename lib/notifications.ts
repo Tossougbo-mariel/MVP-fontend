@@ -7,6 +7,7 @@ import {
   Clock,
   ListPlus,
   MessageSquare,
+  RotateCcw,
   ShieldCheck,
   UserCheck,
   UserCog,
@@ -89,6 +90,12 @@ const META: Record<string, NotificationMeta> = {
   tache_terminee: {
     label: "Tâche terminée",
     icon: CheckCircle2,
+    color: "var(--accent-text)",
+    bg: "var(--accent-soft)",
+  },
+  tache_reouverte: {
+    label: "Tâche rouverte",
+    icon: RotateCcw,
     color: "var(--accent-text)",
     bg: "var(--accent-soft)",
   },

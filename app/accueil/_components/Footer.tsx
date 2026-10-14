@@ -2,6 +2,7 @@
 
 import { Fragment, useState } from "react";
 import Link from "next/link";
+import { Reveal } from "./Reveal";
 
 const productLinks = [
   { href: "#features", label: "Fonctionnalités" },
@@ -20,12 +21,12 @@ export default function Footer() {
 
   return (
     <footer className="py-16 px-4" style={{ background: "#000a1e" }}>
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+      <Reveal className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid gap-12 lg:grid-cols-4">
           <div>
             <span className="text-xl font-extrabold tracking-tight text-white">
               MVP{" "}
-              <span style={{ color: "var(--blue-light)" }}>Manager</span>
+              <span style={{ color: "var(--blue-light)" }}>Studio</span>
             </span>
             <p className="mt-4 max-w-xs text-sm font-medium leading-6" style={{ color: "#ffffff99" }}>
               La plateforme tout-en-un pour gérer vos agences, vos projets et
@@ -97,11 +98,11 @@ export default function Footer() {
 
         <div className="mt-14 flex flex-col items-center justify-between gap-4 border-t pt-8 sm:flex-row" style={{ borderColor: "#ffffff1a" }}>
           <p className="text-sm font-medium" style={{ color: "#ffffff99" }}>
-            &copy; {new Date().getFullYear()} MVP Manager. Tous droits réservés.
+            &copy; {new Date().getFullYear()} MVP Studio. Tous droits réservés.
           </p>
         
         </div>
-      </div>
+      </Reveal>
     </footer>
   );
 }

@@ -23,6 +23,7 @@ ChevronDown,
   Eye,
   Flag,
   FolderKanban,
+  GitBranch,
   History,
   ListChecks,
   Lock,
@@ -38,12 +39,12 @@ ChevronDown,
   UserRound,
   X,
 } from "lucide-react";
-import { useAppData, useAsync } from "@/lib/appData";
+import { useAppData, useAsync, invalidateTaskDetailCache } from "@/lib/appData";
 import {
   userRoleInAgency,
   getHistoryByTask,
   ACTIVITY_LABELS,
-subtaskProgress,
+  subtaskProgress,
   formatFileSize,
   isTaskBlocked,
   type Attachment,
@@ -65,13 +66,12 @@ import { useAuthStore } from "@/app/store/authStore";
 import {
   fetchTask,
   fetchProjectMembers,
-  fetchComments,
   addComment as apiAddComment,
   deleteComment as apiDeleteComment,
   fetchActivity,
-  fetchSubtasks,
-  fetchAgencyTags,
-  fetchAttachments,
+  addTaskDependency as apiAddTaskDependency,
+  removeTaskDependency as apiRemoveTaskDependency,
+  fetchProjectTags,
   uploadAttachment as apiUploadAttachment,
   deleteAttachment as apiDeleteAttachment,
   downloadAttachment as apiDownloadAttachment,
@@ -81,9 +81,7 @@ import {
   createSubtask as apiCreateSubtask,
   updateSubtask as apiUpdateSubtask,
   deleteSubtask as apiDeleteSubtask,
-  completeAllSubtasks as apiCompleteAllSubtasks,
   updateTask as apiUpdateTask,
-updateTaskStatus as apiUpdateTaskStatus,
   archiveTask as apiArchiveTask,
   restoreTask as apiRestoreTask,
   deleteTask as apiDeleteTask,
@@ -144,19 +142,9 @@ const formatDateTime = (iso: string) =>
 
 // Nombre d'événements affichés avant le repli « Voir plus » (comme l'activité récente du dashboard).
 const HISTORY_VISIBLE = 8;
+const COMMENTS_VISIBLE = 5;
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-// Corps d'erreur renvoyé par PATCH /tasks/{id}/status quand le statut terminal
-// est bloqué par des sous-tâches non cochées.
-type StatusErrorPayload = {
-  message?: string;
-  requires_force?: boolean;
-  open_subtasks?: number;
-};
-
-const statusErrorPayload = (err: unknown): StatusErrorPayload | undefined =>
-  (err as { response?: { data?: StatusErrorPayload } })?.response?.data;
 
 const renderWithMentions = (content: string, names: string[]): React.ReactNode => {
   const valid = names.filter(Boolean);
@@ -193,27 +181,26 @@ export default function TaskDetailPage() {
   const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
   const isAdmin = role === "owner" || role === "admin";
 
-  const { statuses, isTerminal, labelOf } = useTaskStatuses();
+  const { statuses, labelOf } = useTaskStatuses();
   const statusConfig = useMemo(() => buildStatusStyleIndex(statuses), [statuses]);
   const statusStyleOf = (status: TaskStatus): StatusStyle =>
     statusStyleOfStyle(status, statusConfig, labelOf(status));
 
   // Données via API
-  const taskResult = useAsync(() => fetchTask(taskId), [taskId]);
+  const taskResult = useAsync(() => fetchTask(taskId), [taskId], { cacheKey: `task-detail:${taskId}` });
   const appTask = tasksByProject(projectId).find((t) => t.id === Number(taskId));
   const task = taskResult.data ?? appTask;
-  const membersResult = useAsync(() => fetchProjectMembers(projectId), [projectId]);
+  const membersResult = useAsync(() => fetchProjectMembers(projectId), [projectId], { cacheKey: `project-members:${projectId}` });
   const projectMembers: ProjectMember[] = membersResult.data ?? [];
-  const commentsResult = useAsync(() => fetchComments(taskId), [taskId]);
-  const comments = commentsResult.data ?? [];
-  const historyResult = useAsync(() => fetchActivity({ taskId }), [taskId]);
+  const comments = task?.comments ?? [];
+  const historyResult = useAsync(() => fetchActivity({ taskId }), [taskId], { cacheKey: `task-history:${taskId}` });
 const history = getHistoryByTask(historyResult.data ?? [], taskId);
-  const subtasksResult = useAsync(() => fetchSubtasks(taskId), [taskId]);
-  const subtasks: Subtask[] = subtasksResult.data ?? [];
-  const agencyTagsResult = useAsync(() => fetchAgencyTags(agencyId), [agencyId]);
-  const agencyTags: Tag[] = agencyTagsResult.data ?? [];
-  const attachmentsResult = useAsync(() => fetchAttachments(taskId), [taskId]);
-  const attachments: Attachment[] = attachmentsResult.data ?? [];
+  const subtasks: Subtask[] = task?.subtasks ?? [];
+  const projectTagsResult = useAsync(() => fetchProjectTags(projectId), [projectId], { cacheKey: `project-tags:${projectId}` });
+  const projectTags: Tag[] = projectTagsResult.data ?? [];
+  const attachments: Attachment[] = task?.attachments ?? [];
+  const dependencies = task?.dependencies ?? [];
+  const dependents = task?.dependents ?? [];
 
   const [editing, setEditing] = useState(false);
   const [historyExpanded, setHistoryExpanded] = useState(false);
@@ -228,6 +215,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [draftLong, setDraftLong] = useState(false);
   const [showCommentPreview, setShowCommentPreview] = useState(false);
+  const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [expandedCommentIds, setExpandedCommentIds] = useState<Set<number>>(() => new Set());
   const [longCommentIds, setLongCommentIds] = useState<Set<number>>(() => new Set());
 
@@ -259,19 +247,16 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
   const [subtaskError, setSubtaskError] = useState<string | null>(null);
   const [subtaskBusy, setSubtaskBusy] = useState(false);
 
-  // ====== Blocage « Terminée » ======
-  const [statusBlocked, setStatusBlocked] = useState<string | null>(null);
-  // On mémorise la cible cliquée : une agence peut avoir plusieurs statuts
-  // terminaux (« Terminée », « Annulée »…), il faut forcer VERS CE statut-là.
-  const [forceConfirm, setForceConfirm] = useState<
-    { openSubtasks: number; target: TaskStatus } | null
-  >(null);
-  const [statusBusy, setStatusBusy] = useState(false);
-
   // ====== Étiquettes ======
   const [tagsOpen, setTagsOpen] = useState(false);
   const [tagsBusy, setTagsBusy] = useState(false);
   const [newTagName, setNewTagName] = useState("");
+
+  // ====== Dépendances ======
+  const [depWarning, setDepWarning] = useState<null | { candidateTitle: string; candidateDue: string; taskDue: string }>(null);
+  const [depSelected, setDepSelected] = useState("");
+  const [depBusy, setDepBusy] = useState(false);
+  const [depError, setDepError] = useState<string | null>(null);
 
   // ====== Pièces jointes ======
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -396,51 +381,6 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
     }
   };
 
-const handleStatusChange = async (status: TaskStatus) => {
-    if (!task) return;
-    // C'est le statut terminal de l'agence qui « clôt » la tâche, pas la clé
-    // 'terminee' : une colonne personnalisée comme « Livré » déclenche le même
-    // contrôle de sous-tâches.
-    if (isTerminal(status)) {
-      const openSubtasks = subtasks.filter((s) => !s.done).length;
-      if (openSubtasks > 0) {
-        const message = `Impossible de terminer : ${openSubtasks} sous-tâche${openSubtasks > 1 ? "s" : ""} encore non cochée${openSubtasks > 1 ? "s" : ""}.`;
-        if (isAdmin) {
-          setForceConfirm({ openSubtasks, target: status });
-          return;
-        }
-        setStatusBlocked(message);
-        return;
-      }
-    }
-    await doUpdateStatus(status, false);
-  };
-
-  const doUpdateStatus = async (status: TaskStatus, force: boolean) => {
-    if (!task || statusBusy) return;
-    setStatusBusy(true);
-    setStatusBlocked(null);
-    try {
-      await apiUpdateTaskStatus(task.id, status, force ? { force: true } : undefined);
-      taskResult.reload();
-      historyResult.reload();
-      void reload();
-    } catch (err) {
-      const d = statusErrorPayload(err);
-      if (d?.requires_force) {
-        if (isAdmin) {
-          setForceConfirm({ openSubtasks: d.open_subtasks ?? 0, target: status });
-        } else {
-          setStatusBlocked(d.message || "Des sous-tâches ne sont pas encore cochées.");
-        }
-      } else {
-        alert(getApiErrorMessage(err));
-      }
-    } finally {
-      setStatusBusy(false);
-    }
-  };
-
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setCommentError(null);
@@ -455,8 +395,7 @@ const handleStatusChange = async (status: TaskStatus) => {
       setCommentMentions([]);
       setMentionQuery(null);
       setCommentOpen(false);
-      commentsResult.reload();
-      historyResult.reload();
+      taskResult.reload();
     } catch (err) {
       setCommentError(getApiErrorMessage(err));
     }
@@ -466,7 +405,7 @@ const handleStatusChange = async (status: TaskStatus) => {
     if (!task) return;
     try {
       await apiDeleteComment(commentId);
-      commentsResult.reload();
+      taskResult.reload();
     } catch (err) {
       alert(getApiErrorMessage(err));
     }
@@ -517,7 +456,7 @@ const handleStatusChange = async (status: TaskStatus) => {
     try {
       await apiCreateSubtask(task.id, newSubtask.trim());
       setNewSubtask("");
-      subtasksResult.reload();
+      taskResult.reload();
     } catch (err) {
       setSubtaskError(getApiErrorMessage(err));
     } finally {
@@ -528,7 +467,7 @@ const handleStatusChange = async (status: TaskStatus) => {
   const handleToggleSubtask = async (sub: Subtask) => {
     try {
       await apiUpdateSubtask(sub.id, { done: !sub.done });
-      subtasksResult.reload();
+      taskResult.reload();
     } catch (err) {
       alert(getApiErrorMessage(err));
     }
@@ -537,9 +476,80 @@ const handleStatusChange = async (status: TaskStatus) => {
   const handleDeleteSubtask = async (sub: Subtask) => {
     try {
       await apiDeleteSubtask(sub.id);
-      subtasksResult.reload();
+      taskResult.reload();
     } catch (err) {
       alert(getApiErrorMessage(err));
+    }
+  };
+
+  const handleAddDependency = async () => {
+    if (!task || !depSelected) return;
+    setDepError(null);
+    const candidate = tasksByProject(projectId).find(
+      (candidateTask) => candidateTask.id === Number(depSelected),
+    );
+    if (candidate && task.dueDate && candidate.dueDate && candidate.dueDate > task.dueDate) {
+      setDepWarning({ candidateTitle: candidate.title, candidateDue: candidate.dueDate, taskDue: task.dueDate });
+      return;
+    }
+    setDepBusy(true);
+    try {
+      const bundle = await apiAddTaskDependency(task.id, Number(depSelected));
+      invalidateTaskDetailCache([
+        task.id,
+        Number(depSelected),
+        ...bundle.dependencies.map((d) => d.id),
+        ...bundle.dependents.map((d) => d.id),
+      ]);
+      setDepSelected("");
+      taskResult.reload();
+      void reload();
+    } catch (err) {
+      setDepError(getApiErrorMessage(err));
+    } finally {
+      setDepBusy(false);
+    }
+  };
+
+  const confirmAddDependencyAnyway = async () => {
+    if (!task || !depSelected) return;
+    setDepBusy(true);
+    setDepWarning(null);
+    try {
+      const bundle = await apiAddTaskDependency(task.id, Number(depSelected), { force: true });
+      invalidateTaskDetailCache([
+        Number(task.id),
+        Number(depSelected),
+        ...bundle.dependencies.map((d) => d.id),
+        ...bundle.dependents.map((d) => d.id),
+      ]);
+      setDepSelected("");
+      taskResult.reload();
+      void reload();
+    } catch (err) {
+      setDepError(getApiErrorMessage(err));
+    } finally {
+      setDepBusy(false);
+    }
+  };
+  const handleRemoveDependency = async (dependencyId: number) => {
+    if (!task) return;
+    setDepError(null);
+    setDepBusy(true);
+    try {
+      const bundle = await apiRemoveTaskDependency(task.id, dependencyId);
+      invalidateTaskDetailCache([
+        Number(task.id),
+        dependencyId,
+        ...bundle.dependencies.map((d) => d.id),
+        ...bundle.dependents.map((d) => d.id),
+      ]);
+      taskResult.reload();
+      void reload();
+    } catch (err) {
+      setDepError(getApiErrorMessage(err));
+    } finally {
+      setDepBusy(false);
     }
   };
 
@@ -566,9 +576,9 @@ const handleStatusChange = async (status: TaskStatus) => {
     if (!task || !newTagName.trim()) return;
     setTagsBusy(true);
     try {
-      const created = await apiCreateTag(agencyId, { name: newTagName.trim() });
+      const created = await apiCreateTag(projectId, { name: newTagName.trim() });
       setNewTagName("");
-      agencyTagsResult.reload();
+      projectTagsResult.reload();
       await apiSetTaskTags(task.id, [...task.tags.map((t) => t.id), created.id]);
       taskResult.reload();
       void reload();
@@ -584,7 +594,7 @@ const handleStatusChange = async (status: TaskStatus) => {
     setTagsBusy(true);
     try {
       await apiDeleteTag(tg.id);
-      agencyTagsResult.reload();
+      projectTagsResult.reload();
       taskResult.reload();
       void reload();
     } catch (err) {
@@ -601,7 +611,7 @@ const handleStatusChange = async (status: TaskStatus) => {
     setUploadBusy(true);
     try {
       await apiUploadAttachment(task.id, file);
-      attachmentsResult.reload();
+      taskResult.reload();
       historyResult.reload();
     } catch (err) {
       setAttachmentError(getApiErrorMessage(err));
@@ -622,7 +632,7 @@ const handleStatusChange = async (status: TaskStatus) => {
   const handleDeleteAttachment = async (att: Attachment) => {
     try {
       await apiDeleteAttachment(att.id);
-      attachmentsResult.reload();
+      taskResult.reload();
     } catch (err) {
       alert(getApiErrorMessage(err));
     }
@@ -761,10 +771,22 @@ const handleStatusChange = async (status: TaskStatus) => {
 
   const assignee = memberById(task.assignedTo);
   const creator = memberById(task.createdBy);
-const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
+  const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
   const canChangeStatus = isAdmin || isAssigned;
   const canManageSubtasks = isAdmin || projectMembers.some((pm) => pm.user.id === user.id);
   const progress = subtaskProgress(subtasks);
+
+  // Candidats à devenir prérequis : tâches du même projet, non archivées, hors
+  // tâche courante et hors dépendances/dépendants déjà liés (les boucles plus
+  // lointaines restent refusées par le backend, qui renvoie alors un message).
+  const depLinkedIds = new Set<number>([
+    task.id,
+    ...dependencies.map((d) => d.id),
+    ...dependents.map((d) => d.id),
+  ]);
+  const dependencyCandidates = tasksByProject(projectId).filter(
+    (t) => !t.archivedAt && !depLinkedIds.has(t.id),
+  );
 
   const statusBadge = statusStyleOf(task.status);
   const prio = priorityConfig[task.priority];
@@ -787,6 +809,7 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
   const hdrBorder = "1px solid rgba(255,255,255,0.28)";
 
   const historyVisible = historyExpanded ? history : history.slice(0, HISTORY_VISIBLE);
+  const visibleComments = commentsExpanded ? comments : comments.slice(0, COMMENTS_VISIBLE);
 
   const historyPanel = (
     <motion.div variants={item} className="glass rounded-2xl p-5" style={{ boxShadow: "var(--shadow-card)" }}>
@@ -1003,7 +1026,8 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
             </p>
           </div>
 
-{/* Changement de statut */}
+          {/* Avancement de la tâche — informatif : le statut ne se change que
+              depuis le Kanban (glisser-déposer). */}
           {canChangeStatus && !task.archivedAt && (
             <div className="flex flex-col gap-2 pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.25)" }}>
               <span className="text-xs font-bold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.92)" }}>
@@ -1014,11 +1038,9 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
                   const cfg = statusStyleOf(s.key);
                   const active = task.status === s.key;
                   return (
-                    <button
+                    <div
                       key={s.key}
-                      onClick={() => handleStatusChange(s.key)}
-                      disabled={statusBusy}
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all hover:scale-[1.02] disabled:opacity-60 disabled:pointer-events-none"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold cursor-default select-none"
                       style={
                         active
                           ? { color: readableOnWhite(cfg.color), background: "#fff", border: `1px solid ${cfg.color}`, boxShadow: "var(--shadow-card)" }
@@ -1029,15 +1051,10 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
                       {s.key === "a_faire" && <Clock size={14} />}
                       {!s.is_terminal && s.key !== "a_faire" ? <CalendarClock size={14} /> : null}
                       {cfg.label}
-                    </button>
+                    </div>
                   );
                 })}
               </div>
-              {statusBlocked && (
-                <p className="text-[13px] font-semibold" style={{ color: "#fca5a5" }}>
-                  {statusBlocked}
-                </p>
-              )}
             </div>
           )}
         </div>
@@ -1127,12 +1144,12 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
         {tagsOpen && (
           <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--border-subtle)" }}>
             <div className="flex flex-wrap gap-2">
-              {agencyTags.length === 0 ? (
+              {projectTags.length === 0 ? (
                 <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                  Aucune étiquette dans cette agence. Créez-en une ci-dessous.
+                  Aucune étiquette dans ce projet. Créez-en une ci-dessous.
                 </p>
               ) : (
-                agencyTags.map((tg) => {
+                projectTags.map((tg) => {
                   const on = task.tags.some((t) => t.id === tg.id);
                   return (
                     <div key={tg.id} className="inline-flex items-center gap-1.5">
@@ -1282,7 +1299,7 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
           </div>
         )}
 
-        {subtasksResult.loading ? (
+        {taskResult.loading ? (
           <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
             Chargement des sous-tâches…
           </p>
@@ -1375,6 +1392,170 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
         )}
       </motion.div>
 
+      {/* Dépendances */}
+      <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h2 className="font-bold flex items-center gap-2.5" style={{ color: "var(--text-primary)" }}>
+            <span
+              className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: "var(--accent-soft)" }}
+            >
+              <GitBranch size={16} style={{ color: "var(--accent-text)" }} />
+            </span>
+            Dépendances
+          </h2>
+          {isTaskBlocked(task, statuses) && (
+            <span
+              className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full"
+              style={{ color: "var(--color-error)", background: "var(--hover-soft)" }}
+            >
+              <Lock size={11} /> Bloquée
+            </span>
+          )}
+        </div>
+
+        {taskResult.loading ? (
+          <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
+            Chargement des dépendances…
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {/* Dépend de (prérequis) */}
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>
+                Dépend de
+              </p>
+              {dependencies.length === 0 ? (
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>Aucun prérequis.</p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {dependencies.map((dep) => (
+                    <li
+                      key={dep.id}
+                      className="group flex items-center gap-3 rounded-xl px-3 py-2"
+                      style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
+                    >
+                      <Link
+                        href={`/agences/${agencyId}/projets/${projectId}/taches/${dep.id}`}
+                        className="flex-1 min-w-0 text-sm truncate hover:underline"
+                        style={{ color: "var(--text-primary)" }}
+                      >
+                        {dep.title}
+                      </Link>
+                      <span
+                        className="shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                        style={{ background: "var(--hover-soft)", color: statusStyleOf(dep.status).color }}
+                      >
+                        {labelOf(dep.status)}
+                      </span>
+                      {dep.dueDate && (
+                        <span className="shrink-0 text-[11px]" style={{ color: "var(--text-muted)" }}>
+                          {formatDate(dep.dueDate)}
+                        </span>
+                      )}
+                      {canManageSubtasks && (
+                        <button
+                          type="button"
+                          disabled={depBusy}
+                          onClick={() => handleRemoveDependency(dep.id)}
+                          title="Retirer cette dépendance"
+                          className="shrink-0 p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-30"
+                          style={{ color: "var(--color-error)" }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Requise par (dépendants, lecture seule) */}
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>
+                Requise par
+              </p>
+              {dependents.length === 0 ? (
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>Aucune tâche ne dépend de celle-ci.</p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {dependents.map((dep) => (
+                    <li
+                      key={dep.id}
+                      className="flex items-center gap-3 rounded-xl px-3 py-2"
+                      style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
+                    >
+                      <Link
+                        href={`/agences/${agencyId}/projets/${projectId}/taches/${dep.id}`}
+                        className="flex-1 min-w-0 text-sm truncate hover:underline"
+                        style={{ color: "var(--text-primary)" }}
+                      >
+                        {dep.title}
+                      </Link>
+                      <span
+                        className="shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                        style={{ background: "var(--hover-soft)", color: statusStyleOf(dep.status).color }}
+                      >
+                        {labelOf(dep.status)}
+                      </span>
+                      {dep.dueDate && (
+                        <span className="shrink-0 text-[11px]" style={{ color: "var(--text-muted)" }}>
+                          {formatDate(dep.dueDate)}
+                        </span>
+                      )}
+                      <Lock
+                        size={12}
+                        className="shrink-0"
+                        style={{ color: "var(--text-muted)" }}
+                        aria-label="Ce lien se retire depuis la tâche prérequis"
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Ajout d'un prérequis */}
+            {canManageSubtasks && (
+              <div className="pt-3 border-t" style={{ borderColor: "var(--border-subtle)" }}>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <select
+                    value={depSelected}
+                    onChange={(e) => {
+                      setDepSelected(e.target.value);
+                      setDepError(null);
+                    }}
+                    className="flex-1 px-3 py-2.5 rounded-xl text-sm outline-none"
+                    style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                  >
+                    <option value="">Ajouter un prérequis…</option>
+                    {dependencyCandidates.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.title}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={depBusy || !depSelected}
+                    onClick={handleAddDependency}
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
+                    style={{ background: "var(--gradient-button)" }}
+                  >
+                    <Plus size={15} /> {depBusy ? "…" : "Ajouter"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {depError && (
+              <p className="text-xs font-semibold" style={{ color: "var(--color-error)" }}>{depError}</p>
+            )}
+          </div>
+        )}
+      </motion.div>
+
       {/* Pièces jointes */}
       <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
         <div className="flex items-center justify-between gap-3 mb-4">
@@ -1411,7 +1592,7 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
           )}
         </div>
 
-        {attachmentsResult.loading ? (
+        {taskResult.loading ? (
           <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
             Chargement des pièces jointes…
           </p>
@@ -1475,18 +1656,31 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
 
       {/* Commentaires */}
       <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
-        <h2 className="font-bold flex items-center gap-2.5 mb-4" style={{ color: "var(--text-primary)" }}>
+        <div className="flex items-center gap-2.5 mb-4">
           <span
             className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
             style={{ background: "var(--accent-soft)" }}
           >
             <MessageSquare size={16} style={{ color: "var(--accent-text)" }} />
           </span>
-          Commentaires
-        </h2>
+          <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>
+            Commentaires
+          </h2>
+          {comments.length > COMMENTS_VISIBLE && (
+            <button
+              type="button"
+              onClick={() => setCommentsExpanded((expanded) => !expanded)}
+              className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors hover:bg-[var(--hover-soft)]"
+              style={{ color: "var(--accent-text)", background: "var(--accent-soft)" }}
+            >
+              {commentsExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              {commentsExpanded ? "Voir moins" : `Voir plus (${comments.length - COMMENTS_VISIBLE})`}
+            </button>
+          )}
+        </div>
 
           {/* Liste des commentaires */}
-          {commentsResult.loading ? (
+          {taskResult.loading ? (
             <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
               Chargement des commentaires…
             </p>
@@ -1495,8 +1689,9 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
               Aucun commentaire pour cette tâche.
             </p>
           ) : (
-            <div className="flex flex-col gap-3">
-              {comments.map((c) => {
+            <>
+              <div className="flex flex-col gap-3">
+              {visibleComments.map((c) => {
                 const author = memberByEmail(c.authorEmail) ?? projectMembers.find((pm) => pm.user.email.toLowerCase() === c.authorEmail.toLowerCase());
                 const isOwn = c.authorEmail.toLowerCase() === user.email.toLowerCase();
                 const isExpanded = expandedCommentIds.has(c.id);
@@ -1592,7 +1787,8 @@ const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
                   </div>
                 );
               })}
-            </div>
+              </div>
+            </>
           )}
 
           {/* Ajout d'un commentaire — en bas, bouton bleu à droite */}
@@ -1964,30 +2160,18 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
           </motion.div>
         </motion.div>
       )}
-<ConfirmDialog
-        open={forceConfirm !== null}
-        title="Terminer malgré tout ?"
+
+      <ConfirmDialog
+        open={depWarning !== null}
+        title="Échéance du prérequis incohérente"
         message={
-          forceConfirm
-            ? `Cette tâche a ${forceConfirm.openSubtasks} sous-tâche${forceConfirm.openSubtasks > 1 ? "s" : ""} encore non cochée${forceConfirm.openSubtasks > 1 ? "s" : ""}. Seuls le propriétaire ou les administrateurs de l'agence peuvent passer la tâche en « Terminée » quand même.`
+          depWarning
+            ? `La tâche « ${depWarning.candidateTitle} » que vous avez choisie est à échéance le ${formatDate(depWarning.candidateDue)}. L'échéance de votre tâche actuelle est le ${formatDate(depWarning.taskDue)}. Ajouter ce prérequis contraindra la tâche à rester bloquée jusqu'à son achèvement.`
             : ""
         }
-        confirmLabel="Terminer quand même"
-        onConfirm={async () => {
-          // « Terminer quand même » = on coche d'abord toutes les sous-tâches
-          // restantes, puis on force le statut terminal exactement cliqué.
-          if (task && forceConfirm) {
-            try {
-              await apiCompleteAllSubtasks(task.id);
-              subtasksResult.reload();
-            } catch (err) {
-              alert(getApiErrorMessage(err));
-            }
-            await doUpdateStatus(forceConfirm.target, true);
-          }
-          setForceConfirm(null);
-        }}
-        onCancel={() => setForceConfirm(null)}
+        confirmLabel="Ajouter quand même"
+        onConfirm={confirmAddDependencyAnyway}
+        onCancel={() => setDepWarning(null)}
       />
 
       {/* Modal d'aperçu du commentaire saisi */}

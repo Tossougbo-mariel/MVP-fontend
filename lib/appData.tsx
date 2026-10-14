@@ -56,6 +56,12 @@ type AppDataContextValue = {
   myTasksInAgency: (agencyId: number | string) => MyTask[];
   unreadCount: number;
   setAgencyMembers: (agencyId: number | string, members: AgencyMember[]) => void;
+  /**
+   * Met à jour une tâche dans `data.tasks` en mémoire (optimiste), sans
+   * requête : tout écran lisant le bootstrap (Kanban, détail, Mes tâches)
+   * reflète le changement immédiatement.
+   */
+  patchTaskLocal: (taskId: number | string, patch: Partial<Task>) => void;
 };
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -290,6 +296,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             Number(a.id) === Number(agencyId) ? { ...a, members } : a,
           ),
         })),
+      patchTaskLocal: (taskId, patch) =>
+        setData((prev) => ({
+          ...prev,
+          tasks: prev.tasks.map((t) =>
+            Number(t.id) === Number(taskId) ? { ...t, ...patch } : t,
+          ),
+        })),
     };
   }, [data, user, load, refresh]);
 
@@ -369,42 +382,139 @@ export function useAppData(): AppDataContextValue {
 }
 
 // Charge une ressource ponctuelle depuis l'API (membres d'un projet, commentaires, activité…).
-export function useAsync<T>(fetcher: () => Promise<T>, deps: unknown[]) {
-  const [result, setResult] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const ASYNC_CACHE_TTL = 5 * 60 * 1000;
+const asyncCache = new Map<string, { value: unknown; expiresAt: number }>();
+const asyncRequests = new Map<string, Promise<unknown>>();
+
+// Invalide le cache du détail d'une tâche (clé `task-detail:<id>`). Appelé
+// après un ajout/retrait de dépendance pour que les tâches reliées
+// (prérequis, dépendants) n'affichent pas un état obsolète au prochain rendu.
+export function invalidateTaskDetailCache(ids: Array<number | string>): void {
+  for (const id of ids) {
+    const key = `task-detail:${id}`;
+    asyncCache.delete(key);
+    asyncRequests.delete(key);
+  }
+}
+
+// Invalide à la fois la fiche détail (`task-detail:<id>`) et son historique
+// (`task-history:<id>`). Appelé après un changement de statut : sans cela, le
+// badge/statut et le journal restent figés sur le cache de 5 min.
+export function invalidateTaskCaches(ids: Array<number | string>): void {
+  for (const id of ids) {
+    const detailKey = `task-detail:${id}`;
+    const historyKey = `task-history:${id}`;
+    asyncCache.delete(detailKey);
+    asyncRequests.delete(detailKey);
+    asyncCache.delete(historyKey);
+    asyncRequests.delete(historyKey);
+  }
+}
+
+const readAsyncCache = <T,>(key: string) => {
+  const entry = asyncCache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    asyncCache.delete(key);
+    return null;
+  }
+  return entry as { value: T; expiresAt: number };
+};
+
+export function prefetchAsync<T>(
+  key: string,
+  fetcher: () => Promise<T>,
+  options?: { force?: boolean },
+): Promise<T> {
+  if (!options?.force) {
+    const cached = readAsyncCache<T>(key);
+    if (cached) return Promise.resolve(cached.value);
+
+    const pending = asyncRequests.get(key);
+    if (pending) return pending as Promise<T>;
+  }
+
+  const request = Promise.resolve()
+    .then(fetcher)
+    .then((value) => {
+      asyncCache.set(key, { value, expiresAt: Date.now() + ASYNC_CACHE_TTL });
+      return value;
+    })
+    .finally(() => {
+      if (asyncRequests.get(key) === request) asyncRequests.delete(key);
+    });
+
+  asyncRequests.set(key, request);
+  return request;
+}
+
+export function useAsync<T>(
+  fetcher: () => Promise<T>,
+  deps: unknown[],
+  options?: { cacheKey?: string },
+) {
+  const key = JSON.stringify(deps);
+  const cacheKey = options?.cacheKey ?? null;
+  const requestKey = cacheKey ?? key;
+  const cached = cacheKey ? readAsyncCache<T>(cacheKey) : null;
+  const [resultState, setResult] = useState<{ key: string; value: T | null }>(() => ({
+    key: requestKey,
+    value: cached?.value ?? null,
+  }));
+  const result = resultState.key === requestKey ? resultState.value : cached?.value ?? null;
+  const [loadingState, setLoading] = useState<{ key: string; value: boolean }>(() => ({
+    key: requestKey,
+    value: !cached,
+  }));
+  const loading = loadingState.key === requestKey ? loadingState.value : !cached;
+  const [errorState, setError] = useState<{ key: string; value: string | null }>(() => ({
+    key: requestKey,
+    value: null,
+  }));
+  const error = errorState.key === requestKey ? errorState.value : null;
   const [version, setVersion] = useState(0);
   const fetcherRef = useRef(fetcher);
+  const forceNextRequest = useRef(false);
 
   useEffect(() => {
     fetcherRef.current = fetcher;
   }, [fetcher]);
 
-  const reload = useCallback(() => setVersion((v) => v + 1), []);
-  const key = JSON.stringify(deps);
+  const reload = useCallback(() => {
+    if (cacheKey) {
+      asyncCache.delete(cacheKey);
+      asyncRequests.delete(cacheKey);
+    }
+    forceNextRequest.current = true;
+    setError({ key: requestKey, value: null });
+    setVersion((v) => v + 1);
+  }, [cacheKey, requestKey]);
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
-    setError(null);
-    void (async () => {
-      try {
-        const value = await fetcherRef.current();
+    const force = forceNextRequest.current;
+    forceNextRequest.current = false;
+    const request = cacheKey
+      ? prefetchAsync(cacheKey, () => fetcherRef.current(), { force })
+      : fetcherRef.current();
+
+    void request
+      .then((value) => {
         if (alive) {
-          setResult(value);
-          setLoading(false);
+          setResult({ key: requestKey, value });
+          setLoading({ key: requestKey, value: false });
         }
-      } catch (err) {
+      })
+      .catch((err) => {
         if (alive) {
-          setError(getApiErrorMessage(err));
-          setLoading(false);
+          setError({ key: requestKey, value: getApiErrorMessage(err) });
+          setLoading({ key: requestKey, value: false });
         }
-      }
-    })();
+      });
     return () => {
       alive = false;
     };
-  }, [key, version]);
+  }, [key, version, cacheKey, requestKey]);
 
   return { data: result, loading, error, reload };
 }

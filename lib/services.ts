@@ -112,7 +112,7 @@ const mapProjectMember = (r: any): ProjectMember => ({
 
 const mapTag = (r: any): Tag => ({
   id: Number(r.id),
-  agencyId: Number(r.agency_id ?? 0),
+  projectId: Number(r.project_id ?? 0),
   name: String(r.name ?? ""),
   color: String(r.color ?? "#056cf2"),
 });
@@ -142,6 +142,9 @@ const mapTask = (r: any): Task => ({
   createdAt: str(r.created_at) ?? "",
   archivedAt: str(r.archived_at),
   tags: Array.isArray(r.tags) ? (r.tags as any[]).map(mapTag) : [],
+  comments: Array.isArray(r.comments) ? (r.comments as any[]).map(mapComment) : [],
+  subtasks: Array.isArray(r.subtasks) ? (r.subtasks as any[]).map(mapSubtask) : [],
+  attachments: Array.isArray(r.attachments) ? (r.attachments as any[]).map(mapAttachment) : [],
   dependencies: Array.isArray(r.dependencies) ? (r.dependencies as any[]).map(mapDepRef) : [],
   dependents: Array.isArray(r.dependents) ? (r.dependents as any[]).map(mapDepRef) : [],
   deadlineStatus: (r.deadline_status ?? null) as TaskDeadlineStatus,
@@ -328,7 +331,7 @@ export const acceptInvitation = async (token: string): Promise<void> => {
 
 // ---------- Équipes ----------
 const mapTeamMember = (u: any): UserLite =>
-  u ? { id: Number(u.id), name: str(u.name) ?? "", firstName: str(u.first_name) ?? "", lastName: str(u.last_name) ?? "", email: String(u.email ?? ""), avatar: str(u.avatar) } : null as any;
+  u ? { id: Number(u.id), name: str(u.name) ?? "", firstName: str(u.first_name) ?? "", lastName: str(u.last_name) ?? "", email: String(u.email ?? ""), avatar: str(u.avatar), jobTitle: str(u.job_title) } : null as any;
 
 const mapTeam = (r: any): AgencyTeam => ({
   id: Number(r.id),
@@ -500,9 +503,15 @@ export const fetchTaskDependencies = async (
 export const addTaskDependency = async (
   taskId: number | string,
   dependsOnTaskId: number,
+  options?: { force?: boolean },
 ): Promise<TaskDependencyBundle> =>
   mapDependencyBundle(
-    (await api.post(`/tasks/${taskId}/dependencies`, { depends_on_task_id: dependsOnTaskId })).data,
+    (
+      await api.post(`/tasks/${taskId}/dependencies`, {
+        depends_on_task_id: dependsOnTaskId,
+        ...(options?.force ? { force: true } : {}),
+      })
+    ).data,
   );
 
 export const removeTaskDependency = async (
@@ -514,10 +523,16 @@ export const removeTaskDependency = async (
 export const updateTaskStatus = async (
   taskId: number | string,
   status: TaskStatus,
-  options?: { force?: boolean },
+  options?: { force?: boolean; cascade?: boolean },
 ): Promise<Task> =>
   mapTask(
-    (await api.patch(`/tasks/${taskId}/status`, { status, ...(options?.force ? { force: true } : {}) })).data
+    (
+      await api.patch(`/tasks/${taskId}/status`, {
+        status,
+        ...(options?.force ? { force: true } : {}),
+        ...(options?.cascade ? { cascade: true } : {}),
+      })
+    ).data
   );
 
 export const deleteTask = async (taskId: number | string): Promise<void> => {
@@ -564,15 +579,15 @@ export const downloadAgencyTasksCsv = async (agencyId: number | string): Promise
 };
 
 // ---------- Étiquettes ----------
-export const fetchAgencyTags = async (agencyId: number | string): Promise<Tag[]> => {
-  const { data } = await api.get(`/agencies/${agencyId}/tags`);
+export const fetchProjectTags = async (projectId: number | string): Promise<Tag[]> => {
+  const { data } = await api.get(`/projects/${projectId}/tags`);
   return (data as any[] ?? []).map(mapTag);
 };
 
 export const createTag = async (
-  agencyId: number | string,
+  projectId: number | string,
   payload: { name: string; color?: string },
-): Promise<Tag> => mapTag((await api.post(`/agencies/${agencyId}/tags`, payload)).data);
+): Promise<Tag> => mapTag((await api.post(`/projects/${projectId}/tags`, payload)).data);
 
 export const updateTag = async (
   tagId: number | string,

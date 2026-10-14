@@ -2,7 +2,45 @@
 
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { motion, type Variants } from "framer-motion";
 import PhoneMockup from "./PhoneMockup";
+
+const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
+const VIEWPORT = { once: false, amount: 0.3, margin: "0px 0px -12% 0px" };
+
+const wordContainer: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } },
+};
+
+const wordUp: Variants = {
+  hidden: { opacity: 0, y: "45%", filter: "blur(5px)" },
+  show: {
+    opacity: 1,
+    y: "0%",
+    filter: "blur(0px)",
+    transition: { duration: 0.8, ease: EASE },
+  },
+};
+
+const fadeUp: Variants = {
+  hidden: { opacity: 0, y: 24 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE } },
+};
+
+const words: { text: string; gradient?: boolean }[] = [
+  { text: "Pilotez" },
+  { text: "vos" },
+  { text: "agences", gradient: true },
+  { text: "et", gradient: true },
+  { text: "vos", gradient: true },
+  { text: "équipes", gradient: true },
+  { text: "avec" },
+  { text: "précision" },
+];
+
+const heroDescription =
+  "MVP Studio centralise vos agences, projets et tâches dans un tableau de bord élégant. Suivez chaque mission, pilotez chaque équipe — simplement.";
 
 export default function Hero() {
   return (
@@ -46,38 +84,73 @@ export default function Hero() {
       />
 
       {/* Contenu */}
-      <div className="relative z-10 flex min-h-screen items-center px-4 pt-[var(--nav-h)] sm:px-6 lg:px-8">
-        <div className="mx-auto w-full max-w-7xl">
+      <div className="relative z-10 flex min-h-screen items-center px-4 pt-[var(--nav-h)]">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid items-center gap-20 md:grid-cols-[1.2fr_1fr]">
             {/* Texte */}
             <div>
-              <h1
+              <motion.h1
+                variants={wordContainer}
+                initial="hidden"
+                whileInView="show"
+                viewport={VIEWPORT}
                 className="text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl md:text-5xl lg:text-6xl"
                 style={{ letterSpacing: "-0.02em" }}
               >
-                Pilotez vos{" "}
-                <span
-                  style={{
-                    background: "linear-gradient(90deg, var(--blue), var(--blue-light))",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                  }}
-                >
-                  agences et vos équipes
-                </span>{" "}
-                avec précision
-              </h1>
+                {words.map((word, i) => (
+                  <span
+                    key={`${word.text}-${i}`}
+                    className="inline-block overflow-hidden pb-[0.12em] -mb-[0.12em] align-bottom"
+                    style={{ marginRight: i < words.length - 1 ? "0.28em" : 0 }}
+                  >
+                    <motion.span
+                      variants={wordUp}
+                      className="inline-block"
+                      style={
+                        word.gradient
+                          ? {
+                              background:
+                                "linear-gradient(90deg, var(--blue), var(--blue-light), var(--blue))",
+                              backgroundSize: "200% auto",
+                              WebkitBackgroundClip: "text",
+                              WebkitTextFillColor: "transparent",
+                              animation: "gradient-shift 6s ease infinite",
+                            }
+                          : undefined
+                      }
+                    >
+                      {word.text}
+                    </motion.span>
+                  </span>
+                ))}
+              </motion.h1>
 
-              <p
+              <motion.div
+                variants={fadeUp}
+                initial="hidden"
+                whileInView="show"
+                viewport={VIEWPORT}
+                transition={{ delay: 1.5 }}
                 className="mt-5 max-w-[520px] text-justify text-base font-medium leading-relaxed md:text-lg"
                 style={{ color: "#ffffffbf", lineHeight: 1.6 }}
               >
-                MVP Manager centralise vos agences, projets et tâches dans un
-                tableau de bord élégant. Suivez chaque mission, pilotez chaque
-                équipe — simplement.
-              </p>
+                <p className="sr-only">{heroDescription}</p>
+                <div className="overflow-hidden" aria-hidden="true">
+                  <div className="hero-marquee-track">
+                    <span className="hero-marquee-item">{heroDescription}</span>
+                    <span className="hero-marquee-item">{heroDescription}</span>
+                  </div>
+                </div>
+              </motion.div>
 
-              <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+              <motion.div
+                variants={fadeUp}
+                initial="hidden"
+                whileInView="show"
+                viewport={VIEWPORT}
+                transition={{ delay: 1.85 }}
+                className="mt-8 flex flex-col gap-4 sm:flex-row"
+              >
                 <Link
                   href="/inscription"
                   className="inline-flex items-center justify-center gap-2 rounded-[100px] bg-[color:var(--blue)] px-8 py-3.5 text-base font-bold text-white shadow-lg transition-all hover:brightness-110"
@@ -91,10 +164,16 @@ export default function Hero() {
                 >
                   En savoir plus
                 </a>
-              </div>
+              </motion.div>
             </div>
-{/* Mockup téléphone */}
-            <div className="hidden md:block">
+            {/* Mockup téléphone */}
+            <motion.div
+              className="hidden md:block"
+              initial={{ opacity: 0, scale: 0.94, y: 30 }}
+              whileInView={{ opacity: 1, scale: 1, y: 0 }}
+              viewport={VIEWPORT}
+              transition={{ duration: 0.7, delay: 0.35, ease: EASE }}
+            >
               <div
                 className="animate-float mx-auto w-[200px] lg:w-[220px]"
                 style={{ perspective: "1500px" }}
@@ -109,7 +188,7 @@ export default function Hero() {
                   <PhoneMockup />
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
       </div>

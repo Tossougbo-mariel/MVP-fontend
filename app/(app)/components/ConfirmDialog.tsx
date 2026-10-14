@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, ShieldAlert } from "lucide-react";
@@ -8,7 +8,7 @@ import { AlertTriangle, ShieldAlert } from "lucide-react";
 interface ConfirmDialogProps {
   open: boolean;
   title: string;
-  message: string;
+  message: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   tone?: "default" | "danger";
@@ -68,21 +68,23 @@ export default function ConfirmDialog({
                 <h3 className="text-sm font-bold leading-snug" style={{ color: "var(--text-primary)" }}>
                   {title}
                 </h3>
-                <p className="mt-1.5 text-[13px] leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                <div className="mt-1.5 text-[13px] leading-relaxed" style={{ color: "var(--text-secondary)" }}>
                   {message}
-                </p>
+                </div>
               </div>
             </div>
 
             <div className="mt-6 flex flex-col-reverse sm:flex-row justify-end gap-2.5">
-              <button
-                type="button"
-                onClick={onCancel}
-                className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-semibold"
-                style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
-              >
-                {cancelLabel}
-              </button>
+              {cancelLabel && cancelLabel.length > 0 && (
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-semibold"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+                >
+                  {cancelLabel}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onConfirm}

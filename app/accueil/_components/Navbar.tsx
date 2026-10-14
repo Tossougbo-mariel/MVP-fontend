@@ -24,7 +24,7 @@ export default function Navbar() {
   return (
     <>
       <header
-        className={`fixed top-0 left-0 z-[9000] flex w-full items-center justify-between px-[60px] transition-all ${
+        className={`fixed top-0 left-0 right-0 z-[9000] px-4 transition-all ${
           skinny ? "h-16 shadow-[0_4px_32px_#010b25cc]" : "h-[88px]"
         }`}
         style={{
@@ -33,56 +33,58 @@ export default function Navbar() {
           transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
         }}
       >
-        <Link href="/" className="flex items-center gap-2">
-          <span className="text-[22px] font-extrabold tracking-[-0.5px] text-white whitespace-nowrap">
-            MVP{" "}
-            <span style={{ color: "var(--blue-light)" }}>Manager</span>
-          </span>
-        </Link>
+        <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="text-[22px] font-extrabold tracking-[-0.5px] text-white whitespace-nowrap">
+              MVP{" "}
+              <span style={{ color: "var(--blue-light)" }}>Studio</span>
+            </span>
+          </Link>
 
-        <div className="hidden items-center gap-1 md:flex">
-          {navLinks.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="inline-flex items-center rounded-lg px-3 py-2 text-[15px] font-semibold text-[#ffffffe0] transition-all hover:bg-[#ffffff1a]"
+          <div className="hidden items-center gap-1 md:flex">
+            {navLinks.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className="inline-flex items-center rounded-lg px-3 py-2 text-[15px] font-semibold text-[#ffffffe0] transition-all hover:bg-[#ffffff1a]"
+                style={{ transitionDuration: "0.25s" }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "var(--blue-light)")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "#ffffffe0")}
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
+
+          <div className="hidden items-center gap-2 md:flex">
+            <Link
+              href="/inscription"
+              className="rounded-[100px] bg-[color:var(--blue)] px-5 py-2.5 text-[15px] font-bold text-white transition-all hover:brightness-110"
+              style={{ transitionDuration: "0.25s" }}
+            >
+              S&apos;inscrire
+            </Link>
+            <Link
+              href="/connexion"
+              className="rounded-lg px-4 py-2 text-[15px] font-semibold text-[#ffffffe0] transition-all hover:bg-[#ffffff1a]"
               style={{ transitionDuration: "0.25s" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = "var(--blue-light)")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "#ffffffe0")}
             >
-              {link.label}
-            </a>
-          ))}
-        </div>
+              Se connecter
+            </Link>
+          </div>
 
-        <div className="hidden items-center gap-2 md:flex">
-          <Link
-            href="/inscription"
-            className="rounded-[100px] bg-[color:var(--blue)] px-5 py-2.5 text-[15px] font-bold text-white transition-all hover:brightness-110"
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-[#ffffff1a] md:hidden"
             style={{ transitionDuration: "0.25s" }}
+            aria-label="Ouvrir le menu"
           >
-            S&apos;inscrire
-          </Link>
-          <Link
-            href="/connexion"
-            className="rounded-lg px-4 py-2 text-[15px] font-semibold text-[#ffffffe0] transition-all hover:bg-[#ffffff1a]"
-            style={{ transitionDuration: "0.25s" }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--blue-light)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "#ffffffe0")}
-          >
-            Se connecter
-          </Link>
+            {open ? <X size={22} /> : <Menu size={22} />}
+          </button>
         </div>
-
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-[#ffffff1a] md:hidden"
-          style={{ transitionDuration: "0.25s" }}
-          aria-label="Ouvrir le menu"
-        >
-          {open ? <X size={22} /> : <Menu size={22} />}
-        </button>
       </header>
 
       {/* Mobile menu */}

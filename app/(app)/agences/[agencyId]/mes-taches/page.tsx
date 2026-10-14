@@ -133,11 +133,14 @@ export default function MesTachesPage() {
 
   const isLate = useCallback(
     (t: RowTask) =>
-      // Le statut du backend fait foi quand il est connu ; sinon on retombe sur
-      // la comparaison de dates, comme pour une tâche sans `deadline_status`.
       !isTerminal(t.status) &&
-      (t.deadlineStatus === "en_retard" ||
-        (!!t.dueDate && t.dueDate < new Date().toISOString().slice(0, 10))),
+      // Le statut du backend fait foi : une tâche bloquée par un prérequis non
+      // terminé est volontairement renvoyée en « a_venir » pour ne pas être
+      // comptée en retard. On ne retombe sur la comparaison de dates que si le
+      // backend ne fournit aucun statut.
+      (t.deadlineStatus
+        ? t.deadlineStatus === "en_retard"
+        : !!t.dueDate && t.dueDate < new Date().toISOString().slice(0, 10)),
     [isTerminal],
   );
 
