@@ -590,6 +590,12 @@ export type ActivityEntry = {
   taskId: number | null;
   projectId: number | null;
   agencyId: number | null;
+  /** Nom de l'agence concernée (renvoyé par l'API), null si non applicable. */
+  agencyName: string | null;
+  /** Nom du projet concerné, null pour une action hors projet. */
+  projectName: string | null;
+  /** Titre de la tâche concernée, null pour une action hors tâche. */
+  taskTitle: string | null;
 };
 
 export const getHistoryByTask = (
@@ -611,6 +617,38 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   commentaire: "Commentaire ajouté",
   creation_projet: "Projet créé",
   membre_ajoute: "Membre ajouté",
+};
+
+/**
+ * Phrase lisible d'une entrée d'historique / d'activité, du type
+ * « {Auteur} a fait telle action sur le projet « … » ».
+ *
+ * `description` est renvoyée par l'API sous forme de fragment commençant par
+ * « a … » (ex. « a créé la tâche « Refonte du menu » »). On la préfixe donc de
+ * l'auteur, et on ajoute le projet concerné — sauf pour la création de projet,
+ * où la description le nomme déjà.
+ *
+ * `actorName` permet de passer un nom résolu côté écran (annuaire des membres) ;
+ * sinon on retombe sur le nom puis l'e-mail fournis par l'API.
+ */
+export const formatActivitySentence = (
+  entry: Pick<
+    ActivityEntry,
+    "actorName" | "actorEmail" | "action" | "description" | "projectName"
+  >,
+  actorName?: string | null,
+): string => {
+  const actor =
+    actorName?.trim() ||
+    entry.actorName?.trim() ||
+    entry.actorEmail?.trim() ||
+    "Quelqu'un";
+  const action = entry.description?.trim() || "a effectué une action";
+  const suffix =
+    entry.projectName && entry.action !== "creation_projet"
+      ? ` sur le projet « ${entry.projectName} »`
+      : "";
+  return `${actor} ${action}${suffix}`;
 };
 
 /**

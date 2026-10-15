@@ -16,8 +16,8 @@ import { userAgencies, userRoleInAgency, type AgencyRole } from "@/lib/types";
 // commun à toutes les agences.
 const AGENCY_ITEMS = [
   { suffix: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
-  { suffix: "mes-taches", label: "Mes tâches", icon: CheckSquare },
   { suffix: "projets", label: "Projets", icon: FolderKanban },
+  { suffix: "mes-taches", label: "Mes tâches", icon: CheckSquare },
   { suffix: "equipe", label: "Équipe", icon: Users },
 ];
 

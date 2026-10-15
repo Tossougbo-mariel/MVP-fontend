@@ -30,8 +30,8 @@ const GLOBAL_ITEMS = [
 
 const AGENCY_ITEMS = [
   { suffix: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
-  { suffix: "mes-taches", label: "Mes tâches", icon: CheckSquare },
   { suffix: "projets", label: "Projets", icon: FolderKanban },
+  { suffix: "mes-taches", label: "Mes tâches", icon: CheckSquare },
   { suffix: "equipe", label: "Équipe", icon: Users },
 ];
 

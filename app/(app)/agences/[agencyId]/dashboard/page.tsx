@@ -7,15 +7,18 @@ import {
   ShieldCheck, ListTodo, ArrowLeft, CalendarClock,
   Lightbulb, Award, AlarmClock, Ban, TrendingUp,
   History, CalendarPlus, Flag, UserRound, MessageSquare,
-  ChevronDown, ChevronUp, ArrowRight,
+  ChevronDown, ChevronUp, ArrowRight, FileDown,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData, useAsync } from "@/lib/appData";
-import { fetchActivity } from "@/lib/services";
-import { userRoleInAgency, type AgencyRole, overdueTasks, ACTIVITY_LABELS, getProjectProgress, getProjectStatusFromTasks } from "@/lib/types";
+import { fetchActivity, getApiErrorMessage } from "@/lib/services";
+import { userRoleInAgency, type AgencyRole, overdueTasks, ACTIVITY_LABELS, getProjectProgress, getProjectStatusFromTasks, formatActivitySentence } from "@/lib/types";
 import { useTaskStatuses } from "@/lib/useTaskStatuses";
+import { exportAgencyReportPdf } from "@/lib/agencyReportPdf";
+import ReportExportDialog from "@/app/(app)/components/ReportExportDialog";
+import type { ReportOptions } from "@/lib/reportTheme";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -205,6 +208,8 @@ function AdminDashboard({
     [agencyId],
   );
   const [activityExpanded, setActivityExpanded] = useState(false);
+  const [showExportPdf, setShowExportPdf] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const ACTIVITY_VISIBLE = 5;
 
   const members = agency?.members ?? [];
@@ -214,12 +219,30 @@ function AdminDashboard({
 
   const agencyTasks = tasksByAgency(agencyId);
   const agencyProjects = projectsByAgency(agencyId);
+
   const totalTasks = agencyTasks.length;
   const totalProjects = agencyProjects.length;
   const overdueCount = overdueTasks(
     agencyTasks.map((t) => ({ deadline: t.dueDate, status: t.status })),
     statuses,
   ).length;
+
+  const handleExportAgencyPdf = async (options: ReportOptions) => {
+    if (!agency) return;
+    setExportingPdf(true);
+    try {
+      await exportAgencyReportPdf(
+        agency,
+        { projects: agencyProjects, tasks: agencyTasks, statuses },
+        options,
+      );
+      setShowExportPdf(false);
+    } catch (err) {
+      alert(getApiErrorMessage(err) ? `Export impossible : ${getApiErrorMessage(err)}` : "Export impossible.");
+    } finally {
+      setExportingPdf(false);
+    }
+  };
 
   // Projets en retard : échéance projet dépassée (avec tâches restantes) ou
   // tâches en retard. Exclut les projets archivés/vides/terminés.
@@ -308,7 +331,19 @@ function AdminDashboard({
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
-      <Breadcrumb title="Tableau de bord" agencyName={agencyName} />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <Breadcrumb title="Tableau de bord" agencyName={agencyName} />
+        <motion.button
+          variants={item}
+          type="button"
+          onClick={() => setShowExportPdf(true)}
+          disabled={exportingPdf}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-semibold text-white transition-all hover:scale-[1.03] hover:-translate-y-0.5 disabled:opacity-60"
+          style={{ background: "var(--color-success)", boxShadow: "0 2px 6px -2px rgba(16,185,129,0.35)" }}
+        >
+          <FileDown size={14} /> {exportingPdf ? "Export…" : "Exporter le rapport"}
+        </motion.button>
+      </div>
 
       <WelcomeBanner
         name={userName}
@@ -610,7 +645,7 @@ function AdminDashboard({
                             <div className={`flex-1 min-w-0 ${isLast ? "" : "pb-3"}`}>
                               <div className="flex items-center justify-between gap-2 flex-wrap">
                                 <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                                  {a.description ?? a.action}
+                                  {formatActivitySentence(a)}
                                 </span>
                                 <span
                                   className="text-[10px] font-bold px-2 py-0.5 rounded-full"
@@ -620,7 +655,7 @@ function AdminDashboard({
                                 </span>
                               </div>
                               <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                                {a.actorName ?? a.actorEmail} · {timeAgo(a.createdAt)}
+                                {timeAgo(a.createdAt)}
                               </p>
                             </div>
                           </div>
@@ -666,6 +701,15 @@ function AdminDashboard({
           </motion.div>
         </div>
       </div>
+
+      <ReportExportDialog
+        open={showExportPdf}
+        title={`Rapport de l'agence ${agencyName}`}
+        description="Choisissez un gabarit et une couleur de base, puis exportez le bilan complet de l'agence en PDF."
+        exporting={exportingPdf}
+        onExport={handleExportAgencyPdf}
+        onCancel={() => setShowExportPdf(false)}
+      />
     </motion.div>
   );
 }
