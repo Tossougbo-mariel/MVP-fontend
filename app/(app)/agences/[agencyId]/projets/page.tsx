@@ -9,7 +9,6 @@ import {
   UserRound,
   ArrowLeft,
   LayoutGrid,
-Download,
   Archive,
   ArchiveRestore,
   Trash2,
@@ -23,7 +22,7 @@ import { userRoleInAgency, getProjectStatusFromTasks, getProjectProgress, member
 import { useAuthStore } from "@/app/store/authStore";
 import { getWallpaperBg } from "@/app/store/wallpapers";
 import ConfirmDialog from "@/app/(app)/components/ConfirmDialog";
-import { updateProject as apiUpdateProject, deleteProject as apiDeleteProject, downloadAgencyTasksCsv, getApiErrorMessage } from "@/lib/services";
+import { updateProject as apiUpdateProject, deleteProject as apiDeleteProject, getApiErrorMessage } from "@/lib/services";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -214,19 +213,6 @@ export default function ProjetsPage() {
 
         {canCreateProjects && (
           <div className="flex items-center gap-2 self-start sm:self-auto">
-            <button
-              onClick={async () => {
-                try {
-                  await downloadAgencyTasksCsv(agencyId);
-                } catch (err) {
-                  alert(getApiErrorMessage(err));
-                }
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-transform hover:scale-105"
-              style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
-            >
-              <Download size={16} /> Export CSV
-            </button>
             <Link
               href={`/agences/${agencyId}/projets/nouveauProjet`}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
@@ -377,7 +363,7 @@ export default function ProjetsPage() {
                         {owner ? memberDisplayName(owner) : p.ownerId ? `Utilisateur #${p.ownerId}` : "Responsable inconnu"}
                       </span>
                     </div>
-{isAdmin && (
+                    {isAdmin && (
                       <div className="relative z-10 flex items-center gap-2 shrink-0">
                         {p.status === "archive" && (
                           <>
