@@ -10,20 +10,12 @@ import {
   ChevronDown, ChevronUp, ArrowRight, FileDown,
 } from "lucide-react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import { useAuthStore } from "@/app/store/authStore";
-import { useAsync } from "@/lib/appData";
-import { fetchAgencyDashboard, fetchActivity, getApiErrorMessage } from "@/lib/services";
+import { fetchAgencyDashboard, fetchActivity, getApiErrorMessage, exportAgencyReportPdf } from "@/lib/services";
 import { userRoleInAgency, type Agency, type AgencyRole, type Project, type Task, ACTIVITY_LABELS, getProjectProgress, getProjectStatusFromTasks, formatActivitySentence } from "@/lib/types";
 import { useTaskStatuses } from "@/lib/useTaskStatuses";
-import type { ReportOptions } from "@/lib/reportTheme";
-
-// Le dialogue et la librairie PDF sont lourds : chargés à la demande, au clic.
-const ReportExportDialog = dynamic(
-  () => import("@/app/(app)/components/ReportExportDialog"),
-  { ssr: false },
-);
+import { useAsync } from "@/lib/appData";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -254,9 +246,20 @@ function AdminDashboard({
     [agencyId],
   );
   const [activityExpanded, setActivityExpanded] = useState(false);
-  const [showExportPdf, setShowExportPdf] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const ACTIVITY_VISIBLE = 5;
+
+  const handleExportPdf = async () => {
+    if (!agency || exportingPdf) return;
+    setExportingPdf(true);
+    try {
+      await exportAgencyReportPdf(agency);
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    } finally {
+      setExportingPdf(false);
+    }
+  };
 
   const members = agency.members ?? [];
   const totalMembers = members.length;
@@ -276,24 +279,6 @@ function AdminDashboard({
       : !!t.dueDate && t.dueDate < new Date().toISOString().slice(0, 10));
 
   const overdueCount = agencyTasks.filter(isLateTask).length;
-
-  const handleExportAgencyPdf = async (options: ReportOptions) => {
-    if (!agency) return;
-    setExportingPdf(true);
-    try {
-      const { exportAgencyReportPdf } = await import("@/lib/agencyReportPdf");
-      await exportAgencyReportPdf(
-        agency,
-        { projects: agencyProjects, tasks: agencyTasks, statuses },
-        options,
-      );
-      setShowExportPdf(false);
-    } catch (err) {
-      alert(getApiErrorMessage(err) ? `Export impossible : ${getApiErrorMessage(err)}` : "Export impossible.");
-    } finally {
-      setExportingPdf(false);
-    }
-  };
 
   // Projets en retard : échéance projet dépassée (avec tâches restantes) ou
   // tâches en retard. Exclut les projets archivés/vides/terminés.
@@ -391,16 +376,14 @@ function AdminDashboard({
     <motion.div variants={container} initial={false} animate="show" className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <Breadcrumb title="Tableau de bord" agencyName={agencyName} />
-        <motion.button
-          variants={item}
-          type="button"
-          onClick={() => setShowExportPdf(true)}
+        <button
+          onClick={handleExportPdf}
           disabled={exportingPdf}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-semibold text-white transition-all hover:scale-[1.03] hover:-translate-y-0.5 disabled:opacity-60"
-          style={{ background: "var(--color-success)", boxShadow: "0 2px 6px -2px rgba(16,185,129,0.35)" }}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-transform hover:scale-[1.03] disabled:opacity-60"
+          style={{ background: "var(--accent-soft)", color: "var(--accent-text)", boxShadow: "0 2px 6px -2px rgba(var(--blue-rgb),0.35)" }}
         >
-          <FileDown size={14} /> {exportingPdf ? "Export…" : "Exporter le rapport"}
-        </motion.button>
+          <FileDown size={15} /> {exportingPdf ? "Préparation…" : "Exporter le rapport"}
+        </button>
       </div>
 
       <WelcomeBanner
@@ -759,15 +742,6 @@ function AdminDashboard({
           </motion.div>
         </div>
       </div>
-
-      <ReportExportDialog
-        open={showExportPdf}
-        title={`Rapport de l'agence ${agencyName}`}
-        description="Choisissez un gabarit et une couleur de base, puis exportez le bilan complet de l'agence en PDF."
-        exporting={exportingPdf}
-        onExport={handleExportAgencyPdf}
-        onCancel={() => setShowExportPdf(false)}
-      />
     </motion.div>
   );
 }
