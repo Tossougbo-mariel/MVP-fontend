@@ -1,3 +1,5 @@
+"use client";
+
 import { Building2, FolderKanban, ListTodo } from "lucide-react";
 
 const steps = [

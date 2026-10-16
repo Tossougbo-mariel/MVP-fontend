@@ -25,9 +25,6 @@ import {
 import { useAppData, useAsync } from "@/lib/appData";
 import { userRoleInAgency, getProjectStatusFromTasks, type ProjectStatus, type ProjectMember } from "@/lib/types";
 import { useTaskStatuses } from "@/lib/useTaskStatuses";
-import { exportProjectReportPdf } from "@/lib/projectReportPdf";
-import ReportExportDialog from "@/app/(app)/components/ReportExportDialog";
-import type { ReportOptions } from "@/lib/reportTheme";
 import DatePickerField from "@/app/(app)/components/DatePickerField";
 import CustomSelectField from "@/app/(app)/components/CustomSelectField";
 import { useAuthStore } from "@/app/store/authStore";
@@ -37,6 +34,7 @@ import {
   deleteProject as apiDeleteProject,
   addProjectMember as apiAddProjectMember,
   removeProjectMember as apiRemoveProjectMember,
+  exportProjectReportPdf,
   getApiErrorMessage,
 } from "@/lib/services";
 import { WALLPAPERS } from "@/app/store/wallpapers";
@@ -99,7 +97,6 @@ export default function ProjectDetailPage() {
   const [confirmingHardDelete, setConfirmingHardDelete] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
-  const [showExportPdf, setShowExportPdf] = useState(false);
   const [pendingRemoval, setPendingRemoval] = useState<{
     memberId: number;
     memberName: string;
@@ -292,6 +289,18 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleExportPdf = async () => {
+    if (!project || exportingPdf) return;
+    setExportingPdf(true);
+    try {
+      await exportProjectReportPdf(project);
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   if (data.loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -386,27 +395,6 @@ export default function ProjectDetailPage() {
     .pop();
   const badge = statusConfig[getProjectStatusFromTasks(project.status, projectTasks, undefined, project.dueDate)];
 
-  const handleExportPdf = async (options: ReportOptions) => {
-    setExportingPdf(true);
-    try {
-      await exportProjectReportPdf(
-        {
-          project,
-          agency,
-          tasks: projectTasks,
-          projectMembers,
-          statuses,
-        },
-        options,
-      );
-      setShowExportPdf(false);
-    } catch (err) {
-      alert(getApiErrorMessage(err) ? `Export impossible : ${getApiErrorMessage(err)}` : "Export impossible.");
-    } finally {
-      setExportingPdf(false);
-    }
-  };
-
   // Membres de l'agence pas encore dans le projet (pour l'ajout)
   const addableMembers = (agency.members ?? []).filter(
     (am) => !projectMembers.some((pm) => pm.user.id === am.user.id)
@@ -452,14 +440,6 @@ export default function ProjectDetailPage() {
             <div className="flex items-start sm:items-end flex-col gap-2 shrink-0">
               {isAdmin && (
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowExportPdf(true)}
-                    disabled={exportingPdf}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold text-white transition-all hover:scale-[1.03] hover:-translate-y-0.5 disabled:opacity-60"
-                    style={{ background: "var(--color-success)", boxShadow: "0 2px 6px -2px rgba(16,185,129,0.35)" }}
-                  >
-                    <FileDown size={13} /> {exportingPdf ? "Export…" : "Exporter PDF"}
-                  </button>
                   <button
                     onClick={openEdit}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5"
@@ -520,6 +500,14 @@ export default function ProjectDetailPage() {
             >
               <CalendarClock size={15} /> Planning
             </Link>
+            <button
+              onClick={handleExportPdf}
+              disabled={exportingPdf}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
+              style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
+            >
+              <FileDown size={15} /> {exportingPdf ? "Préparation…" : "Exporter PDF"}
+            </button>
           </div>
         </div>
       </motion.div>
@@ -1018,15 +1006,6 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
           </motion.div>
         </motion.div>
       )}
-
-      <ReportExportDialog
-        open={showExportPdf}
-        title={`Rapport de ${project.name}`}
-        description="Choisissez le modèle et la couleur de base avant de télécharger le PDF."
-        exporting={exportingPdf}
-        onExport={handleExportPdf}
-        onCancel={() => setShowExportPdf(false)}
-      />
     </motion.div>
   );
 }
