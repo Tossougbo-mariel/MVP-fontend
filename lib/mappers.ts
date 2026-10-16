@@ -12,6 +12,8 @@ export type ApiUser = {
   bio: string | null;
   job_title: string | null;
   theme_color: string | null;
+  /** Apparence clair/sombre enregistrée sur le compte (`dark` | `light`). */
+  theme: string | null;
   status: string;
   /** Présent quand l'API le renvoie : un compte Google n'a pas de mot de passe. */
   has_password?: boolean;
@@ -43,6 +45,7 @@ export const apiUserToLocalUser = (u: ApiUser): User => {
     // doit pas faire croire à l'utilisateur qu'il n'a pas de mot de passe.
     hasPassword: u.has_password ?? true,
     themeColor: u.theme_color ?? undefined,
+    theme: u.theme === "dark" || u.theme === "light" ? u.theme : undefined,
     createdAt: u.created_at?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
   };
 };

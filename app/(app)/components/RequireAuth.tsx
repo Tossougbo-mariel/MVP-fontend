@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/app/store/authStore";
+import AppSkeleton from "./AppSkeleton";
 
 export default function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -40,16 +41,11 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
     };
   }, [token, fetchMe, router]);
 
-  // ✅ Affichage du chargement tant que l'app n'est pas prête ou sans utilisateur
+  // ✅ Affichage du squelette tant que l'app n'est pas prête ou sans utilisateur.
+  // Le HTML du squelette est rendu côté serveur : la structure apparaît
+  // immédiatement, sans texte vide ni saut de mise en page.
   if (!ready || !user) {
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ color: "var(--text-secondary)" }}
-      >
-        Chargement...
-      </div>
-    );
+    return <AppSkeleton />;
   }
 
   return <>{children}</>;

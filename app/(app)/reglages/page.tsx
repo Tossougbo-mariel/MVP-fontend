@@ -34,6 +34,7 @@ export default function ReglagesPage() {
   const [language, setLanguage] = useState("fr");
   const [showThemes, setShowThemes] = useState(false);
   const [accentError, setAccentError] = useState<string | null>(null);
+  const [themeError, setThemeError] = useState<string | null>(null);
   const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
   const [notifPrefsError, setNotifPrefsError] = useState<string | null>(null);
   const [notifBusy, setNotifBusy] = useState(false);
@@ -75,6 +76,17 @@ export default function ReglagesPage() {
       await updateUser({ themeColor: hex });
     } catch {
       setAccentError("Impossible d'enregistrer la couleur d'accent.");
+    }
+  };
+
+  // L'apparence clair/sombre suit le compte (colonne users.theme), comme la
+  // couleur d'accent : elle se retrouve sur tous les appareils.
+  const handleThemeChange = async (theme: "light" | "dark") => {
+    setThemeError(null);
+    try {
+      await updateUser({ theme });
+    } catch {
+      setThemeError("Impossible d'enregistrer le thème.");
     }
   };
 
@@ -248,7 +260,7 @@ export default function ReglagesPage() {
           <Palette size={18} style={{ color: "var(--accent-text)" }} /> Apparence
         </h2>
         <p className="text-sm mb-5" style={{ color: "var(--text-secondary)" }}>
-          Ces réglages sont propres à votre navigateur : ils ne changent que sur votre écran.
+          Votre apparence est enregistrée sur votre compte : elle vous suit sur tous vos appareils.
         </p>
 
         <div className="space-y-4">
@@ -256,8 +268,13 @@ export default function ReglagesPage() {
             className="w-full flex flex-wrap items-center justify-between gap-4 px-5 py-4 rounded-2xl"
             style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
           >
-            <ThemeToggle />
+            <ThemeToggle onChange={handleThemeChange} />
           </div>
+          {themeError && (
+            <p className="text-xs" style={{ color: "var(--color-error)" }}>
+              {themeError}
+            </p>
+          )}
         </div>
       </motion.section>
     </motion.div>

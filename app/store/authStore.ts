@@ -31,6 +31,8 @@ export type User = {
   hasPassword?: boolean;
   /** Couleur d'accent choisie par l'utilisateur (thème). */
   themeColor?: string;
+  /** Apparence clair/sombre enregistrée sur le compte. */
+  theme?: "light" | "dark";
   createdAt: string;
 };
 
@@ -268,6 +270,7 @@ export const useAuthStore = create<AuthState>()(
             bio: merged.bio ?? null,
             job_title: merged.jobTitle ?? null,
             theme_color: merged.themeColor ?? null,
+            theme: merged.theme ?? null,
           ...(patch.avatar !== undefined ? { avatar: patch.avatar } : {}),
         });
           const local = apiUserToLocalUser(data);

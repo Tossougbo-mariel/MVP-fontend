@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, FolderKanban, CalendarDays, GanttChartSquare, AlertTriangle, Lock,
@@ -11,7 +12,13 @@ import { useAppData } from "@/lib/appData";
 import { userRoleInAgency } from "@/lib/types";
 import { useAuthStore } from "@/app/store/authStore";
 import CalendarView from "@/app/(app)/components/planning/CalendarView";
-import GanttChart from "@/app/(app)/components/planning/GanttChart";
+
+// Le Gantt n'est visible qu'après un clic sur l'onglet « Gantt » : son code est
+// chargé à la demande et non dans le bundle initial de la page.
+const GanttChart = dynamic(
+  () => import("@/app/(app)/components/planning/GanttChart"),
+  { ssr: false },
+);
 
 type Tab = "calendrier" | "gantt";
 
@@ -165,7 +172,7 @@ export default function ProjectPlanningPage() {
         })}
       </div>
 
-      <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+      <motion.div initial={false} animate={{ opacity: 1, y: 0 }}>
         {tab === "calendrier" ? (
           <CalendarView tasks={tasks} agencyId={agencyId} projectId={projectId} />
         ) : (

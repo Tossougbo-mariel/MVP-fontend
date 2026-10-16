@@ -141,6 +141,18 @@ const formatDateTime = (iso: string) =>
     minute: "2-digit",
   });
 
+// La boîte Historique d'une tâche ne montre que les actions du jour
+const isToday = (iso: string): boolean => {
+  if (!iso) return false;
+  const date = new Date(iso);
+  const now = new Date();
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  );
+};
+
 // Nombre d'événements affichés avant le repli « Voir plus » (comme l'activité récente du dashboard).
 const HISTORY_VISIBLE = 8;
 const COMMENTS_VISIBLE = 5;
@@ -193,9 +205,9 @@ export default function TaskDetailPage() {
   const task = taskResult.data ?? appTask;
   const membersResult = useAsync(() => fetchProjectMembers(projectId), [projectId], { cacheKey: `project-members:${projectId}` });
   const projectMembers: ProjectMember[] = membersResult.data ?? [];
-  const comments = task?.comments ?? [];
+  const comments = [...(task?.comments ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const historyResult = useAsync(() => fetchActivity({ taskId }), [taskId], { cacheKey: `task-history:${taskId}` });
-const history = getHistoryByTask(historyResult.data ?? [], taskId);
+  const history = getHistoryByTask(historyResult.data ?? [], taskId).filter((h) => isToday(h.createdAt));
   const subtasks: Subtask[] = task?.subtasks ?? [];
   const projectTagsResult = useAsync(() => fetchProjectTags(projectId), [projectId], { cacheKey: `project-tags:${projectId}` });
   const projectTags: Tag[] = projectTagsResult.data ?? [];
@@ -702,13 +714,10 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
     );
   }
 
-  // ✅ Accès : admin, ou assigné à la tâche. Un membre non assigné ne fait que
-  // suivre l'évolution de la tâche sur le Kanban, il n'ouvre pas sa fiche.
-  const hasDetailAccess =
-    isAdmin ||
-    (task?.assignedTo !== null &&
-      task?.assignedTo !== undefined &&
-      task.assignedTo === user.id);
+  // ✅ Accès : admin, ou membre du projet (lecture seule). L'assignation ne
+  // conditionne que les actions d'édition plus bas (canComment, etc.).
+  const isProjectMember = projectMembers.some((pm) => pm.user.id === user.id);
+  const hasDetailAccess = isAdmin || isProjectMember;
   const hasProjectAccess = hasDetailAccess;
 
   if (!hasProjectAccess && (membersResult.loading || taskResult.loading)) {
@@ -726,7 +735,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
           Accès refusé
         </p>
         <p className="max-w-sm" style={{ color: "var(--text-secondary)" }}>
-          Seuls l&apos;assigné à la tâche ou un administrateur peuvent ouvrir sa fiche.
+          Seuls les membres du projet peuvent ouvrir la fiche d&apos;une tâche.
         </p>
         <Link
           href={`/agences/${agencyId}/projets/${projectId}/kanban`}
@@ -774,7 +783,8 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
   const creator = memberById(task.createdBy);
   const isAssigned = task.assignedTo !== null && task.assignedTo === user.id;
   const canChangeStatus = isAdmin || isAssigned;
-  const canManageSubtasks = isAdmin || projectMembers.some((pm) => pm.user.id === user.id);
+  const canComment = isAdmin || isAssigned;
+  const canManageSubtasks = isAdmin || isAssigned;
   const progress = subtaskProgress(subtasks);
 
   // Candidats à devenir prérequis : tâches du même projet, non archivées, hors
@@ -838,7 +848,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
         </p>
       ) : history.length === 0 ? (
         <p className="text-sm text-center py-3" style={{ color: "var(--text-muted)" }}>
-          Aucune action enregistrée pour cette tâche.
+          Aucune action aujourd&apos;hui.
         </p>
       ) : (
         <>
@@ -1796,6 +1806,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
           )}
 
           {/* Ajout d'un commentaire — en bas, bouton bleu à droite */}
+          {canComment && (
           <div className="mt-5 flex flex-col items-end gap-3">
             {commentOpen ? (
 <form id="comment-form" onSubmit={handleCommentSubmit} className="w-full">
@@ -1885,6 +1896,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
               </button>
             )}
           </div>
+          )}
         </motion.div>
         </div>
 

@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import {
@@ -417,6 +417,20 @@ export default function EquipePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.lastLoadedAt]);
 
+  const agencyTasks = useMemo(() => tasksByAgency(agencyId), [tasksByAgency, agencyId]);
+
+  // Compte des tâches assignées par e-mail, calculé une seule fois (O(T)) au
+  // lieu d'un filtre O(M×T) refait pour chaque membre à chaque rendu.
+  const taskCountByEmail = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const t of agencyTasks) {
+      const email = (t.assigneeEmail ?? "").toLowerCase();
+      if (!email) continue;
+      counts.set(email, (counts.get(email) ?? 0) + 1);
+    }
+    return counts;
+  }, [agencyTasks]);
+
   if (data.loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -470,12 +484,6 @@ export default function EquipePage() {
   const requestRemove = (m: AgencyMember) => {
     if (m.user.id === user?.id) { alert("Vous ne pouvez pas supprimer votre propre compte."); return; }
     setPendingAction({ type: "remove", member: m });
-  };
-
-  const agencyTasks = tasksByAgency(agencyId);
-  const taskCountFor = (m: AgencyMember) => {
-    const email = (m.user.email ?? "").toLowerCase();
-    return agencyTasks.filter((t) => (t.assigneeEmail ?? "").toLowerCase() === email).length;
   };
 
   // ---------- Vue membre : poste métier ≠ rôle système ----------
@@ -664,7 +672,7 @@ export default function EquipePage() {
   };
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+    <motion.div variants={container} initial={false} animate="show" className="space-y-6">
       <motion.div variants={item} className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex items-center gap-4">
           <div
@@ -946,9 +954,14 @@ export default function EquipePage() {
                               style={{ background: "var(--card-bg)" }}
                             >
                               {m.user.avatar ? (
-                                <span
-                                  className="w-full h-full bg-cover bg-center"
-                                  style={{ backgroundImage: `url(${m.user.avatar})` }}
+                                <img
+                                  src={m.user.avatar}
+                                  alt=""
+                                  width={40}
+                                  height={40}
+                                  loading="lazy"
+                                  decoding="async"
+                                  className="w-full h-full object-cover"
                                 />
                               ) : (
                                 <UserRound
@@ -1050,7 +1063,7 @@ export default function EquipePage() {
                             size={13}
                             style={{ color: "var(--text-muted)" }}
                           />
-                          {taskCountFor(m)}
+                          {taskCountByEmail.get((m.user.email ?? "").toLowerCase()) ?? 0}
                         </span>
                       </td>
 

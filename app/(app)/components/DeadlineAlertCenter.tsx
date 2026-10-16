@@ -15,7 +15,7 @@ import { playDeadlineAlertSound } from "@/lib/deadlineSound";
 const REFRESH_MS = 10 * 60 * 1000;
 
 /**
- * Cœur des alertes d'échéance : repère les tâches à moins de 2 jours (ou en
+ * Cœur des alertes d'échéance : repère les tâches à moins de 3 jours (ou en
  * retard) de leur échéance et publie la liste qui pilote l'icône du menu
  * latéral.
  *

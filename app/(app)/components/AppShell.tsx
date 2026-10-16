@@ -2,12 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import dynamic from "next/dynamic";
 import Sidebar from "./Sidebar";
 import AgencyPanel from "./AgencyPanel";
 import Header from "./Header";
-import AiAgentPanel from "./AiAgentPanel";
-import DeadlineAlertCenter from "./DeadlineAlertCenter";
 import { useActiveAgencyId } from "@/lib/useActiveAgencyId";
+
+// Panneaux et bannières secondaires : sortis du bundle initial, montés après
+// hydratation. Ils sont cachés ou en superposition, sans impact sur la mise en page.
+const AiAgentPanel = dynamic(() => import("./AiAgentPanel"), { ssr: false });
+const DeadlineAlertCenter = dynamic(() => import("./DeadlineAlertCenter"), { ssr: false });
 
 /** Second sidebar : 260px, première colonne de la feuille de contenu.
  *  C'est la source de vérité de la largeur : appliquée en style inline (et non

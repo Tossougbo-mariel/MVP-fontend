@@ -534,7 +534,7 @@ export default function ProjectKanbanPage() {
   };
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+    <motion.div variants={container} initial={false} animate="show" className="space-y-6">
       {/* Lien retour */}
       <motion.div variants={item}>
         <Link
@@ -843,7 +843,15 @@ export default function ProjectKanbanPage() {
                               style={{ background: "var(--gradient-primary)" }}
                             >
                               {assignee.user.avatar ? (
-                                <span className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url(${assignee.user.avatar})` }} />
+                                <img
+                                  src={assignee.user.avatar}
+                                  alt=""
+                                  width={24}
+                                  height={24}
+                                  loading="lazy"
+                                  decoding="async"
+                                  className="w-full h-full rounded-full object-cover"
+                                />
                               ) : (
                                 `${assignee.user.firstName.charAt(0)}${assignee.user.lastName.charAt(0)}`
                               )}

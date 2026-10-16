@@ -171,7 +171,7 @@ export default function ProjetsPage() {
   }
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+    <motion.div variants={container} initial={false} animate="show" className="space-y-6">
       {/* En-tête */}
       <motion.div variants={item} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
