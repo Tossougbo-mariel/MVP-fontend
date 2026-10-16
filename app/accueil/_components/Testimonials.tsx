@@ -1,7 +1,9 @@
+import { Reveal } from "./Reveal";
+
 const testimonials = [
   {
     quote:
-      "MVP Manager a transformé notre façon de travailler. Toutes nos agences et projets sont enfin centralisés au même endroit.",
+      "MVP Studio a transformé notre façon de travailler. Toutes nos agences et projets sont enfin centralisés au même endroit.",
     name: "Amina Benali",
     role: "Directrice · Agence Créative",
     initials: "AB",
@@ -76,22 +78,22 @@ export default function Testimonials() {
       />
 
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl text-center">
+        <Reveal className="mx-auto max-w-2xl text-center">
           <span className="inline-block rounded-full bg-[color:rgba(var(--blue-rgb),0.10)] px-4 py-1.5 text-xs font-bold uppercase tracking-widest" style={{ color: "var(--blue)" }}>
             Témoignages
           </span>
           <h2 className="mt-4 text-4xl font-extrabold tracking-tight md:text-5xl" style={{ color: "#0b1521", letterSpacing: "-0.02em" }}>
-            Ils utilisent MVP Manager au quotidien
+            Ils utilisent MVP Studio au quotidien
           </h2>
           <div className="mx-auto mt-4 h-1 w-16 rounded-full bg-[color:var(--blue)]" />
           <p className="mt-4 text-lg font-medium" style={{ color: "#4B5767" }}>
             Nos clients gèrent leurs agences, projets et équipes avec succès.
           </p>
-        </div>
+        </Reveal>
       </div>
 
       {/* Carrousel */}
-      <div className="group relative mt-16 overflow-hidden">
+      <Reveal className="group relative mt-16 overflow-hidden" y={16}>
         <div
           className="animate-reviews-scroll flex w-max gap-5 px-4 group-hover:[animation-play-state:paused]"
           style={{ paddingBottom: "8px" }}
@@ -138,7 +140,7 @@ export default function Testimonials() {
             </div>
           ))}
         </div>
-      </div>
+      </Reveal>
     </section>
   );
 }

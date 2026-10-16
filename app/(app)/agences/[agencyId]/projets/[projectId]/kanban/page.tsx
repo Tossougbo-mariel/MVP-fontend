@@ -21,14 +21,16 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useAppData, useAsync } from "@/lib/appData";
+import { useAppData, useAsync, invalidateTaskCaches } from "@/lib/appData";
 import DatePickerField from "@/app/(app)/components/DatePickerField";
 import CustomSelectField from "@/app/(app)/components/CustomSelectField";
 import ConfirmDialog from "@/app/(app)/components/ConfirmDialog";
 import {
   userRoleInAgency,
   getProjectStatusFromTasks,
-isTaskBlocked,
+  isTaskBlocked,
+  getReopenStatusKey,
+  computeDeadlineStatus,
   DEADLINE_META,
   type ProjectStatus,
   type Task,
@@ -40,7 +42,7 @@ import { useTaskStatuses } from "@/lib/useTaskStatuses";
 import { useAuthStore } from "@/app/store/authStore";
 import {
   fetchProjectMembers,
-  fetchAgencyTags,
+  fetchProjectTags,
   createTask as apiCreateTask,
   updateTaskStatus as apiUpdateTaskStatus,
   bulkUpdateTasks as apiBulkUpdateTasks,
@@ -134,8 +136,8 @@ export default function ProjectKanbanPage() {
   const { agencyId, projectId } = useParams<{ agencyId: string; projectId: string }>();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const { refresh, agencyById, getProject, tasksByProject, data } = useAppData();
-  const { statuses } = useTaskStatuses();
+  const { refresh, agencyById, getProject, tasksByProject, patchTaskLocal, data } = useAppData();
+  const { statuses, isTerminal } = useTaskStatuses();
   const KANBAN_COLUMNS = useMemo(() => buildKanbanColumns(statuses), [statuses]);
 
   const agency = agencyById(agencyId);
@@ -147,8 +149,8 @@ export default function ProjectKanbanPage() {
   // Members du projet via API
   const membersResult = useAsync(() => fetchProjectMembers(projectId), [projectId]);
   const projectMembers = membersResult.data ?? [];
-  const tagsResult = useAsync(() => fetchAgencyTags(agencyId), [agencyId]);
-  const agencyTags = tagsResult.data ?? [];
+  const tagsResult = useAsync(() => fetchProjectTags(projectId), [projectId]);
+  const projectTags = tagsResult.data ?? [];
   const [activeTagIds, setActiveTagIds] = useState<number[]>([]);
   const [showArchived, setShowArchived] = useState(false);
   const [restoreBusyId, setRestoreBusyId] = useState<number | null>(null);
@@ -160,6 +162,12 @@ export default function ProjectKanbanPage() {
 
   // Statuts locaux optimistes (déplacement immédiat de la carte avant confirmation API)
   const [localStatuses, setLocalStatuses] = useState<Record<string, TaskStatus>>({});
+
+  // ====== Avertissements ======
+  const [blockedDependency, setBlockedDependency] = useState<{
+    task: Task;
+    targetStatus: TaskStatus;
+  } | null>(null);
 
   // ====== Nouvelle tâche ======
   const [creating, setCreating] = useState(false);
@@ -186,6 +194,15 @@ export default function ProjectKanbanPage() {
     targetStatus?: TaskStatus;
     payload?: { status?: TaskStatus; priority?: TaskPriority; assigned_to?: number | null; add_tag_ids?: number[] };
     message?: string;
+  } | null>(null);
+
+  // ====== Réouverture de prérequis (cascade) ======
+  // Déplacer une tâche terminée vers une colonne ouverte rouvre aussi les
+  // tâches qui en dépendent et qui étaient terminées : on demande confirmation.
+  const [cascadeConfirm, setCascadeConfirm] = useState<{
+    taskId: string;
+    targetStatus: TaskStatus;
+    dependents: { id: number; title: string; status: TaskStatus }[];
   } | null>(null);
 
   const toggleSelected = (taskId: number) => {
@@ -312,22 +329,61 @@ export default function ProjectKanbanPage() {
     if (!task || task.status === targetStatus) return;
     if (!canDragTask(task)) return;
 
-    // ✅ Mise à jour optimiste : la carte bouge immédiatement dans la nouvelle colonne.
+    // Empêcher de déplacer une tâche bloquée par ses dépendances vers un statut terminal
+    if (isTaskBlocked(task, statuses) && isTerminal(targetStatus)) {
+      setBlockedDependency({ task, targetStatus });
+      return;
+    }
+
+    // ✅ Mise à jour optimiste : la carte bouge immédiatement dans la nouvelle
+    // colonne et le badge d'échéance est recalculé côté client (il disparaît si
+    // la tâche devient terminale), sans attendre le rafraîchissement serveur.
+    const prevDeadlineStatus = task.deadlineStatus;
     setLocalStatuses((prev) => ({ ...prev, [taskId]: targetStatus }));
+    patchTaskLocal(taskId, {
+      status: targetStatus,
+      deadlineStatus: computeDeadlineStatus({ ...task, status: targetStatus }, statuses),
+    });
 
     try {
-      await apiUpdateTaskStatus(taskId, targetStatus);
-// Synchronisation lente en arrière-plan (non bloquante) pour les compteurs/badges du projet.
+      const updated = await apiUpdateTaskStatus(taskId, targetStatus);
+      // Valeurs autoritatives du serveur (deadline_status recalculé, completed_at…).
+      patchTaskLocal(taskId, updated);
+      // La fiche détail et son historique ne doivent pas rester sur le cache 5 min.
+      invalidateTaskCaches([taskId]);
+      // Synchronisation lente en arrière-plan (non bloquante) pour les compteurs/badges du projet.
       void refresh();
     } catch (err) {
-      // Rollback visuel en cas d'échec.
-      const rollback = () =>
+      // Rollback visuel + données en cas d'échec.
+      const rollback = () => {
         setLocalStatuses((prev) => {
           const next = { ...prev };
           delete next[taskId];
           return next;
         });
+        patchTaskLocal(taskId, {
+          status: task.status,
+          deadlineStatus: prevDeadlineStatus,
+        });
+      };
       const d = (err as any)?.response?.data;
+      if (d?.requires_cascade) {
+        // Rouvrir ce prérequis rouvrirait des dépendants déjà terminés : on
+        // annule le déplacement visuel et on demande confirmation.
+        rollback();
+        setCascadeConfirm({
+          taskId,
+          targetStatus,
+          dependents: ((d.dependents ?? []) as { id: number; title: string; status: TaskStatus }[]).map(
+            (dep) => ({
+              id: dep.id,
+              title: dep.title,
+              status: dep.status,
+            }),
+          ),
+        });
+        return;
+      }
       if (d?.requires_force) {
         rollback();
         if (isAdmin) {
@@ -429,12 +485,36 @@ export default function ProjectKanbanPage() {
   }) => {
     if (!project || selectedIds.length === 0) return;
     setBulkBusy(true);
+    // Optimiste : quand on change le statut d'un lot, la colonne et le badge
+    // d'échéance se mettent à jour tout de suite (sans attendre le refresh).
+    if (payload.status) {
+      for (const id of selectedIds) {
+        const t = projectTasks.find((x) => Number(x.id) === Number(id));
+        if (t) {
+          patchTaskLocal(id, {
+            status: payload.status,
+            deadlineStatus: computeDeadlineStatus({ ...t, status: payload.status }, statuses),
+          });
+        }
+      }
+    }
     try {
-      await apiBulkUpdateTasks(project.id, { task_ids: selectedIds, ...payload });
+      const updated = await apiBulkUpdateTasks(project.id, { task_ids: selectedIds, ...payload });
+      for (const t of updated) patchTaskLocal(t.id, t);
+      invalidateTaskCaches(selectedIds);
       await refresh();
       setSelectedIds([]);
     } catch (err) {
       const d = (err as any)?.response?.data;
+      if (d?.requires_cascade) {
+        // La réouverture en lot toucherait des dépendants terminés : on ne
+        // cascada pas en lot, on invite à rouvrir carte par carte.
+        alert(
+          d.message ||
+            "Certaines tâches ont des dépendants déjà terminés : rouvrez-les carte par carte.",
+        );
+        return;
+      }
       if (d?.requires_force) {
         if (isAdmin) {
           setForceConfirm({
@@ -538,7 +618,7 @@ export default function ProjectKanbanPage() {
             </div>
 
             {/* Filtres par étiquette */}
-            {agencyTags.length > 0 && (
+            {projectTags.length > 0 && (
               <div
                 className="flex items-center gap-2 flex-wrap rounded-xl px-3 py-2"
                 style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", backdropFilter: "blur(12px)" }}
@@ -546,7 +626,7 @@ export default function ProjectKanbanPage() {
                 <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
                   <Tags size={13} /> Filtrer
                 </span>
-                {agencyTags.map((tg) => {
+                {projectTags.map((tg) => {
                   const on = activeTagIds.includes(tg.id);
                   return (
                     <button
@@ -929,7 +1009,7 @@ export default function ProjectKanbanPage() {
             className="text-xs font-semibold"
           />
 
-          {agencyTags.length > 0 && (
+          {projectTags.length > 0 && (
           <CustomSelectField
             disabled={bulkBusy || selectedIds.length === 0}
             placeholder="+ Étiquette…"
@@ -937,7 +1017,7 @@ export default function ProjectKanbanPage() {
             onChange={(v) => {
               if (v) runBulk({ add_tag_ids: [Number(v)] });
             }}
-            options={agencyTags.map((tg) => ({ value: String(tg.id), label: tg.name }))}
+            options={projectTags.map((tg) => ({ value: String(tg.id), label: tg.name }))}
             className="text-xs font-semibold"
           />
           )}
@@ -1174,7 +1254,20 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
           </motion.div>
         </motion.div>
       )}
-    <ConfirmDialog
+      <ConfirmDialog
+        open={blockedDependency !== null}
+        title="Tâche bloquée par une dépendance"
+        message={
+          blockedDependency
+            ? `« ${blockedDependency.task.title} » ne peut pas être déplacée vers un statut terminal car elle dépend d’une autre tâche non terminée. Vous devez d’abord terminer ses prérequis.`
+            : ""
+        }
+        confirmLabel="Compris"
+        cancelLabel=""
+        onConfirm={() => setBlockedDependency(null)}
+        onCancel={() => setBlockedDependency(null)}
+      />
+      <ConfirmDialog
         open={forceConfirm !== null}
         title="Terminer malgré tout ?"
         message={forceConfirm?.message ?? ""}
@@ -1186,12 +1279,24 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
             if (fc.kind === "task" && fc.taskId && fc.targetStatus) {
               // « Terminer quand même » : on coche d'abord toutes les
               // sous-tâches, puis on force le statut terminal.
+              const forced = projectTasks.find((t) => Number(t.id) === Number(fc.taskId));
+              setLocalStatuses((prev) => ({ ...prev, [fc.taskId as string]: fc.targetStatus as TaskStatus }));
+              if (forced) {
+                patchTaskLocal(fc.taskId, {
+                  status: fc.targetStatus,
+                  deadlineStatus: computeDeadlineStatus({ ...forced, status: fc.targetStatus }, statuses),
+                });
+              }
               await apiCompleteAllSubtasks(fc.taskId);
-              await apiUpdateTaskStatus(fc.taskId, fc.targetStatus, { force: true });
+              const updated = await apiUpdateTaskStatus(fc.taskId, fc.targetStatus, { force: true });
+              patchTaskLocal(fc.taskId, updated);
+              invalidateTaskCaches([fc.taskId]);
               void refresh();
             } else if (fc.kind === "bulk" && fc.payload) {
               await Promise.all(selectedIds.map((id) => apiCompleteAllSubtasks(id)));
-              await apiBulkUpdateTasks(project.id, { task_ids: selectedIds, ...fc.payload }, { force: true });
+              const updated = await apiBulkUpdateTasks(project.id, { task_ids: selectedIds, ...fc.payload }, { force: true });
+              for (const t of updated) patchTaskLocal(t.id, t);
+              invalidateTaskCaches(selectedIds);
               await refresh();
               setSelectedIds([]);
             }
@@ -1201,6 +1306,99 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
           setForceConfirm(null);
         }}
         onCancel={() => setForceConfirm(null)}
+      />
+      <ConfirmDialog
+        open={cascadeConfirm !== null}
+        title="Rouvrir des tâches dépendantes ?"
+        message={
+          cascadeConfirm ? (
+            <div>
+              <p>
+                En rouvrant cette tâche, {cascadeConfirm.dependents.length} tâche
+                {cascadeConfirm.dependents.length > 1 ? "s" : ""} déjà terminée
+                {cascadeConfirm.dependents.length > 1 ? "s" : ""} qui en dépende
+                {cascadeConfirm.dependents.length > 1 ? "nt" : ""} sera
+                {cascadeConfirm.dependents.length > 1 ? "ont" : ""} aussi rouverte
+                {cascadeConfirm.dependents.length > 1 ? "s" : ""} :
+              </p>
+              <ul className="mt-2 flex flex-col gap-1.5">
+                {cascadeConfirm.dependents.map((dep) => {
+                  const meta = statuses.find((s) => s.key === dep.status);
+                  return (
+                    <li key={dep.id} className="flex items-center gap-2">
+                      <span className="flex-1 min-w-0 truncate" style={{ color: "var(--text-primary)" }}>
+                        {dep.title}
+                      </span>
+                      <span
+                        className="shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                        style={{
+                          background: "var(--hover-soft)",
+                          color: meta?.color ?? "var(--text-secondary)",
+                        }}
+                      >
+                        {meta?.label ?? dep.status}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : ""
+        }
+        confirmLabel="Rouvrir les dépendants"
+        onConfirm={async () => {
+          const cc = cascadeConfirm;
+          setCascadeConfirm(null);
+          if (!cc) return;
+          // Statut optimiste : la carte déplacée ET ses dépendants rouverts
+          // bougent immédiatement, sans attendre le refresh de fond (le
+          // serveur rouvre les dépendants, journalise et notifie).
+          const reopenKey = getReopenStatusKey(statuses);
+          setLocalStatuses((prev) => {
+            const next = { ...prev, [cc.taskId]: cc.targetStatus };
+            for (const dep of cc.dependents) next[String(dep.id)] = reopenKey;
+            return next;
+          });
+          // Badge d'échéance recalculé tout de suite (carte déplacée + dépendants).
+          const moved = projectTasks.find((t) => Number(t.id) === Number(cc.taskId));
+          const depOriginals = cc.dependents.map((dep) => ({
+            id: dep.id,
+            task: projectTasks.find((t) => Number(t.id) === dep.id),
+          }));
+          if (moved) {
+            patchTaskLocal(cc.taskId, {
+              status: cc.targetStatus,
+              deadlineStatus: computeDeadlineStatus({ ...moved, status: cc.targetStatus }, statuses),
+            });
+          }
+          for (const { id, task: depTask } of depOriginals) {
+            if (depTask) {
+              patchTaskLocal(id, {
+                status: reopenKey,
+                deadlineStatus: computeDeadlineStatus({ ...depTask, status: reopenKey }, statuses),
+              });
+            }
+          }
+          try {
+            const updated = await apiUpdateTaskStatus(cc.taskId, cc.targetStatus, { cascade: true });
+            patchTaskLocal(cc.taskId, updated);
+            invalidateTaskCaches([cc.taskId, ...cc.dependents.map((d) => d.id)]);
+            void refresh();
+          } catch (err) {
+            setLocalStatuses((prev) => {
+              const next = { ...prev };
+              delete next[cc.taskId];
+              for (const dep of cc.dependents) delete next[String(dep.id)];
+              return next;
+            });
+            if (moved) patchTaskLocal(cc.taskId, { status: moved.status, deadlineStatus: moved.deadlineStatus });
+            for (const { id, task: depTask } of depOriginals) {
+              if (depTask) patchTaskLocal(id, { status: depTask.status, deadlineStatus: depTask.deadlineStatus });
+            }
+            alert(getApiErrorMessage(err));
+          }
+        }}
+        onCancel={() => setCascadeConfirm(null)}
       />
       <ConfirmDialog
         open={confirmingDeleteTask !== null}

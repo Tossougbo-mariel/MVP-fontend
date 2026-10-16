@@ -8,6 +8,7 @@ import {
   Bell,
   Settings,
 } from "lucide-react";
+import { Reveal } from "./Reveal";
 
 const features = [
   {
@@ -67,27 +68,28 @@ export default function Features() {
         </div>
 
         <div className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map(({ icon: Icon, title, description }) => (
-            <div
-              key={title}
-              className="group rounded-[20px] border bg-white p-6 transition-all hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(var(--blue-rgb),0.12)]"
-              style={{
-                borderColor: "#dfe5ed",
-              }}
-            >
+          {features.map(({ icon: Icon, title, description }, i) => (
+            <Reveal key={title} className="h-full" delay={(i % 3) * 0.08}>
               <div
-                className="flex h-12 w-12 items-center justify-center rounded-xl transition-colors"
-                style={{ background: "#f0f4ff" }}
+                className="group h-full rounded-[20px] border bg-white p-6 transition-all hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(var(--blue-rgb),0.12)]"
+                style={{
+                  borderColor: "#dfe5ed",
+                }}
               >
-                <Icon size={22} style={{ color: "var(--blue)" }} />
+                <div
+                  className="flex h-12 w-12 items-center justify-center rounded-xl transition-colors"
+                  style={{ background: "#f0f4ff" }}
+                >
+                  <Icon size={22} style={{ color: "var(--blue)" }} />
+                </div>
+                <h3 className="mt-5 text-lg font-bold" style={{ color: "#0b1521" }}>
+                  {title}
+                </h3>
+                <p className="mt-2 text-sm font-medium leading-6" style={{ color: "#4B5767" }}>
+                  {description}
+                </p>
               </div>
-              <h3 className="mt-5 text-lg font-bold" style={{ color: "#0b1521" }}>
-                {title}
-              </h3>
-              <p className="mt-2 text-sm font-medium leading-6" style={{ color: "#4B5767" }}>
-                {description}
-              </p>
-            </div>
+            </Reveal>
           ))}
         </div>
       </div>

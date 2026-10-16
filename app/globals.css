@@ -203,6 +203,49 @@
   100% { transform: translateY(0); opacity: 1; }
 }
 
+/* Maquette téléphone de la page d'accueil : lévitation douce. */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
+
+/* Carrousel des témoignages : défilement horizontal infini. */
+@keyframes reviews-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.hero-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: reviews-scroll 32s linear infinite;
+}
+
+.hero-marquee-item {
+  flex: none;
+  padding-right: 4rem;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-marquee-track {
+    display: block;
+    width: 100%;
+    animation: none;
+  }
+
+  .hero-marquee-item {
+    display: block;
+    width: 100%;
+    padding-right: 0;
+    white-space: normal;
+  }
+
+  .hero-marquee-item + .hero-marquee-item {
+    display: none;
+  }
+}
+
 @keyframes border-spin {
   to { --angle: 360deg; }
 }
@@ -311,6 +354,8 @@
   --shadow-glow-blue: 0 8px 24px rgba(var(--blue-rgb), 0.35);
   --shadow-btn: 0 6px 18px rgba(var(--blue-rgb), 0.35);
   --radius-3xl: 1.25rem;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-reviews-scroll: reviews-scroll 40s linear infinite;
   --animate-grad: gradient-shift 6s ease infinite;
   --animate-border-spin: border-spin 3s linear infinite;
   --animate-rise: float-up 0.5s var(--ease) both;
