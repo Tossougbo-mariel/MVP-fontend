@@ -740,4 +740,42 @@ export const fetchActivity = async (params: {
   return (list as any[]).map(mapActivity);
 };
 
+// ---------- Rapports PDF (générés côté serveur) ----------
+const triggerBlobDownload = (blob: Blob, fileName: string): void => {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+const fileNameFromDisposition = (disposition: unknown, fallback: string): string => {
+  if (typeof disposition !== "string") return fallback;
+  const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+  return match ? decodeURIComponent(match[1]) : fallback;
+};
+
+export const exportProjectReportPdf = async (project: Project): Promise<void> => {
+  const { data, headers } = await api.get(`/projects/${project.id}/report`, {
+    responseType: "blob",
+  });
+  triggerBlobDownload(
+    data as Blob,
+    fileNameFromDisposition(headers["content-disposition"], "rapport-projet.pdf"),
+  );
+};
+
+export const exportAgencyReportPdf = async (agency: Agency): Promise<void> => {
+  const { data, headers } = await api.get(`/agencies/${agency.id}/report`, {
+    responseType: "blob",
+  });
+  triggerBlobDownload(
+    data as Blob,
+    fileNameFromDisposition(headers["content-disposition"], "rapport-agence.pdf"),
+  );
+};
+
 export { getApiErrorMessage } from "./api";
