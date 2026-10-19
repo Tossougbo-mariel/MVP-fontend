@@ -637,9 +637,6 @@ export default function ProfilPage() {
             >
               <Mail size={16} style={{ color: "var(--text-secondary)" }} />
               <span className="flex-1 text-sm" style={{ color: "var(--text-primary)" }}>{infos.email}</span>
-              <span className="inline-flex items-center gap-1 text-xs font-semibold" style={{ color: "var(--color-success)" }}>
-                <CheckCircle2 size={13} /> Vérifié
-              </span>
             </div>
             <Link
               href="/modifier-mot-de-passe"
