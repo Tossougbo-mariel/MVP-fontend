@@ -82,6 +82,50 @@ type BootstrapPayload = {
   notifications: AppNotification[];
 };
 
+// Cache persistant du bootstrap : au rechargement, la dernière copie connue est
+// relue de façon SYNCHRONE (localStorage) et affichée tout de suite, sans
+// écran « Chargement… ». Le réseau rafraîchit ensuite la copie en arrière-plan.
+const DATA_STORAGE_KEY = "mvp-app-data";
+const DATA_TTL = 24 * 60 * 60 * 1000;
+
+type PersistedData = BootstrapPayload & { savedAt: number };
+
+const readPersistedData = (): PersistedData | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(DATA_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedData;
+    if (!parsed || typeof parsed.savedAt !== "number") return null;
+    if (Date.now() - parsed.savedAt > DATA_TTL) return null;
+    if (!Array.isArray(parsed.agencies) || !Array.isArray(parsed.projects)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const writePersistedData = (payload: BootstrapPayload) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      DATA_STORAGE_KEY,
+      JSON.stringify({ ...payload, savedAt: Date.now() } satisfies PersistedData),
+    );
+  } catch {
+    // quota plein ou stockage indisponible : le cache est un confort, pas un dû
+  }
+};
+
+const clearPersistedData = () => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(DATA_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+};
+
 /**
  * Repli sur les routes unitaires, pour les backends qui n'exposent pas encore
  * GET /api/bootstrap. Un 404 sur /bootstrap ne doit pas laisser l'application
@@ -122,7 +166,23 @@ const loadEverythingFanOut = async (): Promise<BootstrapPayload> => {
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
-  const [data, setData] = useState<AppDataState>(EMPTY);
+  // État initial lu depuis le cache persistant : dès le premier rendu client,
+  // les données de la dernière visite sont là et `loading` est déjà faux, donc
+  // aucune page n'affiche « Chargement… ». Le cache est relu seulement si un
+  // token existe (SessionStorage n'a pas de sens pour un visiteur anonyme).
+  const [data, setData] = useState<AppDataState>(() => {
+    const persisted = token ? readPersistedData() : null;
+    if (!persisted) return EMPTY;
+    return {
+      agencies: persisted.agencies,
+      projects: persisted.projects,
+      tasks: persisted.tasks,
+      notifications: persisted.notifications,
+      loading: false,
+      error: null,
+      lastLoadedAt: persisted.savedAt,
+    };
+  });
   const [toast, setToast] = useState<AppNotification | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -167,6 +227,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         error: null,
         lastLoadedAt: Date.now(),
       }));
+      // Mémorise la copie pour le prochain rechargement : affichage immédiat.
+      writePersistedData(boot);
     } catch (err) {
       // En silencieux, on ignore l'erreur : les données existantes restent affichées.
       if (!silent) {
@@ -197,7 +259,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const refresh = useCallback(() => fetchAll({ silent: true }), [fetchAll]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      // Session terminée : le cache persisté ne doit pas survivre à la
+      // déconnexion (il appartient au compte précédent).
+      clearPersistedData();
+      setData(EMPTY);
+      return;
+    }
     void load();
   }, [token, load]);
 

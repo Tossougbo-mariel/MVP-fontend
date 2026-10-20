@@ -81,6 +81,7 @@ export default function AgencyDashboardPage() {
   const { data: summary, loading } = useAsync(
     () => fetchAgencyDashboard(agencyId),
     [agencyId],
+    { cacheKey: `agency-dashboard:${agencyId}` },
   );
   const agency = summary?.agency ?? null;
   const agencyProjects = useMemo(() => summary?.projects ?? [], [summary]);
@@ -244,6 +245,7 @@ function AdminDashboard({
   const { data: activity, loading: activityLoading } = useAsync(
     () => fetchActivity({ agencyId }),
     [agencyId],
+    { cacheKey: `agency-activity:${agencyId}` },
   );
   const [activityExpanded, setActivityExpanded] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
