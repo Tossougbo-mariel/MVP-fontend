@@ -3,11 +3,13 @@ import { AppDataProvider } from "../../lib/appData";
 import AccentApplier from "./components/AccentApplier";
 import AppShell from "./components/AppShell";
 import RequireAuth from "./components/RequireAuth";
+import ThemeApplier from "./components/ThemeApplier";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <RequireAuth>
       <AccentApplier />
+      <ThemeApplier />
       <AppDataProvider>
         <Suspense
           fallback={

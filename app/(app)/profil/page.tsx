@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
-import Cropper from "react-easy-crop";
+import dynamic from "next/dynamic";
 import {
   User, Mail, Briefcase, Pencil, Save, CheckCircle2, ShieldCheck,
   Camera, Calendar, ClipboardList, Building2, ChevronRight, X, ZoomIn,
@@ -18,6 +18,13 @@ import {
 } from "@/lib/types";
 import { useActiveAgencyId } from "@/lib/useActiveAgencyId";
 import AvatarViewer from "@/app/(app)/components/AvatarViewer";
+
+// react-easy-crop n'est nécessaire qu'à l'ouverture de la modale de recadrage :
+// on le charge à la demande pour ne pas alourdir le bundle de la page.
+// Le cast restaure les props par défaut (defaultProps) que `dynamic` ne conserve pas.
+const Cropper = dynamic(() => import("react-easy-crop"), {
+  ssr: false,
+}) as unknown as (typeof import("react-easy-crop"))["default"];
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -334,7 +341,7 @@ export default function ProfilPage() {
 
   return (
     <>
-      <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+      <motion.div variants={container} initial={false} animate="show" className="space-y-6">
         {saved && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -630,9 +637,6 @@ export default function ProfilPage() {
             >
               <Mail size={16} style={{ color: "var(--text-secondary)" }} />
               <span className="flex-1 text-sm" style={{ color: "var(--text-primary)" }}>{infos.email}</span>
-              <span className="inline-flex items-center gap-1 text-xs font-semibold" style={{ color: "var(--color-success)" }}>
-                <CheckCircle2 size={13} /> Vérifié
-              </span>
             </div>
             <Link
               href="/modifier-mot-de-passe"

@@ -604,7 +604,7 @@ export const getHistoryByTask = (
 ): ActivityEntry[] =>
   history
     .filter((h) => Number(h.taskId) === Number(taskId))
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
 export const ACTIVITY_LABELS: Record<string, string> = {
   creation: "Tâche créée",

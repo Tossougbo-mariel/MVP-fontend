@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, type Variants } from "framer-motion";
 import {
   FolderKanban, Users, AlertTriangle,
@@ -12,10 +12,10 @@ import {
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAuthStore } from "@/app/store/authStore";
-import { useAppData, useAsync } from "@/lib/appData";
-import { fetchActivity, exportAgencyReportPdf, getApiErrorMessage } from "@/lib/services";
-import { userRoleInAgency, type AgencyRole, overdueTasks, ACTIVITY_LABELS, getProjectProgress, getProjectStatusFromTasks, formatActivitySentence } from "@/lib/types";
+import { fetchAgencyDashboard, fetchActivity, getApiErrorMessage, exportAgencyReportPdf } from "@/lib/services";
+import { userRoleInAgency, type Agency, type AgencyRole, type Project, type Task, ACTIVITY_LABELS, getProjectProgress, getProjectStatusFromTasks, formatActivitySentence } from "@/lib/types";
 import { useTaskStatuses } from "@/lib/useTaskStatuses";
+import { useAsync } from "@/lib/appData";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -73,13 +73,33 @@ const smoothCurve = (pts: { x: number; y: number }[]) => {
 export default function AgencyDashboardPage() {
   const { agencyId } = useParams<{ agencyId: string }>();
   const user = useAuthStore((s) => s.user);
-  const { agencyById, data } = useAppData();
-  const agency = agencyById(agencyId);
+
+  // Résumé dédié (UNE seule agence) : le tableau de bord n'attend plus le
+  // bootstrap complet (toutes agences + notifications) pour afficher ses
+  // indicateurs. Le bootstrap continue de tourner en arrière-plan pour le
+  // shell (cloche, recherche…).
+  const { data: summary, loading } = useAsync(
+    () => fetchAgencyDashboard(agencyId),
+    [agencyId],
+  );
+  const agency = summary?.agency ?? null;
+  const agencyProjects = useMemo(() => summary?.projects ?? [], [summary]);
+  const agencyTasks = useMemo(() => summary?.tasks ?? [], [summary]);
+
+  const tasksByProject = useMemo(() => {
+    const byProject = new Map<number, Task[]>();
+    for (const t of agencyTasks) {
+      const list = byProject.get(t.projectId);
+      if (list) list.push(t);
+      else byProject.set(t.projectId, [t]);
+    }
+    return (projectId: number | string) => byProject.get(Number(projectId)) ?? [];
+  }, [agencyTasks]);
 
   const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
   const isAdmin = role === "owner" || role === "admin";
 
-  if (data.loading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
@@ -124,9 +144,24 @@ export default function AgencyDashboardPage() {
   const me = agency.members.find((m) => m.user.email.toLowerCase() === user.email.toLowerCase());
 
   return isAdmin ? (
-    <AdminDashboard agencyId={agencyId} role={role} userName={me?.user.firstName ?? user.firstName ?? "vous"} agencyName={agency.name} />
+    <AdminDashboard
+      agencyId={agencyId}
+      agency={agency}
+      role={role}
+      userName={me?.user.firstName ?? user.firstName ?? "vous"}
+      agencyName={agency.name}
+      agencyProjects={agencyProjects}
+      agencyTasks={agencyTasks}
+      tasksByProject={tasksByProject}
+    />
   ) : (
-    <MemberDashboard userName={me?.user.firstName ?? user.firstName ?? "vous"} agencyId={agencyId} agencyName={agency.name} />
+    <MemberDashboard
+      userName={me?.user.firstName ?? user.firstName ?? "vous"}
+      agencyId={agencyId}
+      agencyName={agency.name}
+      agencyProjects={agencyProjects}
+      tasksByProject={tasksByProject}
+    />
   );
 }
 
@@ -186,19 +221,25 @@ function WelcomeBanner({ name, subtitle }: { name: string; subtitle: string }) {
 /* ============ VUE ADMIN : accès complet (propriétaire) / élargi (admin promu) ============ */
 function AdminDashboard({
   agencyId,
+  agency,
   role,
   userName,
   agencyName,
+  agencyProjects,
+  agencyTasks,
+  tasksByProject,
 }: {
   agencyId: string;
+  agency: Agency;
   role: AgencyRole;
   userName: string;
   agencyName: string;
+  agencyProjects: Project[];
+  agencyTasks: Task[];
+  tasksByProject: (projectId: number | string) => Task[];
 }) {
   const isOwner = role === "owner";
-  const { agencyById, tasksByAgency, projectsByAgency, tasksByProject } = useAppData();
   const { statuses, isTerminal } = useTaskStatuses();
-  const agency = agencyById(agencyId);
 
   const { data: activity, loading: activityLoading } = useAsync(
     () => fetchActivity({ agencyId }),
@@ -220,20 +261,24 @@ function AdminDashboard({
     }
   };
 
-  const members = agency?.members ?? [];
+  const members = agency.members ?? [];
   const totalMembers = members.length;
   const activeMembers = members.filter((m) => m.status === "actif").length;
   const inactiveMembers = members.filter((m) => m.status === "inactif").length;
 
-  const agencyTasks = tasksByAgency(agencyId);
-  const agencyProjects = projectsByAgency(agencyId);
-
   const totalTasks = agencyTasks.length;
   const totalProjects = agencyProjects.length;
-  const overdueCount = overdueTasks(
-    agencyTasks.map((t) => ({ deadline: t.dueDate, status: t.status })),
-    statuses,
-  ).length;
+  // Le statut calculé par le backend fait foi (logique identique à « Mes
+  // tâches ») : une tâche bloquée par un prérequis non terminé est volontairement
+  // renvoyée en « a_venir » et ne doit pas être comptée en retard. On ne retombe
+  // sur la comparaison de dates que si le backend ne fournit aucun statut.
+  const isLateTask = (t: Task) =>
+    !isTerminal(t.status) &&
+    (t.deadlineStatus
+      ? t.deadlineStatus === "en_retard"
+      : !!t.dueDate && t.dueDate < new Date().toISOString().slice(0, 10));
+
+  const overdueCount = agencyTasks.filter(isLateTask).length;
 
   // Projets en retard : échéance projet dépassée (avec tâches restantes) ou
   // tâches en retard. Exclut les projets archivés/vides/terminés.
@@ -283,13 +328,20 @@ function AdminDashboard({
         ? 100
         : null
       : Math.round(((doneThisWeek - doneLastWeek) / doneLastWeek) * 100);
+  // Une ligne par statut réel de l'agence (libellés/couleurs propres) : les
+  // statuts personnalisés sont donc comptés et la somme des lignes égale
+  // « Total tâches ». « En retard » n'est pas un statut mais un recouvrement
+  // transversal : il n'apparaît ici que pour éviter tout double comptage.
   const taskStatuses = [
-    { label: "À faire", value: agencyTasks.filter((t) => t.status === "a_faire").length, color: "var(--blue-accent)" },
-    { label: "En cours", value: agencyTasks.filter((t) => t.status === "en_cours").length, color: "var(--blue)" },
-    { label: "En révision", value: agencyTasks.filter((t) => t.status === "en_revision").length, color: "var(--blue-mid)" },
-    { label: "Terminées", value: agencyTasks.filter((t) => isTerminal(t.status)).length, color: "var(--color-success)" },
+    ...statuses.map((s) => ({
+      label: s.label,
+      value: agencyTasks.filter((t) => t.status === s.key).length,
+      color: s.color,
+    })),
     { label: "En retard", value: overdueCount, color: "var(--color-error)" },
   ];
+
+  const maxStatusValue = Math.max(1, ...taskStatuses.map((x) => x.value));
 
   const totalCompleted = weeklyReport.reduce((s, r) => s + r.value, 0);
 
@@ -321,7 +373,7 @@ function AdminDashboard({
   ];
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+    <motion.div variants={container} initial={false} animate="show" className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <Breadcrumb title="Tableau de bord" agencyName={agencyName} />
         <button
@@ -411,7 +463,7 @@ function AdminDashboard({
                   <div className="w-20 h-1.5 rounded-full shrink-0" style={{ background: "rgba(255,255,255,0.08)" }}>
                     <motion.div
                       initial={{ width: 0 }}
-                      animate={{ width: `${(t.value / Math.max(...taskStatuses.map((x) => x.value))) * 100}%` }}
+                      animate={{ width: `${(t.value / maxStatusValue) * 100}%` }}
                       transition={{ duration: 0.8, delay: 0.2 + i * 0.1, ease: "easeOut" }}
                       className="h-full rounded-full"
                       style={{ background: t.color }}
@@ -731,15 +783,24 @@ const badPractices = [
   },
 ];
 
-function MemberDashboard({ userName, agencyId, agencyName }: { userName: string; agencyId: string; agencyName: string }) {
-  const { myTasksInAgency, projectsByAgency, tasksByProject } = useAppData();
-  const myT = myTasksInAgency(agencyId);
-
+function MemberDashboard({
+  userName,
+  agencyId,
+  agencyName,
+  agencyProjects,
+  tasksByProject,
+}: {
+  userName: string;
+  agencyId: string;
+  agencyName: string;
+  agencyProjects: Project[];
+  tasksByProject: (projectId: number | string) => Task[];
+}) {
   // Projets du membre, non archivés. L'API ne renvoie déjà que les projets où
   // le membre est rattaché (cf. ProjectController@index) ; on ne filtre donc
   // plus sur les tâches assignées : appartenir au projet suffit à le voir ici,
   // même sans aucune tâche assignée.
-  const myProjects = projectsByAgency(agencyId).filter((p) => p.status !== "archive");
+  const myProjects = agencyProjects.filter((p) => p.status !== "archive");
 
   const projectStatusInfo: Record<string, { label: string; color: string; bg: string }> = {
     a_venir: { label: "À venir", color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
@@ -749,7 +810,7 @@ function MemberDashboard({ userName, agencyId, agencyName }: { userName: string;
   };
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+    <motion.div variants={container} initial={false} animate="show" className="space-y-6">
       <Breadcrumb title="Tableau de bord" agencyName={agencyName} />
 
       <WelcomeBanner
@@ -766,6 +827,10 @@ function MemberDashboard({ userName, agencyId, agencyName }: { userName: string;
           <img
             src="/bonnes_pratiques.png"
             alt="Bonnes pratiques"
+            width={558}
+            height={447}
+            loading="lazy"
+            decoding="async"
             className="mx-auto rounded-xl mb-2"
             style={{ width: "70%", maxWidth: "220px", height: "auto" }}
           />
@@ -806,6 +871,10 @@ function MemberDashboard({ userName, agencyId, agencyName }: { userName: string;
           <img
             src="/mauvaises_pratiques.png"
             alt="Erreurs à éviter"
+            width={360}
+            height={288}
+            loading="lazy"
+            decoding="async"
             className="mx-auto rounded-xl mb-2"
             style={{ width: "70%", maxWidth: "220px", height: "auto" }}
           />

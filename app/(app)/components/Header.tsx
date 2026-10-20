@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Menu, Bell, LogOut, User, ImageIcon, CheckCheck, AtSign, Sparkles, ChevronsRight } from "lucide-react";
@@ -10,8 +11,20 @@ import { markAllNotificationsRead, markNotificationRead } from "@/lib/services";
 import { getNotificationMeta, relativeTime } from "@/lib/notifications";
 import type { AppNotification } from "@/lib/types";
 import { useActiveAgencyId, profileHrefFor } from "@/lib/useActiveAgencyId";
-import AvatarViewer from "./AvatarViewer";
-import GlobalSearch from "./GlobalSearch";
+
+// La recherche globale et la visionneuse d'avatar sont chargées à la demande.
+// Le fallback reprend exactement la boîte du champ (largeur + hauteur) pour que
+// le bandeau ne bouge pas pendant le chargement du chunk.
+const GlobalSearch = dynamic(() => import("./GlobalSearch"), {
+  ssr: false,
+  loading: () => (
+    <div
+      className="w-full max-w-[288px] h-[38px] rounded-full animate-pulse"
+      style={{ background: "rgba(4, 12, 30, 0.55)", border: "1px solid rgba(255, 255, 255, 0.18)" }}
+    />
+  ),
+});
+const AvatarViewer = dynamic(() => import("./AvatarViewer"), { ssr: false });
 
 export default function Header({
   onMenuClick,

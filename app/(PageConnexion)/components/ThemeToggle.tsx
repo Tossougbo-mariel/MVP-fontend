@@ -14,7 +14,7 @@ const OPTIONS: { value: Theme; label: string; icon: typeof Sun }[] = [
  * Habité dans la page Paramètres de l'agence (et plus en bouton flottant
  * sur toutes les pages).
  */
-export default function ThemeToggle() {
+export default function ThemeToggle({ onChange }: { onChange?: (theme: Theme) => void } = {}) {
   const { theme, setTheme } = useTheme();
 
   return (
@@ -32,7 +32,10 @@ export default function ThemeToggle() {
             type="button"
             role="radio"
             aria-checked={active}
-            onClick={() => setTheme(value)}
+            onClick={() => {
+              setTheme(value);
+              onChange?.(value);
+            }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
             style={
               active

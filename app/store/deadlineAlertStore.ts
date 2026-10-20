@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 
-/** "bientot" = moins de 2 jours avant l'échéance, "retard" = échéance passée. */
+/** "bientot" = dans les 3 jours avant l'échéance, "retard" = échéance passée. */
 export type DeadlineAlertStage = "bientot" | "retard";
 
 export type DeadlineAlert = {

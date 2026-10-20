@@ -11,7 +11,6 @@ import {
 } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/app/store/authStore";
-import { getEcho, disconnectEcho } from "./echo";
 import { getNotificationMeta, notificationAction } from "./notifications";
 import {
   fetchAgencies,
@@ -204,42 +203,58 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   // ── Temps réel : écoute du canal privé de l'utilisateur (WebSocket Reverb) ──
   useEffect(() => {
+    let cancelled = false;
+
     if (!token || !user?.id) {
-      disconnectEcho();
-      return;
+      void import("./echo").then(({ disconnectEcho }) => {
+        if (!cancelled) disconnectEcho();
+      });
+      return () => {
+        cancelled = true;
+      };
     }
 
-    const echo = getEcho(token);
-    const channel = echo.private(`App.Models.User.${user.id}`);
+    const uid = user.id;
+    let stopListening: (() => void) | undefined;
 
-    channel.listen(".notification.created", (payload: { notification?: Record<string, unknown> }) => {
-      const raw = payload?.notification;
-      if (!raw?.id) return;
+    void (async () => {
+      const { getEcho } = await import("./echo");
+      if (cancelled) return;
 
-      const incoming: AppNotification = {
-        id: Number(raw.id),
-        agencyId: raw.agency_id != null ? Number(raw.agency_id) : null,
-        type: String(raw.type ?? ""),
-        title: String(raw.title ?? ""),
-        message: raw.message != null ? String(raw.message) : null,
-        link: raw.link != null ? String(raw.link) : null,
-        readAt: (raw.read_at as string | null) ?? null,
-        createdAt: String(raw.created_at ?? new Date().toISOString()),
-      };
+      const channel = getEcho(token).private(`App.Models.User.${uid}`);
 
-      setData((prev) => {
-        if (prev.notifications.some((n) => n.id === incoming.id)) return prev;
-        return {
-          ...prev,
-          notifications: [incoming, ...prev.notifications].slice(0, 100),
-          lastLoadedAt: Date.now(),
+      channel.listen(".notification.created", (payload: { notification?: Record<string, unknown> }) => {
+        const raw = payload?.notification;
+        if (!raw?.id) return;
+
+        const incoming: AppNotification = {
+          id: Number(raw.id),
+          agencyId: raw.agency_id != null ? Number(raw.agency_id) : null,
+          type: String(raw.type ?? ""),
+          title: String(raw.title ?? ""),
+          message: raw.message != null ? String(raw.message) : null,
+          link: raw.link != null ? String(raw.link) : null,
+          readAt: (raw.read_at as string | null) ?? null,
+          createdAt: String(raw.created_at ?? new Date().toISOString()),
         };
+
+        setData((prev) => {
+          if (prev.notifications.some((n) => n.id === incoming.id)) return prev;
+          return {
+            ...prev,
+            notifications: [incoming, ...prev.notifications].slice(0, 100),
+            lastLoadedAt: Date.now(),
+          };
+        });
+        setToast(incoming);
       });
-      setToast(incoming);
-    });
+
+      stopListening = () => channel.stopListening(".notification.created");
+    })();
 
     return () => {
-      channel.stopListening(".notification.created");
+      cancelled = true;
+      stopListening?.();
     };
   }, [token, user?.id]);
 
