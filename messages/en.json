@@ -1,0 +1,70 @@
+{
+  "Metadata": {
+    "title": "MVP Studio — Task management",
+    "description": "Task management and tracking platform for teams, freelancers and agencies."
+  },
+  "Common": {},
+  "Navigation": {
+    "home": "Home",
+    "features": "Features",
+    "how-it-works": "How it works",
+    "testimonials": "Testimonials",
+    "signUp": "Sign Up",
+    "login": "Login"
+  },
+  "Auth": {},
+  "Validation": {},
+  "Errors": {},
+  "Landing": {
+     "hero": {
+      "titleStart": "Manage your",
+      "titleHighlight": "agencies and teams",
+      "titleEnd": "with precision",
+      "description": "MVP Studio brings your agencies, projects and tasks together in one elegant dashboard. Follow every mission, lead every team — simply.",
+      "primaryCta": "Start for free",
+      "secondaryCta": "Learn more"
+  },
+    "mockup": {
+      "project": "ABC Real Estate website",
+      "columns": {
+        "todo": "To do",
+        "inProgress": "In progress",
+        "inReview": "In review",
+        "done": "Done"
+      },
+      "priorities": {
+        "medium": "Medium",
+        "high": "High"
+      },
+      "tasks": {
+        "contactForm": "Contact form",
+        "usersApi": "Users API",
+        "listingsPage": "Listings page",
+        "homePage": "Home page",
+        "homeMockup": "Home mockup"
+      },
+      "dates": {
+        "sep15": "Sep 15",
+        "sep18": "Sep 18",
+        "sep20": "Sep 20"
+      }
+    }
+  },
+  "Dashboard": {},
+  "Agencies": {},
+  "Projects": {},
+  "Tasks": {},
+  "Team": {},
+  "Planning": {},
+  "Notifications": {},
+  "Deadlines": {},
+  "Profile": {},
+  "Settings": {},
+  "Statuses": {},
+  "Priorities": {},
+  "ProjectStatuses": {},
+  "DeadlineStatuses": {},
+  "NotificationTypes": {},
+  "Colors": {},
+  "Dates": {}
+}

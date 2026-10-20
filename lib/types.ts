@@ -1,3 +1,16 @@
+export const ACTIVITY_ACTION_KEYS: Record<string, string> = {
+  creation: "Tasks.activity.actions.creation",
+  changement_statut: "Tasks.activity.actions.status_changed",
+  tache_terminee: "Tasks.activity.actions.task_completed",
+  reouverture: "Tasks.activity.actions.reopened",
+  changement_responsable: "Tasks.activity.actions.assignee_changed",
+  changement_priorite: "Tasks.activity.actions.priority_changed",
+  changement_echeance: "Tasks.activity.actions.due_date_changed",
+  commentaire: "Tasks.activity.actions.comment_added",
+  creation_projet: "Tasks.activity.actions.project_created",
+  membre_ajoute: "Tasks.activity.actions.member_added",
+};
+export const ACTIVITY_LABELS = ACTIVITY_ACTION_KEYS;
 // ============================================================
 // Types métier du frontend, mappés depuis l'API Laravel.
 // Source de vérité unique : le backend. Aucune donnée locale.
@@ -502,17 +515,7 @@ export type Attachment = {
   createdAt: string;
 };
 
-export const formatFileSize = (bytes: number): string => {
-  if (!bytes || bytes < 1024) return `${bytes || 0} o`;
-  const units = ["Ko", "Mo", "Go"];
-  let value = bytes / 1024;
-  let i = 0;
-  while (value >= 1024 && i < units.length - 1) {
-    value /= 1024;
-    i += 1;
-  }
-  return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[i]}`;
-};
+export { formatFileSize } from "./dates";
 
 // ---------- Sous-tâches ----------
 export type Subtask = {
@@ -606,51 +609,28 @@ export const getHistoryByTask = (
     .filter((h) => Number(h.taskId) === Number(taskId))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
-export const ACTIVITY_LABELS: Record<string, string> = {
-  creation: "Tâche créée",
-  changement_statut: "Statut modifié",
-  tache_terminee: "Tâche terminée",
-  reouverture: "Tâche réouverte",
-  changement_responsable: "Responsable modifié",
-  changement_priorite: "Priorité modifiée",
-  changement_echeance: "Échéance modifiée",
-  commentaire: "Commentaire ajouté",
-  creation_projet: "Projet créé",
-  membre_ajoute: "Membre ajouté",
+export type ActivityParts = {
+  actor: string;
+  actionFragment: string;
+  projectName: string | null;
+  actionKey?: string | null;
 };
-
-/**
- * Phrase lisible d'une entrée d'historique / d'activité, du type
- * « {Auteur} a fait telle action sur le projet « … » ».
- *
- * `description` est renvoyée par l'API sous forme de fragment commençant par
- * « a … » (ex. « a créé la tâche « Refonte du menu » »). On la préfixe donc de
- * l'auteur, et on ajoute le projet concerné — sauf pour la création de projet,
- * où la description le nomme déjà.
- *
- * `actorName` permet de passer un nom résolu côté écran (annuaire des membres) ;
- * sinon on retombe sur le nom puis l'e-mail fournis par l'API.
- */
+export const formatActivityParts = (
+  entry: Pick<ActivityEntry, "actorName" | "actorEmail" | "action" | "description" | "projectName">,
+  actorName?: string | null,
+): ActivityParts => {
+  const actor = actorName?.trim() || entry.actorName?.trim() || entry.actorEmail?.trim() || "Quelqu'un";
+  const actionFragment = entry.description?.trim() || "a effectu� une action";
+  const projectName = entry.projectName && entry.action !== "creation_projet" ? entry.projectName : null;
+  return { actor, actionFragment, projectName, actionKey: entry.action };
+};
 export const formatActivitySentence = (
-  entry: Pick<
-    ActivityEntry,
-    "actorName" | "actorEmail" | "action" | "description" | "projectName"
-  >,
+  entry: Pick<ActivityEntry, "actorName" | "actorEmail" | "action" | "description" | "projectName">,
   actorName?: string | null,
 ): string => {
-  const actor =
-    actorName?.trim() ||
-    entry.actorName?.trim() ||
-    entry.actorEmail?.trim() ||
-    "Quelqu'un";
-  const action = entry.description?.trim() || "a effectué une action";
-  const suffix =
-    entry.projectName && entry.action !== "creation_projet"
-      ? ` sur le projet « ${entry.projectName} »`
-      : "";
-  return `${actor} ${action}${suffix}`;
+  const p = formatActivityParts(entry, actorName);
+  return `${p.actor} ${p.actionFragment}${p.projectName ? ` sur le projet � ${p.projectName} �` : ""}`;
 };
-
 /**
  * Tâche close, vu depuis un écran qui mélange plusieurs agences.
  *
@@ -711,3 +691,5 @@ export type AppNotification = {
 };
 
 export const isUnread = (n: AppNotification): boolean => !n.readAt;
+
+

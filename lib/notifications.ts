@@ -16,6 +16,10 @@ import {
   UserX,
 } from "lucide-react";
 import { isUnread, type AppNotification } from "./types";
+import {
+  relativeTime as relativeTimeDate,
+  formatDateTimeLong,
+} from "./dates";
 
 /**
  * Vocabulaire commun des notifications.
@@ -28,7 +32,7 @@ import { isUnread, type AppNotification } from "./types";
  */
 
 export type NotificationMeta = {
-  label: string;
+  labelKey: string;
   icon: typeof Bell;
   /** Couleur du texte/icône : suit le thème (neutre, sauf invitation). */
   color: string;
@@ -40,7 +44,7 @@ const META: Record<string, NotificationMeta> = {
   invitation: {
     // L'invitation est la seule notification qui appelle une décision
     // immédiate : elle garde le rouge, tout le reste reste neutre.
-    label: "Invitation",
+    label: "Notifications.types.invitation",
     icon: UserPlus,
     color: "var(--color-error)",
     bg: "color-mix(in srgb, var(--color-error) 14%, transparent)",
@@ -144,7 +148,7 @@ export const getNotificationMeta = (type: string): NotificationMeta =>
   };
 
 export type NotificationAction = {
-  label: string;
+  labelKey: string;
   href: string;
   icon: typeof Bell;
 };
@@ -157,7 +161,7 @@ export type NotificationAction = {
  * `null` partout ailleurs.
  */
 export const notificationAction = (n: AppNotification): NotificationAction | null => {
-  if (!n.link || n.type !== "invitation") return null;
+  if (!n.link || n.type !== "Notifications.types.invitation") return null;
 
   return { label: "Accepter l'invitation", href: n.link, icon: ArrowRight };
 };
@@ -168,7 +172,7 @@ export const notificationAction = (n: AppNotification): NotificationAction | nul
  * plus cliquer dessus — et n'existe plus que pour être lue puis supprimée.
  */
 export const isNeutralNotification = (n: AppNotification): boolean =>
-  n.type === "invitation" && !n.link;
+  n.type === "Notifications.types.invitation" && !n.link;
 
 /**
  * Filtres proposés, dans l'ordre d'affichage.
@@ -201,31 +205,18 @@ export const belongsToAgency = (n: AppNotification, agencyId: number | string): 
   return (n.link ?? "").startsWith(`/agences/${agencyId}/`);
 };
 
-export const relativeTime = (dateStr: string): string => {
+export const relativeTime = (dateStr: string, locale: string = "fr"): string => {
   if (!dateStr) return "—";
   const date = new Date(dateStr);
   if (Number.isNaN(date.getTime())) return dateStr;
-
-  const diffMs = Date.now() - date.getTime();
-  const minutes = Math.floor(diffMs / 60000);
-  if (minutes < 1) return "à l'instant";
-  if (minutes < 60) return `il y a ${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `il y a ${hours} h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `il y a ${days} j`;
-  return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  return relativeTimeDate(date, locale);
 };
 
-export const formatFullDate = (iso: string): string => {
+export const formatFullDate = (iso: string, locale: string = "fr"): string => {
   if (!iso) return "—";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString("fr-FR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTimeLong(date, locale);
 };
+
+

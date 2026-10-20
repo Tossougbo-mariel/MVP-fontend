@@ -20,11 +20,11 @@ export const LEGACY_KEY_TO_HEX: Record<string, string> = {
   orange: "#C2410C",
 };
 
-export type PresetColor = { label: string; hex: string };
+export type PresetColor = { key: string; label: string; hex: string };
 
 export const PRESET_COLORS: PresetColor[] = [
-  { label: "Bleu", hex: "#056cf2" },
-  { label: "Bleu ciel", hex: "#0EA5E9" },
+  { key: "blue", label: "Bleu", hex: "#056cf2" },
+  { key: "sky", label: "Bleu ciel", hex: "#0EA5E9" },
   { label: "Cyan", hex: "#06B6D4" },
   { label: "Turquoise", hex: "#14B8A6" },
   { label: "Menthe", hex: "#34D399" },
@@ -69,3 +69,4 @@ export const toAccentHex = (value: string | null | undefined): string => {
   if (isHexColor(trimmed)) return expandHex(trimmed);
   return DEFAULT_ACCENT;
 };
+

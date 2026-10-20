@@ -1,5 +1,6 @@
 import type { DeadlineAlert } from "@/app/store/deadlineAlertStore";
 import { DEADLINE_META, type Task } from "./types";
+import { formatDateLong, relativeDayLabel } from "./dates";
 
 /** Fenêtre d'alerte : les 3 jours précédant l'échéance (aligné sur le badge « À échéance »). */
 const ALERT_WINDOW_DAYS = 3;
@@ -26,22 +27,15 @@ const parseDueDay = (due: string): number => {
   return Number.isNaN(t) ? Number.NaN : startOfDay(t);
 };
 
-export const formatDueDate = (due: string): string => {
+export const formatDueDate = (due: string, locale: string = "fr"): string => {
   const t = parseDueDay(due);
   if (Number.isNaN(t)) return due;
-  return new Date(t).toLocaleDateString("fr-FR", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+  return formatDateLong(new Date(t), locale);
 };
 
 /** Libellé relatif à partir de l'écart en jours (0 = aujourd'hui, 1 = demain). */
-const relativeLabel = (dayDiff: number): string => {
-  if (dayDiff <= 0) return "aujourd'hui";
-  if (dayDiff === 1) return "demain";
-  return `dans ${dayDiff} jours`;
-};
+const relativeLabel = (dayDiff: number, locale: string = "fr"): string =>
+  relativeDayLabel(dayDiff, locale);
 
 /**
  * Construit l'alerte d'une tâche, ou null si la tâche n'est pas concernée :
@@ -50,6 +44,7 @@ const relativeLabel = (dayDiff: number): string => {
 export const buildDeadlineAlert = (
   task: Task,
   now = Date.now(),
+  locale: string = "fr",
 ): DeadlineAlert | null => {
   if (!task.dueDate || task.completedAt || task.archivedAt) return null;
 
@@ -60,7 +55,7 @@ export const buildDeadlineAlert = (
   if (dayDiff > ALERT_WINDOW_DAYS) return null;
 
   const stage = dayDiff < 0 ? "retard" : "bientot";
-  const date = formatDueDate(task.dueDate);
+  const date = formatDueDate(task.dueDate, locale);
 
   if (stage === "retard") {
     return {
@@ -83,16 +78,15 @@ export const buildDeadlineAlert = (
     projectId: task.projectId,
     dueDate: task.dueDate,
     daysLeft: dayDiff,
-    message: `Attention. La tâche « ${task.title} » doit être terminée ${relativeLabel(dayDiff)}, le ${date}. Pensez à la faire sans attendre.`,
+    message: `Attention. La tâche « ${task.title} » doit être terminée ${relativeLabel(dayDiff, locale)}, le ${date}. Pensez à la faire sans attendre.`,
   };
 };
 
 /** Ligne courte d'une alerte, commune à la liste déroulante et à la page. */
-export const deadlineAlertLabel = (alert: DeadlineAlert): string => {
+export const deadlineAlertLabel = (alert: DeadlineAlert, locale: string = "fr"): string => {
   if (alert.stage === "retard") return "En retard";
-  if (alert.daysLeft === 0) return "Échéance aujourd'hui";
-  if (alert.daysLeft === 1) return "Échéance demain";
-  return `Échéance dans ${alert.daysLeft ?? 2} jours`;
+  const dayLabel = relativeDayLabel(alert.daysLeft ?? 2, locale);
+  return `Échéance ${dayLabel}`;
 };
 
 /** Couleurs reprises de DEADLINE_META : rouge en retard, ambre à venir. */
@@ -105,9 +99,10 @@ export const deadlineAlertTone = (
 export const activeDeadlineAlerts = (
   tasks: Task[],
   now = Date.now(),
+  locale: string = "fr",
 ): DeadlineAlert[] =>
   tasks
-    .map((task) => buildDeadlineAlert(task, now))
+    .map((task) => buildDeadlineAlert(task, now, locale))
     .filter((alert): alert is DeadlineAlert => alert !== null)
     .sort((a, b) => {
       if (a.stage !== b.stage) return a.stage === "retard" ? -1 : 1;

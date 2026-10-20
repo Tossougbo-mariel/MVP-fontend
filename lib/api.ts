@@ -43,8 +43,10 @@ api.interceptors.response.use(
 
     if (status === 401 && typeof window !== "undefined" && !isAuthAttempt) {
       window.localStorage.removeItem(AUTH_STORAGE_KEY);
-      if (window.location.pathname !== "/connexion") {
-        window.location.assign(window.location.origin + "/connexion");
+      const segment = window.location.pathname.split("/")[1];
+      const locale = segment === "en" ? "en" : "fr";
+      if (window.location.pathname !== `/${locale}/connexion`) {
+        window.location.assign(`${window.location.origin}/${locale}/connexion`);
       }
     }
     return Promise.reject(error);
@@ -75,7 +77,7 @@ export const getApiErrorMessage = (error: unknown): string => {
   if (typeof status === "number" && status >= 500) {
     return "Le serveur ne répond pas. Réessayez plus tard.";
   }
-  return "Une erreur est survenue.";
+  return "Errors.generic";
 };
 
 export default api;

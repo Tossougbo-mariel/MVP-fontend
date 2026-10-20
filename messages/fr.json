@@ -1,0 +1,71 @@
+{
+  "Metadata": {
+    "title": "MVP Studio — Gestion de tâches",
+    "description": "Plateforme de gestion et de suivi des tâches pour équipes, freelances et agences."
+  },
+  "Common": {},
+  "Navigation": {
+    "home": "Accueil",
+    "features": "Fonctionnalités",
+    "how-it-works": "Comment ça marche",
+    "testimonials": "Témoignages",
+    "signUp": "S'inscrire",
+    "login": "Se connecter"
+
+  },
+  "Auth": {},
+  "Validation": {},
+  "Errors": {},
+  "Landing": {
+    "hero":{
+      "titleStart": "Pilotez vos",
+      "titleHighlight": "agences et vos équipes",
+      "titleEnd": "avec précision",
+      "description": "MVP Studio centralise vos agences, projets et tâches dans un tableau de bord élégant. Suivez chaque mission, pilotez chaque équipe — simplement.",
+      "primaryCta": "Démarrer gratuitement",
+      "secondaryCta": "En savoir plus"
+    },
+    "mockup": {
+      "project": "Site web ABC Immobilier",
+      "columns": {
+        "todo": "À faire",
+        "inProgress": "En cours",
+        "inReview": "En révision",
+        "done": "Terminée"
+      },
+      "priorities": {
+        "medium": "Moyenne",
+        "high": "Haute"
+      },
+      "tasks": {
+        "contactForm": "Formulaire contact",
+        "usersApi": "API utilisateurs",
+        "listingsPage": "Page des biens",
+        "homePage": "Page d'accueil",
+        "homeMockup": "Maquette accueil"
+      },
+      "dates": {
+        "sep15": "15/09",
+        "sep18": "18/09",
+        "sep20": "20/09"
+      }
+    }
+  },
+  "Dashboard": {},
+  "Agencies": {},
+  "Projects": {},
+  "Tasks": {},
+  "Team": {},
+  "Planning": {},
+  "Notifications": {},
+  "Deadlines": {},
+  "Profile": {},
+  "Settings": {},
+  "Statuses": {},
+  "Priorities": {},
+  "ProjectStatuses": {},
+  "DeadlineStatuses": {},
+  "NotificationTypes": {},
+  "Colors": {},
+  "Dates": {}
+}
