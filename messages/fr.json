@@ -1,0 +1,363 @@
+{
+  "Metadata": {
+    "title": "MVP Studio — Gestion de tâches",
+    "description": "Plateforme de gestion et de suivi des tâches pour équipes, freelances et agences."
+  },
+  "Common": {},
+  "Navigation": {
+    "home": "Accueil",
+    "features": "Fonctionnalités",
+    "howItWorks": "Comment ça marche",
+    "testimonials": "Témoignages",
+    "signUp": "S'inscrire",
+    "login": "Se connecter",
+    "openMenu": "Ouvrir le menu",
+    "language": "Langue"
+
+  },
+  "Auth": {
+    "signup": {
+      "hero": {
+        "title": "Rejoignez votre équipe",
+        "description": "Créez votre compte et commencez à gérer vos projets dès aujourd'hui.",
+        "imageAlt": "Travail d'équipe"
+      },
+      "backToHome": "Retour à l'accueil",
+      "title": "Inscription",
+      "subtitle": "Créez votre compte gratuitement",
+      "avatar": {
+        "label": "Photo de profil (optionnel)",
+        "imageAlt": "Photo de profil",
+        "choose": "Choisir une photo de profil",
+        "recrop": "Cliquer pour recadrer la photo",
+        "remove": "Retirer"
+      },
+      "fields": {
+        "firstName": "Prénom",
+        "lastName": "Nom",
+        "email": "Email",
+        "password": "Mot de passe",
+        "confirmPassword": "Confirmer le mot de passe",
+        "togglePassword": "Afficher ou masquer le mot de passe",
+        "toggleConfirmPassword": "Afficher ou masquer la confirmation du mot de passe"
+      },
+      "submit": "Créer mon compte",
+      "submitLoading": "Création...",
+      "alreadyAccount": "Déjà un compte ?",
+      "errors": {
+        "mismatch": "Les mots de passe ne correspondent pas.",
+        "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères."
+      },
+      "crop": {
+        "title": "Recadrer la photo",
+        "close": "Fermer",
+        "cancel": "Annuler",
+        "confirm": "Valider",
+        "processing": "Traitement...",
+        "zoom": "Zoom"
+      }
+    },
+    "login": {
+      "hero": {
+        "imageAlt": "Gestion de tâches",
+        "titleLine1": "Organisez. Collaborez.",
+        "titleLine2": "Réalisez l'extraordinaire.",
+        "description": "Gérez vos projets et vos tâches en équipe, simplement et efficacement.",
+        "stats": {
+          "onTime": "tâches à temps",
+          "deliveriesTitle": "Livraisons",
+          "deliveriesLabel": "en avance",
+          "teamsTitle": "Équipes",
+          "teamsLabel": "synchronisées"
+        }
+      },
+      "backToHome": "Retour à l'accueil",
+      "title": "Connexion",
+      "subtitle": "Ravi de vous revoir ! Entrez dans votre espace.",
+      "signupSuccess": "Votre compte a été créé avec succès. Connectez-vous.",
+      "twoFactor": {
+        "title": "Vérification en deux étapes",
+        "subtitle": "Un code a été envoyé à {email}.",
+        "backLabel": "Revenir"
+      },
+      "fields": {
+        "email": "Adresse e-mail",
+        "password": "Mot de passe",
+        "togglePassword": "Afficher ou masquer le mot de passe"
+      },
+      "forgotPassword": "Mot de passe oublié ?",
+      "submit": "Se connecter",
+      "submitLoading": "Connexion...",
+      "noAccount": "Pas encore de compte ?",
+      "separator": "ou",
+      "google": "Continuer avec Google",
+      "googleErrors": {
+        "emailDejaUtilise": "Un compte existe déjà avec cette adresse. Connectez-vous avec votre mot de passe.",
+        "googleEmailAbsent": "Votre compte Google ne partage pas d'adresse e-mail : impossible de créer un compte.",
+        "googleEchec": "La connexion avec Google a échoué. Réessayez.",
+        "fallback": "La connexion avec Google a échoué."
+      }
+    },
+    "codeStep": {
+      "back": "Retour",
+      "resend": "Renvoyer le code",
+      "sending": "Envoi...",
+      "submit": "Valider le code",
+      "verifying": "Vérification...",
+      "resent": "Un nouveau code vient d'être envoyé."
+    },
+    "forgot": {
+      "hero": {
+        "imageAlt": "Sécurité",
+        "title": "Récupérez votre accès",
+        "description": "Nous vous enverrons un lien sécurisé pour réinitialiser votre mot de passe."
+      },
+      "title": "Mot de passe oublié",
+      "subtitle": {
+        "sent": "Un lien de réinitialisation a été envoyé à votre adresse.",
+        "form": "Entrez votre e-mail pour recevoir un lien de réinitialisation"
+      },
+      "fields": {
+        "email": "Email"
+      },
+      "submit": "Envoyer le lien",
+      "submitLoading": "Envoi...",
+      "backToLogin": "Retour à la connexion"
+    },
+    "reset": {
+      "loading": "Chargement...",
+      "hero": {
+        "imageAlt": "Sécurité",
+        "title": "Définissez un nouveau mot de passe",
+        "description": "Choisissez un mot de passe sécurisé pour protéger votre compte."
+      },
+      "title": "Nouveau mot de passe",
+      "subtitle": {
+        "success": "Votre mot de passe a été modifié avec succès.",
+        "form": "Saisissez votre nouveau mot de passe ci-dessous"
+      },
+      "successLogin": "Se connecter",
+      "fields": {
+        "password": "Nouveau mot de passe",
+        "confirm": "Confirmer le nouveau mot de passe",
+        "togglePassword": "Afficher ou masquer le nouveau mot de passe",
+        "toggleConfirm": "Afficher ou masquer la confirmation du nouveau mot de passe"
+      },
+      "submit": "Réinitialiser le mot de passe",
+      "submitLoading": "Enregistrement...",
+      "backToLogin": "Retour à la connexion",
+      "errors": {
+        "invalidLink": "Lien de réinitialisation invalide ou manquant.",
+        "missingEmail": "L'e-mail manque dans ce lien : redemandez votre lien de réinitialisation.",
+        "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères.",
+        "mismatch": "Les mots de passe ne correspondent pas."
+      }
+    },
+    "changePassword": {
+      "title": "Modifier le mot de passe",
+      "subtitle": "Choisissez un nouveau mot de passe sécurisé.",
+      "fields": {
+        "current": "Mot de passe actuel",
+        "new": "Nouveau mot de passe",
+        "confirm": "Confirmer le nouveau mot de passe",
+        "toggleCurrent": "Afficher ou masquer le mot de passe actuel",
+        "toggleNew": "Afficher ou masquer le nouveau mot de passe",
+        "toggleConfirm": "Afficher ou masquer la confirmation"
+      },
+      "submit": "Mettre à jour",
+      "submitLoading": "Enregistrement...",
+      "success": {
+        "title": "Mot de passe modifié !",
+        "message": "Votre mot de passe a été mis à jour avec succès."
+      },
+      "backToProfile": "Retour à <profile>mon profil</profile>",
+      "errors": {
+        "passwordTooShort": "Le nouveau mot de passe doit contenir au moins 8 caractères.",
+        "mismatch": "Les deux nouveaux mots de passe ne correspondent pas.",
+        "sameAsCurrent": "Le nouveau mot de passe doit être différent de l'actuel."
+      }
+    },
+    "invitation": {
+      "pageError": "Lien invalide : aucun code d'invitation fourni.",
+      "error": {
+        "title": "Invitation introuvable ou expirée",
+        "message": "Cette invitation a peut-être expiré, été annulée, ou le lien est incomplet. Contactez le propriétaire de l'agence pour obtenir un nouveau lien.",
+        "goToLogin": "Aller à la connexion"
+      },
+      "accepted": {
+        "title": "Invitation acceptée !",
+        "message": "Votre adhésion est confirmée. Redirection vers Mes agences..."
+      },
+      "loading": "Vérification de l'invitation...",
+      "title": "Invitation à rejoindre une agence",
+      "invitedTo": "Vous êtes invité·e à rejoindre",
+      "role": {
+        "label": "Rôle :",
+        "admin": "Admin",
+        "member": "Membre"
+      },
+      "notConnected": {
+        "message": "Pour rejoindre l'agence, créez votre compte ou connectez-vous — la confirmation se fera automatiquement ensuite.",
+        "createAccount": "Créer mon compte",
+        "signIn": "J'ai déjà un compte · Me connecter"
+      },
+      "accept": {
+        "idle": "Accepter l'invitation",
+        "processing": "Traitement..."
+      },
+      "connectedAs": "Connecté en tant que {firstName} {lastName} ({email})"
+    }
+  },
+  "Validation": {},
+  "Errors": {
+    "generic": "Une erreur est survenue. Réessayez."
+  },
+  "Landing": {
+    "hero":{
+      "titleStart": "Pilotez vos",
+      "titleHighlight": "agences et vos équipes",
+      "titleEnd": "avec précision",
+      "description": "MVP Studio centralise vos agences, projets et tâches dans un tableau de bord élégant. Suivez chaque mission, pilotez chaque équipe — simplement.",
+      "primaryCta": "Démarrer gratuitement",
+      "secondaryCta": "En savoir plus"
+    },
+    "mockup": {
+      "project": "Site web ABC Immobilier",
+      "columns": {
+        "todo": "À faire",
+        "inProgress": "En cours",
+        "inReview": "En révision",
+        "done": "Terminée"
+      },
+      "priorities": {
+        "medium": "Moyenne",
+        "high": "Haute"
+      },
+      "tasks": {
+        "contactForm": "Formulaire contact",
+        "usersApi": "API utilisateurs",
+        "listingsPage": "Page des biens",
+        "homePage": "Page d'accueil",
+        "homeMockup": "Maquette accueil"
+      },
+      "dates": {
+        "sep15": "15/09",
+        "sep18": "18/09",
+        "sep20": "20/09"
+      }
+    },
+    "features": {
+      "badge": "Fonctionnalités",
+      "title": "Tout ce qu'il faut pour piloter vos projets",
+      "subtitle": "Un outil complet, pensé pour les agences et les équipes qui veulent avancer vite et bien.",
+      "items": {
+        "multiAgency": {
+          "title": "Multi-agences",
+          "description": "Gérez plusieurs agences depuis un seul compte avec une navigation claire entre chacune d'elles."
+        },
+        "projects": {
+          "title": "Gestion de projets",
+          "description": "Créez des projets, suivez leur avancement et gardez une vision d'ensemble sur toutes vos missions."
+        },
+        "tasks": {
+          "title": "Suivi des tâches",
+          "description": "Organisez vos tâches par statut, priorité ou membre. Plus rien ne passe à la trappe."
+        },
+        "team": {
+          "title": "Gestion d'équipe",
+          "description": "Invitez vos collaborateurs, définissez les rôles et visualisez l'activité de chacun."
+        },
+        "notifications": {
+          "title": "Notifications",
+          "description": "Restez informé des nouvelles tâches, commentaires et changements importants en temps réel."
+        },
+        "settings": {
+          "title": "Paramètres avancés",
+          "description": "Personnalisez vos agences, gérez les permissions et adaptez l'outil à votre façon de travailler."
+        }
+      }
+    },
+    "howItWorks": {
+      "badge": "Comment ça marche",
+      "title": "Lancez-vous en trois étapes simples",
+      "subtitle": "De la création de votre agence à la collaboration en équipe, vous êtes opérationnel en quelques minutes.",
+      "stepLabel": "Étape {number}",
+      "steps": {
+        "createAgency": {
+          "title": "Créez votre agence",
+          "description": "Créez votre agence en quelques secondes. Générez un lien d'invitation pour ajouter vos collaborateurs et commencez à structurer votre organisation."
+        },
+        "organizeProjects": {
+          "title": "Organisez vos projets",
+          "description": "Créez des projets par client ou par mission. Divisez-les en tâches claires, fixez des priorités et gardez une vision d'ensemble sur chaque avancement."
+        },
+        "collaborate": {
+          "title": "Collaborez en équipe",
+          "description": "Assignez les tâches à vos membres, suivez les notifications, et pilotez l'activité de toute l'agence depuis un tableau de bord unique et simple."
+        }
+      }
+    },
+    "footer": {
+      "description": "La plateforme tout-en-un pour gérer vos agences, vos projets et vos équipes, simplement et efficacement.",
+      "productTitle": "Produit",
+      "accountTitle": "Compte",
+      "createAccount": "Créer un compte",
+      "forgotPassword": "Mot de passe oublié",
+      "copyright": "© {year} MVP Studio. Tous droits réservés."
+    },
+      "testimonials": {
+        "badge": "Témoignages",
+        "title": "Ils utilisent MVP Studio au quotidien",
+        "subtitle": "Nos clients gèrent leurs agences, projets et équipes avec succès.",
+        "quoted": "« {quote} »",
+        "items": {
+          "amina": {
+            "quote": "MVP Studio a transformé notre façon de travailler. Toutes nos agences et projets sont enfin centralisés au même endroit.",
+            "role": "Directrice · Agence Créative"
+          },
+          "karim": {
+            "quote": "Le suivi des tâches est limpide. Chaque membre de l'équipe sait exactement quoi faire et où en est chaque projet.",
+            "role": "Chef de projet · Studio Digital"
+          },
+          "leila": {
+            "quote": "Simple, rapide et efficace. Gain de temps énorme.",
+            "role": "Fondatrice · Web Studio"
+          },
+          "youssef": {
+            "quote": "La vision d'ensemble qu'on a enfin sur tous nos projets. Le dashboard est clair, les notifications sont pertinentes.",
+            "role": "Directeur technique · Agence Web"
+          }
+        }
+      },
+    "finalCta": {
+      "title": "Prêt à passer à la <highlight>vitesse supérieure</highlight> ?",
+      "description": "Rejoignez des centaines d'équipes qui organisent leurs agences, leurs projets et leurs tâches avec MVP Studio. C'est gratuit pour commencer.",
+      "primaryCta": "Créer mon compte gratuit",
+      "secondaryCta": "J'ai déjà un compte"
+    }
+  },
+  "Dashboard": {},
+  "Agencies": {},
+  "Projects": {},
+  "Tasks": {},
+  "Team": {},
+  "Planning": {},
+  "Notifications": {},
+  "Deadlines": {},
+  "Profile": {},
+  "Settings": {
+    "theme": {
+      "label": "Thème de l'interface",
+      "description": "Choisis entre l'apparence claire et sombre.",
+      "light": "Clair",
+      "dark": "Sombre"
+    }
+  },
+  "Statuses": {},
+  "Priorities": {},
+  "ProjectStatuses": {},
+  "DeadlineStatuses": {},
+  "NotificationTypes": {},
+  "Colors": {},
+  "Dates": {}
+}

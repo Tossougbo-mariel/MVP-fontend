@@ -16,6 +16,10 @@ import {
   UserX,
 } from "lucide-react";
 import { isUnread, type AppNotification } from "./types";
+import {
+  relativeTime as relativeTimeDate,
+  formatDateTimeLong,
+} from "./dates";
 
 /**
  * Vocabulaire commun des notifications.
@@ -28,6 +32,9 @@ import { isUnread, type AppNotification } from "./types";
  */
 
 export type NotificationMeta = {
+  /** Libellé du type de notification, en dur : la traduction du module
+   *  notifications est encore à faire (une seule passe : lib, page, en-tête,
+   *  toast, namespaces fr/en). */
   label: string;
   icon: typeof Bell;
   /** Couleur du texte/icône : suit le thème (neutre, sauf invitation). */
@@ -201,31 +208,18 @@ export const belongsToAgency = (n: AppNotification, agencyId: number | string): 
   return (n.link ?? "").startsWith(`/agences/${agencyId}/`);
 };
 
-export const relativeTime = (dateStr: string): string => {
+export const relativeTime = (dateStr: string, locale: string = "fr"): string => {
   if (!dateStr) return "—";
   const date = new Date(dateStr);
   if (Number.isNaN(date.getTime())) return dateStr;
-
-  const diffMs = Date.now() - date.getTime();
-  const minutes = Math.floor(diffMs / 60000);
-  if (minutes < 1) return "à l'instant";
-  if (minutes < 60) return `il y a ${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `il y a ${hours} h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `il y a ${days} j`;
-  return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  return relativeTimeDate(date, locale);
 };
 
-export const formatFullDate = (iso: string): string => {
+export const formatFullDate = (iso: string, locale: string = "fr"): string => {
   if (!iso) return "—";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString("fr-FR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTimeLong(date, locale);
 };
+
+

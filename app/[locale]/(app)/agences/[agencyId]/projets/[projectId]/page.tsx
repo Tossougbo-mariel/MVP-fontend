@@ -1,0 +1,1015 @@
+"use client";
+
+import { useState } from "react";
+import { useParams } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { Link } from "@/i18n/navigation";
+import { useLocale } from "next-intl";
+import { motion, type Variants } from "framer-motion";
+import {
+  ArrowLeft,
+  Calendar,
+  CalendarClock,
+  Check,
+  Archive,
+  ArchiveRestore,
+  FileDown,
+  FolderKanban,
+  ImageIcon,
+  ImageOff,
+  Pencil,
+  Save,
+  Trash2,
+  UserPlus,
+  Users,
+  X,
+} from "lucide-react";
+import { useAppData, useAsync } from "@/lib/appData";
+import { userRoleInAgency, getProjectStatusFromTasks, type ProjectStatus, type ProjectMember } from "@/lib/types";
+import { useTaskStatuses } from "@/lib/useTaskStatuses";
+import DatePickerField from "@/app/[locale]/(app)/components/DatePickerField";
+import CustomSelectField from "@/app/[locale]/(app)/components/CustomSelectField";
+import { useAuthStore } from "@/app/store/authStore";
+import {
+  fetchProjectMembers,
+  updateProject as apiUpdateProject,
+  deleteProject as apiDeleteProject,
+  addProjectMember as apiAddProjectMember,
+  removeProjectMember as apiRemoveProjectMember,
+  exportProjectReportPdf,
+  getApiErrorMessage,
+} from "@/lib/services";
+import { WALLPAPERS } from "@/app/store/wallpapers";
+import { formatDateShort } from "@/lib/dates";
+
+const container: Variants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.08 } },
+};
+const item: Variants = {
+  hidden: { y: 16, opacity: 0 },
+  show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
+};
+
+const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: string; border?: string }> = {
+  a_venir: {
+    label: "À venir",
+    color: "var(--text-secondary)",
+    bg: "transparent",
+    border: "1px solid var(--border-subtle)",
+  },
+  en_cours: { label: "En cours", color: "var(--blue)", bg: "var(--accent-soft)" },
+  en_retard: { label: "En retard", color: "#D85A30", bg: "rgba(216,90,48,0.14)" },
+  termine: { label: "Terminé", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
+  archive: {
+    label: "Archivé",
+    color: "var(--text-muted)",
+    bg: "transparent",
+    border: "1px solid var(--border-subtle)",
+  },
+};
+
+const formatDate = (date: string | null, locale: string = "fr") => {
+  if (!date) return "—";
+  const d = new Date(date + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return date;
+  return formatDateShort(d, locale);
+};
+
+export default function ProjectDetailPage() {
+  const { agencyId, projectId } = useParams<{ agencyId: string; projectId: string }>();
+  const locale = useLocale();
+  const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+  const { reload, agencyById, getProject, tasksByProject, data } = useAppData();
+  const { statuses } = useTaskStatuses();
+
+  const agency = agencyById(agencyId);
+  const project = getProject(projectId);
+
+  const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
+  const isAdmin = role === "owner" || role === "admin";
+
+  // Members du projet via API
+  const membersResult = useAsync(() => fetchProjectMembers(projectId), [projectId]);
+  const projectMembers: ProjectMember[] = membersResult.data ?? [];
+
+  const [adding, setAdding] = useState(false);
+  const [selectedToAdd, setSelectedToAdd] = useState<number[]>([]);
+  const [editing, setEditing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmingHardDelete, setConfirmingHardDelete] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<{
+    memberId: number;
+    memberName: string;
+    message: string;
+  } | null>(null);
+
+  // ====== État du formulaire d'édition ======
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editStartDate, setEditStartDate] = useState("");
+  const [editDueDate, setEditDueDate] = useState("");
+  const [editStatus, setEditStatus] = useState<ProjectStatus>("a_venir");
+  const [editWallpaper, setEditWallpaper] = useState<string | null>(null);
+  const [editFieldErrors, setEditFieldErrors] = useState<Record<string, string>>({});
+  const [editApiError, setEditApiError] = useState<string | null>(null);
+
+  const openEdit = () => {
+    if (!project) return;
+    setEditName(project.name);
+    setEditDescription(project.description ?? "");
+    setEditStartDate(project.startDate ?? "");
+    setEditDueDate(project.dueDate ?? "");
+    setEditStatus(project.status);
+    setEditWallpaper(project.wallpaper ?? null);
+    setEditFieldErrors({});
+    setEditApiError(null);
+    setEditing(true);
+  };
+
+  const clearEditFieldError = (field: string) => {
+    setEditFieldErrors((prev) => {
+      if (!(field in prev)) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEditFieldErrors({});
+    setEditApiError(null);
+    if (!project) return;
+
+    const fe: Record<string, string> = {};
+    if (!editName.trim()) fe.name = "Le nom du projet est obligatoire.";
+    if (editStartDate && editDueDate && editDueDate < editStartDate) {
+      fe.dueDate = "La date d'échéance doit être postérieure ou égale à la date de début.";
+    }
+    if (project.dueDate && (!editDueDate || editDueDate < project.dueDate)) {
+      fe.dueDate = "La date d'échéance ne peut pas être antérieure à l'échéance déjà définie.";
+    }
+    if (Object.keys(fe).length > 0) {
+      setEditFieldErrors(fe);
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      await apiUpdateProject(project.id, {
+        name: editName.trim(),
+        description: editDescription.trim() || null,
+        status: editStatus !== project.status ? editStatus : undefined,
+        start_date: editStartDate || null,
+        due_date: editDueDate || null,
+        wallpaper: editWallpaper,
+      });
+      await reload();
+      setEditing(false);
+    } catch (err) {
+      const axiosErr = err as {
+        response?: { data?: { errors?: Record<string, string[]> } };
+      };
+      const backendErrors = axiosErr?.response?.data?.errors;
+      if (backendErrors && Object.keys(backendErrors).length > 0) {
+        const fe: Record<string, string> = {};
+        for (const [field, messages] of Object.entries(backendErrors)) {
+          const key =
+            field === "start_date" ? "startDate"
+            : field === "due_date" ? "dueDate"
+            : field === "name" ? "name"
+            : field === "status" ? "status"
+            : field;
+          fe[key] = messages[0] ?? "Champ invalide.";
+        }
+        setEditFieldErrors(fe);
+      } else {
+        setEditApiError(getApiErrorMessage(err));
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!project) return;
+    setActionLoading(true);
+    try {
+      await apiUpdateProject(project.id, { status: "archive" });
+      setConfirmingDelete(false);
+      await reload();
+      router.push(`/agences/${agencyId}/projets`);
+    } catch (err) {
+      setConfirmingDelete(false);
+      alert(getApiErrorMessage(err));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!project) return;
+    setActionLoading(true);
+    try {
+      await apiUpdateProject(project.id, { status: "en_cours" });
+      await reload();
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!project) return;
+    setActionLoading(true);
+    try {
+      await apiDeleteProject(project.id);
+      await reload();
+      router.replace(`/agences/${agencyId}/projets`);
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const toggleSelectToAdd = (userId: number) => {
+    setSelectedToAdd((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const handleAddSelected = async () => {
+    if (!project || selectedToAdd.length === 0) return;
+    setActionLoading(true);
+    try {
+      const emails = addableMembers
+        .filter((m) => selectedToAdd.includes(m.user.id))
+        .map((m) => m.user.email);
+      for (const email of emails) {
+        await apiAddProjectMember(project.id, email);
+      }
+      setSelectedToAdd([]);
+      setAdding(false);
+      membersResult.reload();
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRemoveMember = async (projectMemberId: number, confirm = false) => {
+    if (!project) return;
+    try {
+      await apiRemoveProjectMember(project.id, projectMemberId, confirm);
+      setPendingRemoval(null);
+      membersResult.reload();
+    } catch (err) {
+      const axiosErr = err as {
+        response?: { status?: number; data?: { message?: string; requires_confirmation?: boolean } };
+      };
+      if (
+        axiosErr?.response?.status === 409 &&
+        axiosErr?.response?.data?.requires_confirmation
+      ) {
+        const pm = projectMembers.find((m) => m.id === projectMemberId);
+        const memberName = pm
+          ? `${pm.user.firstName} ${pm.user.lastName}`.trim() || pm.user.email
+          : "ce membre";
+        setPendingRemoval({
+          memberId: projectMemberId,
+          memberName,
+          message: axiosErr.response.data.message ?? `Ce membre a des tâches en cours sur ce projet.`,
+        });
+      } else {
+        alert(getApiErrorMessage(err));
+      }
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!project || exportingPdf) return;
+    setExportingPdf(true);
+    try {
+      await exportProjectReportPdf(project);
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
+  if (data.loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+      </div>
+    );
+  }
+
+  // ✅ Si l'agence n'existe pas
+  if (!agency) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
+          Agence introuvable
+        </p>
+        <Link
+          href="/mes-agences"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
+          style={{ background: "var(--gradient-button)" }}
+        >
+          <ArrowLeft size={16} /> Mes agences
+        </Link>
+      </div>
+    );
+  }
+
+  // ✅ Si l'utilisateur n'est pas membre de l'agence
+  const isAgencyMember = user && agency.members?.some((m) => m.user.email.toLowerCase() === user.email.toLowerCase());
+  if (!user || !isAgencyMember) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
+          Vous n&apos;êtes pas membre de cette agence.
+        </p>
+        <Link
+          href="/mes-agences"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
+          style={{ background: "var(--gradient-button)" }}
+        >
+          <ArrowLeft size={16} /> Retour à Mes agences
+        </Link>
+      </div>
+    );
+  }
+
+  // ✅ Si le projet n'existe pas
+  if (!project) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
+          Projet introuvable
+        </p>
+        <Link
+          href={`/agences/${agencyId}/projets`}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
+          style={{ background: "var(--gradient-button)" }}
+        >
+          <ArrowLeft size={16} /> Retour aux projets
+        </Link>
+      </div>
+    );
+  }
+
+  // ✅ Le détail du projet est réservé à l'admin de l'agence
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
+        <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
+          Accès refusé
+        </p>
+        <p className="max-w-sm" style={{ color: "var(--text-secondary)" }}>
+          Seul l&apos;admin de l&apos;agence peut consulter le détail d&apos;un projet.
+        </p>
+        <Link
+          href={`/agences/${agencyId}/projets`}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
+          style={{ background: "var(--gradient-button)" }}
+        >
+          <ArrowLeft size={16} /> Retour aux projets
+        </Link>
+      </div>
+    );
+  }
+
+  const projectTasks = tasksByProject(project.id);
+  const allProjectTaskCount = data.tasks.filter(
+    (t) => Number(t.projectId) === Number(project.id),
+  ).length;
+  const editDueMin = [project.dueDate, editStartDate]
+    .filter((v): v is string => !!v)
+    .sort()
+    .pop();
+  const badge = statusConfig[getProjectStatusFromTasks(project.status, projectTasks, undefined, project.dueDate)];
+
+  // Membres de l'agence pas encore dans le projet (pour l'ajout)
+  const addableMembers = (agency.members ?? []).filter(
+    (am) => !projectMembers.some((pm) => pm.user.id === am.user.id)
+  );
+  const canManageMembers = isAdmin;
+
+  return (
+    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+      {/* Lien retour */}
+      <motion.div variants={item}>
+        <Link
+          href={`/agences/${agencyId}/projets`}
+          className="inline-flex items-center gap-2 text-sm font-semibold hover:opacity-80"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          <ArrowLeft size={16} /> Projets
+        </Link>
+      </motion.div>
+
+      {/* En-tête du projet */}
+      <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+                style={{ background: "var(--gradient-primary)" }}
+              >
+                <FolderKanban className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>
+                  {project.name}
+                </h1>
+                <span
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                  style={{ color: badge.color, background: badge.bg, border: badge.border }}
+                >
+                  {badge.label}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-start sm:items-end flex-col gap-2 shrink-0">
+              {isAdmin && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={openEdit}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5"
+                    style={{ background: "var(--accent-soft)", color: "var(--accent-text)", boxShadow: "0 2px 6px -2px rgba(var(--blue-rgb),0.35)" }}
+                  >
+                    <Pencil size={13} /> Modifier
+                  </button>
+                  {project.status === "archive" ? (
+                  <button
+                    onClick={handleRestore}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5"
+                    style={{ background: "var(--color-success)", color: "#fff", boxShadow: "0 2px 6px -2px rgba(16,185,129,0.35)" }}
+                  >
+                    <ArchiveRestore size={13} /> Restaurer
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setConfirmingDelete(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5"
+                    style={{ background: "rgba(239,68,68,0.10)", color: "var(--color-error)", boxShadow: "0 2px 6px -2px rgba(239,68,68,0.3)" }}
+                  >
+                    <Archive size={13} /> Archiver
+                  </button>
+                )}
+                <button
+                  onClick={() => setConfirmingHardDelete(true)}
+                  title="Supprimer définitivement"
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg transition-all hover:scale-[1.03] hover:-translate-y-0.5"
+                  style={{ background: "rgba(239,68,68,0.12)", color: "var(--color-error)", border: "1px solid rgba(239,68,68,0.3)" }}
+                >
+                  <Trash2 size={14} />
+                </button>
+                </div>
+              )}
+              <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+                <CalendarClock className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
+                {formatDate(project.startDate, locale)} → {formatDate(project.dueDate, locale)}
+              </div>
+            </div>
+          </div>
+
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            {project.description || "Aucune description."}
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <Link
+              href={`/agences/${agencyId}/projets/${projectId}/kanban`}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-[1.02]"
+              style={{ background: "var(--gradient-button)" }}
+            >
+              <FolderKanban size={15} /> Kanban
+            </Link>
+            <Link
+              href={`/agences/${agencyId}/projets/${projectId}/planning`}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
+              style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
+            >
+              <CalendarClock size={15} /> Planning
+            </Link>
+            <button
+              onClick={handleExportPdf}
+              disabled={exportingPdf}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
+              style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
+            >
+              <FileDown size={15} /> {exportingPdf ? "Préparation…" : "Exporter PDF"}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Membres du projet */}
+      <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h2 className="font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+            <Users size={18} /> Membres du projet
+          </h2>
+
+          {canManageMembers && (
+            <button
+              onClick={() => setAdding((a) => !a)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
+              style={{ background: "var(--gradient-button)" }}
+            >
+              <UserPlus size={15} /> {adding ? "Fermer" : "Ajouter un membre"}
+            </button>
+          )}
+        </div>
+
+        {canManageMembers && adding && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="overflow-hidden mb-4"
+          >
+            <div className="rounded-xl p-4 space-y-2" style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                  Choisissez les membres de l&apos;agence à ajouter :
+                </span>
+                <button
+                  onClick={handleAddSelected}
+                  disabled={actionLoading || selectedToAdd.length === 0}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold text-white transition-transform hover:scale-105 disabled:opacity-50 shrink-0"
+                  style={{ background: "var(--gradient-button)" }}
+                >
+                  <UserPlus size={13} />
+                  {actionLoading ? "Ajout…" : `Ajouter (${selectedToAdd.length})`}
+                </button>
+              </div>
+              {addableMembers.length === 0 ? (
+                <p className="text-sm py-2 text-center" style={{ color: "var(--text-muted)" }}>
+                  Tous les membres de l&apos;agence sont déjà dans ce projet.
+                </p>
+              ) : (
+                addableMembers.map((m) => {
+                  const checked = selectedToAdd.includes(m.user.id);
+                  return (
+                    <button
+                      key={m.user.id}
+                      onClick={() => toggleSelectToAdd(m.user.id)}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                        checked ? "ring-1" : ""
+                      }`}
+                      style={
+                        checked
+                          ? { background: "var(--accent-soft)", borderColor: "var(--accent-text)", color: "var(--text-primary)" }
+                          : { color: "var(--text-primary)" }
+                      }
+                    >
+                      <span
+                        className="w-4 h-4 rounded-md flex items-center justify-center shrink-0"
+                        style={
+                          checked
+                            ? { background: "var(--gradient-button)", color: "#fff" }
+                            : { border: "1px solid var(--input-border)" }
+                        }
+                      >
+                        {checked && <Check size={11} />}
+                      </span>
+                      <div
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                        style={{ background: "var(--gradient-primary)" }}
+                      >
+                        {m.user.avatar ? (
+                          <div className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url(${m.user.avatar})` }} />
+                        ) : (
+                          `${m.user.firstName.charAt(0)}${m.user.lastName.charAt(0)}`
+                        )}
+                      </div>
+                      <span className="flex-1 text-left truncate">
+                        {m.user.firstName} {m.user.lastName}
+                        <span className="block text-[11px] truncate" style={{ color: "var(--text-muted)" }}>
+                          {m.user.email}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {projectMembers.map((pm) => {
+            const isOwner = pm.user.id === project.ownerId;
+            return (
+              <div
+                key={pm.user.id}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl"
+                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
+              >
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                  style={{ background: "var(--gradient-primary)" }}
+                >
+                  {pm.user.avatar ? (
+                    <div className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url(${pm.user.avatar})` }} />
+                  ) : (
+                    `${pm.user.firstName.charAt(0)}${pm.user.lastName.charAt(0)}`
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>
+                    {pm.user.firstName} {pm.user.lastName}
+                  </div>
+                  <div className="text-[11px] truncate flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
+                    {pm.user.email}
+                    {isOwner && (
+                      <span className="font-semibold" style={{ color: "var(--accent-text)" }}>
+                        • Responsable
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {canManageMembers && !isOwner && (
+                  <button
+                    onClick={() => handleRemoveMember(pm.id)}
+                    className="p-1.5 rounded-lg transition-colors hover:opacity-70 shrink-0"
+                    style={{ color: "var(--color-error)" }}
+                    title="Retirer ce membre du projet"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+                {canManageMembers && isOwner && (
+                  <Check size={14} className="shrink-0" style={{ color: "var(--color-success)" }} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </motion.div>
+
+      {/* Modal d'édition (admin uniquement) */}
+      {editing && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+        >
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setEditing(false)} />
+          <motion.form
+            initial={{ scale: 0.96, y: 10 }}
+            animate={{ scale: 1, y: 0 }}
+            onSubmit={handleEditSubmit}
+            className="relative w-full max-w-lg glass rounded-2xl p-6 space-y-4 my-auto max-h-[calc(100vh-2rem)] overflow-y-auto"
+            style={{ boxShadow: "var(--shadow-card)" }}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                <Pencil size={18} /> Modifier le projet
+              </h2>
+              <button type="button" onClick={() => setEditing(false)} aria-label="Fermer">
+                <X className="w-5 h-5" style={{ color: "var(--text-secondary)" }} />
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
+                Nom du projet <span style={{ color: "var(--color-error)" }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => {
+                  setEditName(e.target.value);
+                  clearEditFieldError("name");
+                }}
+                className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
+                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+              />
+              {editFieldErrors.name && (
+                <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
+                  {editFieldErrors.name}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
+                Description
+              </label>
+              <textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                rows={3}
+                className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none resize-none"
+                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
+                Statut
+              </label>
+<CustomSelectField
+                  value={editStatus}
+                  onChange={(v) => setEditStatus(v as ProjectStatus)}
+                  options={[
+                    { value: "a_venir", label: "À venir" },
+                    { value: "en_cours", label: "En cours" },
+                    { value: "termine", label: "Terminé" },
+                    { value: "archive", label: "Archivé" },
+                  ]}
+                  className="w-full"
+ariaLabel="Statut du projet"
+                />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
+                  <Calendar size={14} /> Date de début
+                </label>
+<DatePickerField
+                  value={editStartDate}
+                  min={project.startDate || undefined}
+                  onChange={(v) => {
+                    setEditStartDate(v);
+                    clearEditFieldError("startDate");
+                    clearEditFieldError("dueDate");
+                  }}
+                  className="w-full"
+style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                />
+                {editFieldErrors.startDate && (
+                  <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
+                    {editFieldErrors.startDate}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
+                  <CalendarClock size={14} /> Date d&apos;échéance
+                </label>
+<DatePickerField
+                  value={editDueDate}
+                  min={editDueMin || undefined}
+                  onChange={(v) => {
+                    setEditDueDate(v);
+                    clearEditFieldError("dueDate");
+                  }}
+                  className="w-full"
+style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                />
+                {editFieldErrors.dueDate && (
+                  <p className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-error)" }}>
+                    {editFieldErrors.dueDate}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Fond d'écran du Kanban (optionnel — non persisté par le backend) */}
+            <div>
+              <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
+                <ImageIcon size={14} /> Fond d&apos;écran du Kanban <span className="font-normal" style={{ color: "var(--text-muted)" }}>(optionnel)</span>
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditWallpaper(null)}
+                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl px-3 py-4 text-xs font-semibold transition-all"
+                  style={
+                    editWallpaper === null
+                      ? { background: "var(--accent-soft)", border: "1px solid var(--accent-text)", color: "var(--accent-text)" }
+                      : { background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }
+                  }
+                >
+                  <ImageOff size={18} />
+                  Par défaut
+                </button>
+                {WALLPAPERS.map((wp) => {
+                  const active = editWallpaper === wp.id;
+                  return (
+                    <button
+                      key={wp.id}
+                      type="button"
+                      onClick={() => setEditWallpaper(active ? null : wp.id)}
+                      className="relative rounded-xl overflow-hidden aspect-video transition-all"
+                      style={{
+                        border: active ? "2px solid var(--accent-text)" : "1px solid var(--input-border)",
+                        boxShadow: active ? "0 6px 16px -6px rgba(var(--blue-rgb),0.5)" : undefined,
+                      }}
+                      title={wp.label}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={wp.thumb} alt={wp.label} loading="lazy" className="w-full h-full object-cover" />
+                      <span
+                        className="absolute bottom-1 left-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                        style={{ background: "rgba(2,6,23,0.6)", color: "#fff" }}
+                      >
+                        {wp.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {editApiError && (
+              <p className="text-sm font-semibold" style={{ color: "var(--color-error)" }}>
+                {editApiError}
+              </p>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
+                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
+              >
+                Annuler
+              </button>
+              <button
+                type="submit"
+                disabled={actionLoading}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
+                style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
+              >
+                <Save size={16} /> {actionLoading ? "Enregistrement…" : "Enregistrer"}
+              </button>
+            </div>
+          </motion.form>
+        </motion.div>
+      )}
+
+      {/* Modal de confirmation d'archivage (admin uniquement) */}
+      {confirmingDelete && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        >
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setConfirmingDelete(false)}
+          />
+          <motion.div
+            initial={{ scale: 0.96, y: 10 }}
+            animate={{ scale: 1, y: 0 }}
+            className="relative w-full max-w-xs glass rounded-2xl p-5 text-center space-y-4"
+            style={{ boxShadow: "var(--shadow-card)" }}
+          >
+            <div
+              className="mx-auto w-14 h-14 rounded-2xl flex items-center justify-center"
+              style={{ background: "rgba(var(--blue-rgb),0.12)" }}
+            >
+              <Archive className="w-7 h-7" style={{ color: "var(--accent-text)" }} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+                Archiver le projet&nbsp;?
+              </h2>
+              <p className="text-sm mt-1.5" style={{ color: "var(--text-secondary)" }}>
+                «&nbsp;{project.name}&nbsp;» sera archivé avec ses tâches. Vous pourrez toujours le restaurer depuis cette page.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-1">
+              <button
+                onClick={() => setConfirmingDelete(false)}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
+                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleArchive}
+                disabled={actionLoading}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
+                style={{ background: "var(--accent-text)" }}
+              >
+                <Archive size={15} /> {actionLoading ? "Archivage…" : "Archiver"}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Modal de suppression définitive (admin uniquement) */}
+      {confirmingHardDelete && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        >
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setConfirmingHardDelete(false)}
+          />
+          <motion.div
+            initial={{ scale: 0.96, y: 10 }}
+            animate={{ scale: 1, y: 0 }}
+            className="relative w-full max-w-xs glass rounded-2xl p-5 text-center space-y-4"
+            style={{ boxShadow: "var(--shadow-card)" }}
+          >
+            <div
+              className="mx-auto w-14 h-14 rounded-2xl flex items-center justify-center"
+              style={{ background: "rgba(239,68,68,0.12)" }}
+            >
+              <Trash2 className="w-7 h-7" style={{ color: "var(--color-error)" }} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+                Supprimer définitivement ?
+              </h2>
+              <p className="text-sm mt-1.5" style={{ color: "var(--text-secondary)" }}>
+                «&nbsp;{project.name}&nbsp;» et ses {allProjectTaskCount} tâche{allProjectTaskCount > 1 ? "s" : ""}, sous-tâches, fichiers et commentaires seront définitivement supprimés. Cette action est irréversible.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-1">
+              <button
+                onClick={() => setConfirmingHardDelete(false)}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
+                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={actionLoading}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
+                style={{ background: "var(--color-error)" }}
+              >
+                <Trash2 size={15} /> {actionLoading ? "Suppression…" : "Supprimer"}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Modal de retrait forcé d'un membre (tâches en cours) */}
+      {pendingRemoval && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        >
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setPendingRemoval(null)}
+          />
+          <motion.div
+            initial={{ scale: 0.96, y: 10 }}
+            animate={{ scale: 1, y: 0 }}
+            className="relative w-full max-w-xs glass rounded-2xl p-5 text-center space-y-4"
+            style={{ boxShadow: "var(--shadow-card)" }}
+          >
+            <div
+              className="mx-auto w-14 h-14 rounded-2xl flex items-center justify-center"
+              style={{ background: "rgba(239,68,68,0.12)" }}
+            >
+              <X className="w-7 h-7" style={{ color: "var(--color-error)" }} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+                Retirer ce membre&nbsp;?
+              </h2>
+              <p className="text-sm mt-1.5" style={{ color: "var(--text-secondary)" }}>
+                {pendingRemoval.message}
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-1">
+              <button
+                onClick={() => setPendingRemoval(null)}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
+                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => handleRemoveMember(pendingRemoval.memberId, true)}
+                disabled={actionLoading}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
+                style={{ background: "var(--color-error)" }}
+              >
+                <X size={15} /> {actionLoading ? "Retrait…" : "Retirer quand même"}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </motion.div>
+  );
+}

@@ -6,10 +6,8 @@ import api, { AUTH_STORAGE_KEY, getApiErrorMessage } from "@/lib/api";
 import {
   fetchTwoFactorState,
   isTwoFactorChallenge,
-  requestLoginCode,
   resendTwoFactorCode,
   setTwoFactorEnabled,
-  verifyLoginCode,
   verifyTwoFactorCode,
   type LoginResponse,
   type TwoFactorChallenge,
@@ -50,8 +48,6 @@ type LoginOutcome =
   | { ok: true; twoFactor: TwoFactorChallenge; error: null }
   | { ok: false; twoFactor: null; error: string };
 
-type OtpResult = { ok: true; message: string; error: null } | { ok: false; message: null; error: string };
-
 type RegisterData = {
   firstName: string;
   lastName: string;
@@ -65,8 +61,6 @@ type AuthState = {
   token: string | null;
   status: AuthStatus;
   login: (email: string, password: string) => Promise<LoginOutcome>;
-  requestEmailCode: (email: string) => Promise<OtpResult>;
-  loginWithEmailCode: (email: string, code: string) => Promise<LoginResult>;
   verifyTwoFactor: (ticket: string, code: string) => Promise<LoginResult>;
   resendTwoFactor: (ticket: string) => Promise<{ ok: boolean; ticket?: string; error: string | null }>;
   completeGoogleSession: (token: string) => Promise<LoginResult>;
@@ -111,32 +105,6 @@ export const useAuthStore = create<AuthState>()(
         } catch (error) {
           set({ status: "guest" });
           return { ok: false, twoFactor: null, error: getApiErrorMessage(error) };
-        }
-      },
-
-      // Connexion sans mot de passe : on demande un code à l'API.
-      requestEmailCode: async (email) => {
-        try {
-          const message = await requestLoginCode(email);
-          return { ok: true, message, error: null };
-        } catch (error) {
-          return { ok: false, message: null, error: getApiErrorMessage(error) };
-        }
-      },
-
-      loginWithEmailCode: async (email, code) => {
-        set({ status: "loading" });
-        try {
-          const session = await verifyLoginCode(email, code);
-          set({
-            user: apiUserToLocalUser(session.user),
-            token: session.token,
-            status: "authenticated",
-          });
-          return { ok: true, error: null };
-        } catch (error) {
-          set({ status: "guest" });
-          return { ok: false, error: getApiErrorMessage(error) };
         }
       },
 
