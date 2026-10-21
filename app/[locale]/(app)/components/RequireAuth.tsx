@@ -1,12 +1,7 @@
 "use client";
 
-<<<<<<< HEAD:app/(app)/components/RequireAuth.tsx
 import { useEffect, useLayoutEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-=======
-import { useEffect, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
->>>>>>> mariel:app/[locale]/(app)/components/RequireAuth.tsx
 import { useAuthStore } from "@/app/store/authStore";
 import AppSkeleton from "./AppSkeleton";
 

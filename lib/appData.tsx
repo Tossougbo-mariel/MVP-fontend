@@ -10,8 +10,9 @@ import {
   useState,
 } from "react";
 import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { useAuthStore } from "@/app/store/authStore";
-import { getNotificationMeta, notificationAction } from "./notifications";
+import { getNotificationMeta, notificationAction, parseInvitationText } from "./notifications";
 import {
   fetchAgencies,
   fetchBootstrap,
@@ -408,6 +409,11 @@ function RealtimeToast({
   const meta = getNotificationMeta(notification.type);
   const action = notificationAction(notification);
   const Icon = meta.icon;
+  const t = useTranslations("Notifications");
+  const isInvit = notification.type === "invitation";
+  const parsed = isInvit ? parseInvitationText(notification) : null;
+  const title = isInvit && parsed?.agency ? t("invitTitle", { agency: parsed.agency }) : notification.title;
+  const message = isInvit && parsed?.agency && parsed?.inviter ? t("invitBody", { inviter: parsed.inviter, agency: parsed.agency, role: parsed.role === "admin" ? t("roleAdmin") : t("roleMember") }) : notification.message;
 
   return (
     <div
@@ -427,14 +433,14 @@ function RealtimeToast({
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: meta.color }}>
-          {meta.label}
+          {t(meta.labelKey)}
         </p>
         <p className="text-sm font-bold truncate" style={{ color: "var(--chrome-text)" }}>
-          {notification.title}
+          {title}
         </p>
-        {notification.message && (
+        {message && (
           <p className="text-xs mt-0.5 line-clamp-2" style={{ color: "var(--chrome-text-muted)" }}>
-            {notification.message}
+            {message}
           </p>
         )}
         <Link
@@ -443,12 +449,12 @@ function RealtimeToast({
           className="inline-block mt-1.5 text-xs font-semibold"
           style={{ color: meta.color }}
         >
-          {action?.label ?? "Voir la notification"}
+          {action ? t(action.labelKey) : t("actionViewNotification")}
         </Link>
       </div>
       <button
         onClick={onClose}
-        aria-label="Fermer"
+        aria-label={t("close")}
         className="shrink-0 text-lg leading-none"
         style={{ color: "var(--chrome-text-muted)" }}
       >

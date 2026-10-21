@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { Building2, CheckSquare, CornerDownLeft, FolderKanban, Search } from "lucide-react";
 import { useAppData } from "@/lib/appData";
 import { useAuthStore } from "@/app/store/authStore";
@@ -15,10 +16,10 @@ type Result = {
   kind: "task" | "project" | "agency";
 };
 
-const GROUP_LABEL: Record<Result["kind"], string> = {
-  task: "Tâches",
-  project: "Projets",
-  agency: "Agences",
+const GROUP_LABEL_KEY: Record<Result["kind"], string> = {
+  task: "groupTask",
+  project: "groupProject",
+  agency: "groupAgency",
 };
 
 const ICON: Record<Result["kind"], typeof CheckSquare> = {
@@ -36,6 +37,7 @@ const ICON: Record<Result["kind"], typeof CheckSquare> = {
  */
 export default function GlobalSearch() {
   const router = useRouter();
+  const t = useTranslations("GlobalSearch");
   const { data, agencyById } = useAppData();
   const user = useAuthStore((s) => s.user);
 
@@ -60,7 +62,7 @@ export default function GlobalSearch() {
       .map((a) => ({
         id: `agency-${a.id}`,
         label: a.name,
-        sub: "Agence",
+        sub: t("subAgency"),
         href: `/agences/${a.id}/dashboard`,
         kind: "agency",
       }));
@@ -71,7 +73,7 @@ export default function GlobalSearch() {
       .map((p) => ({
         id: `project-${p.id}`,
         label: p.name,
-        sub: agencyById(p.agencyId)?.name ?? "Projet",
+        sub: agencyById(p.agencyId)?.name ?? t("subProject"),
         href: `/agences/${p.agencyId}/projets/${p.id}/kanban`,
         kind: "project",
       }));
@@ -82,19 +84,19 @@ export default function GlobalSearch() {
         return project && agencyIds.has(project.agencyId) && t.title.toLowerCase().includes(q);
       })
       .slice(0, 8)
-      .map((t) => {
-        const project = projectById.get(t.projectId);
+      .map((task) => {
+        const project = projectById.get(task.projectId);
         return {
-          id: `task-${t.id}`,
-          label: t.title,
-          sub: project?.name ?? "Tâche",
-          href: `/agences/${project?.agencyId}/projets/${t.projectId}/taches/${t.id}`,
+          id: `task-${task.id}`,
+          label: task.title,
+          sub: project?.name ?? t("subTask"),
+          href: `/agences/${project?.agencyId}/projets/${task.projectId}/taches/${task.id}`,
           kind: "task" as const,
         };
       });
 
     return [...taskResults, ...projectResults, ...agencyResults];
-  }, [query, data, user, agencyById]);
+  }, [query, data, user, agencyById, t]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -190,8 +192,8 @@ export default function GlobalSearch() {
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
-        placeholder="Rechercher…"
-        aria-label="Recherche globale"
+        placeholder={t("placeholder")}
+        aria-label={t("ariaLabel")}
         role="combobox"
         aria-expanded={showPanel}
         aria-controls="global-search-results"
@@ -223,7 +225,7 @@ export default function GlobalSearch() {
         >
           {results.length === 0 ? (
             <p className="px-4 py-6 text-sm text-center" style={{ color: "var(--text-muted)" }}>
-              Aucun résultat pour «&nbsp;{query.trim()}&nbsp;».
+              {t("noResults", { query: query.trim() })}
             </p>
           ) : (
             groups.map(([kind, items]) => (
@@ -232,7 +234,7 @@ export default function GlobalSearch() {
                   className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide"
                   style={{ color: "var(--text-muted)" }}
                 >
-                  {GROUP_LABEL[kind]}
+                  {t(GROUP_LABEL_KEY[kind])}
                 </p>
                 {items.map((result) => {
                   flatIndex += 1;

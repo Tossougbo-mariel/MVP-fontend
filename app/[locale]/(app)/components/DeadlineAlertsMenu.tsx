@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@/i18n/navigation";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { AlertTriangle, CalendarClock } from "lucide-react";
 import { useAppData } from "@/lib/appData";
 import { useDeadlineAlertStore, type DeadlineAlert } from "@/app/store/deadlineAlertStore";
@@ -32,6 +32,7 @@ export default function DeadlineAlertsMenu({ variant }: { variant: MenuVariant }
   const alerts = useDeadlineAlertStore((s) => s.active);
   const contextAgencyId = useActiveAgencyId();
   const locale = useLocale();
+  const t = useTranslations("DeadlineAlerts");
 
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -109,14 +110,14 @@ export default function DeadlineAlertsMenu({ variant }: { variant: MenuVariant }
   const circleBg = hasAlerts ? "var(--color-error)" : "var(--color-success)";
 
   const triggerColor = hasAlerts ? "var(--color-error)" : "var(--rail-text-secondary)";
-  const title = hasAlerts ? `Alertes d'échéance (${alerts.length})` : "Alertes d'échéance";
+  const title = hasAlerts ? t("titleCount", { count: alerts.length }) : t("title");
 
   const trigger =
     variant === "rail" ? (
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label="Alertes d'échéance"
+        aria-label={t("title")}
         aria-expanded={open}
         title={title}
         className="w-full flex flex-col items-center gap-1 px-1 py-2 rounded-xl shrink-0 transition-colors"
@@ -130,14 +131,14 @@ export default function DeadlineAlertsMenu({ variant }: { variant: MenuVariant }
           {badge}
         </span>
         <span className="text-[10px] font-semibold leading-[12px] tracking-tight text-center max-w-full truncate">
-          Alertes
+          {t("railShort")}
         </span>
       </button>
     ) : (
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label="Alertes d'échéance"
+        aria-label={t("title")}
         aria-expanded={open}
         title={title}
         className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
@@ -150,7 +151,7 @@ export default function DeadlineAlertsMenu({ variant }: { variant: MenuVariant }
           <AlertTriangle size={19} color="#fff" strokeWidth={2.25} />
           {badge}
         </span>
-        Alertes d&rsquo;échéance
+        {t("title")}
       </button>
     );
 
@@ -172,14 +173,14 @@ export default function DeadlineAlertsMenu({ variant }: { variant: MenuVariant }
             style={{ borderColor: "var(--chrome-border)" }}
           >
             <p className="text-sm font-semibold" style={{ color: "var(--chrome-text)" }}>
-              Alertes d&apos;échéance
+              {t("title")}
             </p>
             {alerts.length > 0 && (
               <span
                 className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                 style={{ background: "rgba(220, 38, 38, 0.14)", color: "var(--color-error)" }}
               >
-                {lateCount > 0 ? `${lateCount} en retard · ` : ""}
+                {lateCount > 0 ? `${lateCount} ${t("lateSuffix")} · ` : ""}
                 {alerts.length}
               </span>
             )}
@@ -187,7 +188,7 @@ export default function DeadlineAlertsMenu({ variant }: { variant: MenuVariant }
 
           {preview.length === 0 ? (
             <p className="px-4 py-6 text-sm text-center" style={{ color: "var(--chrome-text-muted)" }}>
-              Aucune alerte d&apos;échéance.
+              {t("empty")}
             </p>
           ) : (
             <ul className="min-h-0 overflow-y-auto overscroll-contain">
@@ -245,7 +246,7 @@ export default function DeadlineAlertsMenu({ variant }: { variant: MenuVariant }
             className="block px-4 py-3 text-center text-sm font-semibold border-t"
             style={{ color: "var(--blue-accent)", borderColor: "var(--chrome-border)" }}
           >
-            Voir toutes les alertes
+            {t("seeAll")}
           </Link>
         </div>
       )}

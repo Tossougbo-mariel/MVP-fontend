@@ -21,6 +21,35 @@ import {
   formatDateTimeLong,
 } from "./dates";
 
+export function parseInvitationText(n: AppNotification): {
+  inviter?: string;
+  agency?: string;
+  role?: "member" | "admin";
+} {
+  const source = `${n.title ?? ""} ${n.message ?? ""}`;
+  // Agence : gère "l'agence « ... »", "l'agence \"...\"", "agence ..."
+  const agencyMatch =
+    source.match(/(?:l['’]|\b)agence\s*[«"']([^»"']+)[»"']/i) ||
+    source.match(/(?:the\s+)?agency\s*[«"']([^»"']+)[»"']/i);
+  // Inviteur : "Daniel ODAH vous invite", "Daniel ODAH invites you"
+  const inviterMatch =
+    source.match(/^(.+?)\s+vous\s+invite/i) ||
+    source.match(/^(.+?)\s+invites\s+/i);
+  const roleMatch =
+    source.match(/en\s+tant\s+que\s+(membre|administrateur)/i) ||
+    source.match(/as\s+(?:a\s+)?(member|administrator)/i);
+  const role: "member" | "admin" | undefined = roleMatch
+    ? /admin/i.test(roleMatch[1])
+      ? "admin"
+      : "member"
+    : undefined;
+  return {
+    inviter: inviterMatch?.[1]?.trim(),
+    agency: agencyMatch?.[1]?.trim(),
+    role,
+  };
+}
+
 /**
  * Vocabulaire commun des notifications.
  *
@@ -32,10 +61,10 @@ import {
  */
 
 export type NotificationMeta = {
-  /** Libellé du type de notification, en dur : la traduction du module
-   *  notifications est encore à faire (une seule passe : lib, page, en-tête,
-   *  toast, namespaces fr/en). */
-  label: string;
+  /** Clé de traduction du type de notification, résolue dans le namespace
+   *  `Notifications` (fr/en). La lib ne pouvant pas appeler useTranslations,
+   *  elle expose une clé et les composants font `t(meta.labelKey)`. */
+  labelKey: string;
   icon: typeof Bell;
   /** Couleur du texte/icône : suit le thème (neutre, sauf invitation). */
   color: string;
@@ -47,61 +76,61 @@ const META: Record<string, NotificationMeta> = {
   invitation: {
     // L'invitation est la seule notification qui appelle une décision
     // immédiate : elle garde le rouge, tout le reste reste neutre.
-    label: "Invitation",
+    labelKey: "typeInvitation",
     icon: UserPlus,
     color: "var(--color-error)",
     bg: "color-mix(in srgb, var(--color-error) 14%, transparent)",
   },
   tache_assignee: {
-    label: "Tâche assignée",
+    labelKey: "typeTaskAssigned",
     icon: ListPlus,
     color: "var(--accent-text)",
     bg: "var(--accent-soft)",
   },
   tache_retiree: {
-    label: "Retiré d'une tâche",
+    labelKey: "typeTaskRemoved",
     icon: UserMinus,
     color: "var(--accent-text)",
     bg: "var(--accent-soft)",
   },
   nouveau_commentaire: {
-    label: "Commentaire",
+    labelKey: "typeComment",
     icon: MessageSquare,
     color: "var(--accent-text)",
     bg: "var(--accent-soft)",
   },
   mention: {
-    label: "Mention",
+    labelKey: "typeMention",
     icon: AtSign,
     color: "var(--accent-text)",
     bg: "var(--accent-soft)",
   },
   echeance_proche: {
-    label: "Échéance proche",
+    labelKey: "typeDueSoon",
     icon: Clock,
     color: "var(--accent-text)",
     bg: "var(--accent-soft)",
   },
   rappel_echeance: {
-    label: "Échéance proche",
+    labelKey: "typeDueSoon",
     icon: Clock,
     color: "var(--accent-text)",
     bg: "var(--accent-soft)",
   },
   tache_en_retard: {
-    label: "Tâche en retard",
+    labelKey: "typeTaskLate",
     icon: AlertTriangle,
     color: "var(--accent-text)",
     bg: "var(--accent-soft)",
   },
   tache_terminee: {
-    label: "Tâche terminée",
+    labelKey: "typeTaskDone",
     icon: CheckCircle2,
     color: "var(--accent-text)",
     bg: "var(--accent-soft)",
   },
   tache_reouverte: {
-    label: "Tâche rouverte",
+    labelKey: "typeTaskReopened",
     icon: RotateCcw,
     color: "var(--accent-text)",
     bg: "var(--accent-soft)",
@@ -111,31 +140,31 @@ const META: Record<string, NotificationMeta> = {
   // rétrogradée, activée, désactivée, retirée de l'agence. Même teinte
   // neutre que le reste — ces notifications n'appellent pas de décision.
   nomme_admin: {
-    label: "Nommé administrateur",
+    labelKey: "typeMadeAdmin",
     icon: ShieldCheck,
     color: "var(--accent-text)",
     bg: "var(--accent-soft)",
   },
   role_modifie: {
-    label: "Rôle modifié",
+    labelKey: "typeRoleChanged",
     icon: UserCog,
     color: "var(--accent-text)",
     bg: "var(--accent-soft)",
   },
   compte_active: {
-    label: "Compte activé",
+    labelKey: "typeAccountEnabled",
     icon: UserCheck,
     color: "var(--accent-text)",
     bg: "var(--accent-soft)",
   },
   compte_desactive: {
-    label: "Compte désactivé",
+    labelKey: "typeAccountDisabled",
     icon: UserX,
     color: "var(--accent-text)",
     bg: "var(--accent-soft)",
   },
   membre_retire: {
-    label: "Retiré de l'agence",
+    labelKey: "typeRemovedFromAgency",
     icon: UserMinus,
     color: "var(--accent-text)",
     bg: "var(--accent-soft)",
@@ -144,14 +173,14 @@ const META: Record<string, NotificationMeta> = {
 
 export const getNotificationMeta = (type: string): NotificationMeta =>
   META[type] ?? {
-    label: "Notification",
+    labelKey: "typeDefault",
     icon: Bell,
     color: "var(--accent-text)",
     bg: "var(--accent-soft)",
   };
 
 export type NotificationAction = {
-  label: string;
+  labelKey: string;
   href: string;
   icon: typeof Bell;
 };
@@ -166,7 +195,7 @@ export type NotificationAction = {
 export const notificationAction = (n: AppNotification): NotificationAction | null => {
   if (!n.link || n.type !== "invitation") return null;
 
-  return { label: "Accepter l'invitation", href: n.link, icon: ArrowRight };
+  return { labelKey: "actionAcceptInvitation", href: n.link, icon: ArrowRight };
 };
 
 /**
@@ -182,13 +211,13 @@ export const isNeutralNotification = (n: AppNotification): boolean =>
  * « Invitations », « Tâches assignées » et « Terminées » ont été retirés :
  * la liste se lit surtout en « Toutes » / « Non lues ».
  */
-export const NOTIFICATION_FILTERS: { key: string; label: string; types: string[] }[] = [
-  { key: "tache_retiree", label: "Retraits", types: ["tache_retiree"] },
-  { key: "commentaire", label: "Commentaires", types: ["nouveau_commentaire"] },
-  { key: "mention", label: "Mentions", types: ["mention"] },
+export const NOTIFICATION_FILTERS: { key: string; labelKey: string; types: string[] }[] = [
+  { key: "tache_retiree", labelKey: "filterRemovals", types: ["tache_retiree"] },
+  { key: "commentaire", labelKey: "filterComments", types: ["nouveau_commentaire"] },
+  { key: "mention", labelKey: "filterMentions", types: ["mention"] },
   // Les deux noms d'échéance relèvent du même réglage de préférence.
-  { key: "echeance", label: "Échéances", types: ["echeance_proche", "rappel_echeance"] },
-  { key: "retard", label: "En retard", types: ["tache_en_retard"] },
+  { key: "echeance", labelKey: "filterDeadlines", types: ["echeance_proche", "rappel_echeance"] },
+  { key: "retard", labelKey: "filterLate", types: ["tache_en_retard"] },
 ];
 
 export const matchesFilter = (n: AppNotification, filterKey: string): boolean => {

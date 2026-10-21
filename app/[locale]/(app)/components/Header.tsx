@@ -4,12 +4,12 @@ import { Link } from "@/i18n/navigation";
 import dynamic from "next/dynamic";
 import { useRouter } from "@/i18n/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Menu, Bell, LogOut, User, ImageIcon, CheckCheck, AtSign, Sparkles, ChevronsRight } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
 import { markAllNotificationsRead, markNotificationRead } from "@/lib/services";
-import { getNotificationMeta, relativeTime } from "@/lib/notifications";
+import { getNotificationMeta, relativeTime, parseInvitationText } from "@/lib/notifications";
 import type { AppNotification } from "@/lib/types";
 import { useActiveAgencyId, profileHrefFor } from "@/lib/useActiveAgencyId";
 
@@ -38,6 +38,8 @@ export default function Header({
 }) {
   const router = useRouter();
   const locale = useLocale();
+  const t = useTranslations("Header");
+  const tNotif = useTranslations("Notifications");
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const { unreadCount: notificationCount, data, reload } = useAppData();
@@ -123,7 +125,7 @@ export default function Header({
         backgroundAttachment: "fixed",
       }}
     >
-      <button className="lg:hidden ml-4" onClick={onMenuClick} aria-label="Ouvrir le menu">
+      <button className="lg:hidden ml-4" onClick={onMenuClick} aria-label={t("openMenu")}>
         <Menu className="w-6 h-6" style={{ color: "var(--rail-text)" }} />
       </button>
 
@@ -138,8 +140,8 @@ export default function Header({
       <button
         type="button"
         onClick={onToggleRail}
-        aria-label={railCollapsed ? "Afficher le menu" : "Replier le menu"}
-        title={railCollapsed ? "Afficher le menu" : "Replier le menu"}
+        aria-label={railCollapsed ? t("showMenu") : t("collapseMenu")}
+        title={railCollapsed ? t("showMenu") : t("collapseMenu")}
         aria-pressed={railCollapsed}
         className="hidden lg:flex items-center justify-center shrink-0 self-stretch transition-colors hover:bg-[var(--rail-hover)]"
         style={{ width: "var(--rail-w)" }}
@@ -173,14 +175,14 @@ export default function Header({
           <button
             onClick={() => setBellOpen((v) => !v)}
             className="relative p-2 rounded-lg transition-colors hover:bg-[var(--rail-hover)]"
-            aria-label="Notifications"
+            aria-label={t("notifications")}
           >
             <Bell className="w-5 h-5" style={{ color: "var(--rail-text-secondary)" }} />
             {mentionUnread && (
               <span
                 className="absolute -bottom-1 -left-1 w-[18px] h-[18px] rounded-full flex items-center justify-center"
                 style={{ background: "#C7961A" }}
-                title="Vous avez été mentionné dans un commentaire"
+                title={t("mentioned")}
               >
                 <AtSign size={11} className="text-white" />
               </span>
@@ -209,7 +211,7 @@ export default function Header({
                 style={{ borderColor: "var(--chrome-border)" }}
               >
                 <p className="text-sm font-semibold" style={{ color: "var(--chrome-text)" }}>
-                  Notifications
+                  {t("notifications")}
                 </p>
                 {notificationCount > 0 && (
                   <button
@@ -217,14 +219,14 @@ export default function Header({
                     className="flex items-center gap-1 text-xs font-medium"
                     style={{ color: "var(--accent-text)" }}
                   >
-                    <CheckCheck size={13} /> Tout marquer lu
+                    <CheckCheck size={13} /> {t("markAllRead")}
                   </button>
                 )}
               </div>
 
               {notifications.length === 0 ? (
                 <p className="px-4 py-6 text-sm text-center" style={{ color: "var(--chrome-text-muted)" }}>
-                  Aucune notification.
+                  {t("noNotifications")}
                 </p>
               ) : (
                 <ul className="max-h-[320px] overflow-y-auto">
@@ -232,6 +234,14 @@ export default function Header({
                     const meta = getNotificationMeta(n.type);
                     const Icon = meta.icon;
                     const unread = !n.readAt;
+                    const isInvit = n.type === "invitation";
+                    const parsed = isInvit ? parseInvitationText(n) : null;
+                    const title = isInvit && parsed?.agency
+                      ? tNotif("invitTitle", { agency: parsed.agency })
+                      : n.title;
+                    const message = isInvit && parsed?.agency && parsed?.inviter
+                      ? tNotif("invitBody", { inviter: parsed.inviter, agency: parsed.agency, role: parsed.role === "admin" ? tNotif("roleAdmin") : tNotif("roleMember") })
+                      : n.message;
                     return (
                       <li key={n.id}>
                         <Link
@@ -255,7 +265,7 @@ export default function Header({
                                 className="text-[10px] font-bold uppercase tracking-wide"
                                 style={{ color: meta.color }}
                               >
-                                {meta.label}
+                                {tNotif(meta.labelKey)}
                               </span>
                               <span className="text-[10px]" style={{ color: "var(--chrome-text-muted)" }}>
                                 {relativeTime(n.createdAt, locale)}
@@ -265,14 +275,14 @@ export default function Header({
                               className={`block text-sm truncate ${unread ? "font-semibold" : "font-medium"}`}
                               style={{ color: "var(--chrome-text)" }}
                             >
-                              {n.title}
+                              {title}
                             </span>
-                            {n.message && (
+                            {message && (
                               <span
                                 className="block text-xs truncate"
                                 style={{ color: "var(--chrome-text-muted)" }}
                               >
-                                {n.message}
+                                {message}
                               </span>
                             )}
                           </span>
@@ -280,7 +290,7 @@ export default function Header({
                             <span
                               className="w-2 h-2 rounded-full shrink-0 mt-1.5"
                               style={{ background: meta.color }}
-                              aria-label="Non lu"
+                              aria-label={t("unread")}
                             />
                           )}
                         </Link>
@@ -296,7 +306,7 @@ export default function Header({
                 className="block px-4 py-3 text-center text-sm font-semibold border-t"
                 style={{ color: "var(--blue-accent)", borderColor: "var(--chrome-border)" }}
               >
-                Voir toutes les notifications
+                {t("seeAllNotifications")}
               </Link>
             </div>
           )}
@@ -324,7 +334,7 @@ export default function Header({
               )}
             </div>
             <span className="hidden sm:inline text-sm font-medium truncate max-w-[100px]" style={{ color: "var(--rail-text)" }}>
-              {user ? `${user.firstName} ${user.lastName}` : "Profil"}
+              {user ? `${user.firstName} ${user.lastName}` : t("profileFallback")}
             </span>
           </button>
 
@@ -339,7 +349,7 @@ export default function Header({
             >
               <div className="px-4 py-3 border-b" style={{ borderColor: "var(--chrome-border)" }}>
                 <p className="text-sm font-semibold truncate" style={{ color: "var(--chrome-text)" }}>
-                  {user ? `${user.firstName} ${user.lastName}` : "Utilisateur"}
+                  {user ? `${user.firstName} ${user.lastName}` : t("userFallback")}
                 </p>
                 <p className="text-xs truncate" style={{ color: "var(--chrome-text-muted)" }}>
                   {user?.email}
@@ -355,7 +365,7 @@ export default function Header({
                   className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--chrome-hover)]"
                   style={{ color: "var(--chrome-text)" }}
                 >
-                  <ImageIcon size={15} /> Voir ma photo
+                  <ImageIcon size={15} /> {t("viewPhoto")}
                 </button>
               )}
 
@@ -365,7 +375,7 @@ export default function Header({
                 className="flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--chrome-hover)]"
                 style={{ color: "var(--chrome-text)" }}
               >
-                <User size={15} /> Mon profil
+                <User size={15} /> {t("myProfile")}
               </Link>
 
               <button
@@ -373,7 +383,7 @@ export default function Header({
                 className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--chrome-hover)]"
                 style={{ color: "var(--color-error)" }}
               >
-                <LogOut size={15} /> Se déconnecter
+                <LogOut size={15} /> {t("logout")}
               </button>
             </div>
           )}

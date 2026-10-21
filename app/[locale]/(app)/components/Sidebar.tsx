@@ -2,6 +2,7 @@
 
 import { Link } from "@/i18n/navigation";
 import { usePathname, useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import {
   Building2, LogOut, X, Sparkles, Bell, User, Plus, Bot,
@@ -69,6 +70,7 @@ export default function Sidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const t = useTranslations("Sidebar");
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const { data, agencyById, projectsByAgency, unreadCount } = useAppData();
@@ -177,8 +179,8 @@ export default function Sidebar({
   // la liste elle-même vit sur cette page, et le second sidebar offre le même
   // choix quand on est déjà dans une agence.
   const agencySwitcher = railItem({
-    label: "Mes agences",
-    short: "Agence",
+    label: t("Mes agences"),
+    short: t("agencyFallback"),
     href: "/mes-agences",
     active: pathname === "/mes-agences" || pathname === "/agences/nouvelle",
     children: (
@@ -210,22 +212,22 @@ export default function Sidebar({
 
         <div className="flex w-full flex-1 flex-col items-center gap-1.5">
           {railItem({
-            label: "Assistant IA",
-            short: "Assistant",
+            label: t("assistantFull"),
+            short: t("assistantShort"),
             onClick: onOpenAi,
             children: <Bot size={19} />,
           })}
           {railItem({
-            label: "Notifications",
-            short: "Notifications",
+            label: t("Notifications"),
+            short: t("Notifications"),
             href: "/notifications",
             active: pathname.startsWith("/notifications"),
             badge: unreadCount,
             children: <Bell size={18} />,
           })}
           {railItem({
-            label: "Mon profil",
-            short: "Profil",
+            label: t("Mon profil"),
+            short: t("profilShort"),
             href: profileHref,
             active: pathname.startsWith("/profil"),
             children: <User size={18} />,
@@ -234,8 +236,8 @@ export default function Sidebar({
               le rail. Les réglages d'agence, eux, vivent dans le second
               sidebar (cf. AgencyPanel) car ils dépendent de l'agence courante. */}
           {railItem({
-            label: "Réglages",
-            short: "Réglages",
+            label: t("Réglages"),
+            short: t("Réglages"),
             href: "/reglages",
             active: pathname.startsWith("/reglages"),
             children: <Wrench size={18} />,
@@ -246,8 +248,8 @@ export default function Sidebar({
         <DeadlineAlertsMenu variant="rail" />
 
         {railItem({
-          label: "Se déconnecter",
-          short: "Déconnexion",
+          label: t("logoutFull"),
+          short: t("logoutShort"),
           onClick: handleLogout,
           children: <LogOut size={18} />,
         })}
@@ -273,7 +275,7 @@ export default function Sidebar({
               MVP Studio
             </span>
           </Link>
-          <button onClick={onClose} aria-label="Fermer le menu">
+          <button onClick={onClose} aria-label={t("closeMenu")}>
             <X className="w-5 h-5" style={{ color: "var(--rail-text-secondary)" }} />
           </button>
         </div>
@@ -286,7 +288,7 @@ export default function Sidebar({
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold"
           style={{ background: "var(--rail-accent-soft)", color: "var(--rail-text)" }}
         >
-          <Bot size={17} /> Assistant IA
+          <Bot size={17} /> {t("assistantFull")}
         </button>
 
         {isInAgency && (
@@ -298,7 +300,7 @@ export default function Sidebar({
               className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wide"
               style={{ color: "var(--rail-text-muted)" }}
             >
-              {currentAgency?.name ?? "Agence"}
+              {currentAgency?.name ?? t("agencyFallback")}
             </p>
             {agencyItems.map((item) => {
               const href = `/agences/${agencyId}/${item.suffix}`;
@@ -316,7 +318,7 @@ export default function Sidebar({
                   }
                 >
                   <item.icon className="w-[18px] h-[18px]" />
-                  {item.label}
+                  {t(item.label)}
                 </Link>
               );
             })}
@@ -351,7 +353,7 @@ export default function Sidebar({
                 }
               >
                 <Bell size={18} />
-                Notifications
+                {t("Notifications")}
               </Link>
             </div>
           </div>
@@ -364,7 +366,7 @@ export default function Sidebar({
             style={{ background: "var(--rail-accent-soft)", color: "var(--rail-text-secondary)" }}
           >
             <Building2 size={18} style={{ color: "var(--rail-text-muted)" }} />
-            <span className="flex-1 text-sm font-medium">Aucune agence</span>
+            <span className="flex-1 text-sm font-medium">{t("empty")}</span>
           </div>
         )}
 
@@ -384,14 +386,14 @@ export default function Sidebar({
               }
             >
               <item.icon className="w-[18px] h-[18px]" />
-              {item.label}
+              {t(item.label)}
             </Link>
           );
         })}
 
         {!isInAgency && myAgencies.length === 0 && (
           <p className="px-1 text-xs" style={{ color: "var(--rail-text-muted)" }}>
-            Créez votre première agence ou acceptez une invitation pour gérer vos projets.
+            {t("emptyHint")}
           </p>
         )}
 
@@ -405,7 +407,7 @@ export default function Sidebar({
             style={{ color: "var(--color-error)" }}
           >
             <LogOut className="w-[18px] h-[18px]" />
-            Se déconnecter
+            {t("logoutFull")}
           </button>
         </div>
       </motion.aside>
