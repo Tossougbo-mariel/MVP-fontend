@@ -11,7 +11,7 @@ import { Sparkles, Eye, EyeOff, Camera, User, X, ZoomIn, CheckCircle2, ArrowLeft
 import AuthCard from "../components/AuthCard";
 import { useAuthStore } from "@/app/store/authStore";
 import CustomSlider from "@/app/[locale]/(app)/components/CustomSlider";
-
+import { useTranslations } from "next-intl";
 type CropperArea = { x: number; y: number; width: number; height: number };
 
 function blobToDataURL(blob: Blob): Promise<string> {
@@ -71,6 +71,9 @@ export default function InscriptionPage() {
 }
 
 function InscriptionContent() {
+  const t = useTranslations("Auth.signup");
+  const tn = useTranslations("Navigation");
+  const tErrors = useTranslations("Errors");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -148,11 +151,11 @@ function InscriptionContent() {
     setError(null);
 
     if (password !== confirmPassword) {
-      setError("Les mots de passe ne correspondent pas.");
+      setError(t("errors.mismatch"));
       return;
     }
     if (password.length < 8) {
-      setError("Le mot de passe doit contenir au moins 8 caractères.");
+      setError(t("errors.passwordTooShort"));
       return;
     }
 
@@ -170,9 +173,10 @@ function InscriptionContent() {
 
     // ✅ Succès : rediriger vers la page de connexion (l'utilisateur n'est PAS connecté)
     // Si un lien d'invitation est en cours, on le conserve pour finaliser après connexion.
-    router.push(
-      invitationId ? `/connexion?inscrit=1&invitation=${invitationId}` : "/connexion?inscrit=1",
-    );
+    router.push({
+      pathname: "/connexion",
+      query: invitationId ? { inscrit: "1", invitation: invitationId } : { inscrit: "1" },
+    });
   };
 
   const inputStyle = {
@@ -202,7 +206,7 @@ function InscriptionContent() {
       >
         <NextImage
           src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1600&auto=format&fit=crop"
-          alt="Travail d'équipe"
+          alt={t("hero.imageAlt")}
           fill
           sizes="(min-width: 1024px) 60vw, 0px"
           style={{ objectFit: "cover" }}
@@ -224,10 +228,9 @@ function InscriptionContent() {
               color: "transparent",
             }}
           >
-            Rejoignez votre équipe
-          </h2>
-          <p className="text-white/80">
-            {"Créez votre compte et commencez à gérer vos projets dès aujourd'hui."}
+            {t("hero.title")}
+          </h2>          <p className="text-white/80">
+            {t("hero.description")}
           </p>
         </div>
       </motion.div>
@@ -240,7 +243,7 @@ function InscriptionContent() {
           style={{ color: "var(--text-secondary)" }}
         >
           <ArrowLeft className="w-4 h-4" />
-          Retour à l&apos;accueil
+          {t("backToHome")}
         </Link>
         <div className="flex-1 min-h-0 no-scrollbar overflow-y-auto pt-10">
           <div className="min-h-full flex">
@@ -278,7 +281,7 @@ function InscriptionContent() {
                 animation: "gradient-shift 4s ease infinite",
               }}
             >
-              Inscription
+              {t("title")}
             </motion.h1>
 
             <motion.p
@@ -288,9 +291,8 @@ function InscriptionContent() {
               className="text-sm mb-5"
               style={{ color: "var(--text-secondary)" }}
             >
-              Créez votre compte gratuitement
-            </motion.p>
-          </div>
+              {t("subtitle")}
+            </motion.p>          </div>
 
           {error && (
             <motion.p
@@ -299,7 +301,7 @@ function InscriptionContent() {
               className="text-sm mb-4"
               style={{ color: "var(--color-error)", animation: "shake 0.4s" }}
             >
-              {error}
+              {error === "Errors.generic" ? tErrors("generic") : error}
             </motion.p>
           )}
 
@@ -316,10 +318,10 @@ function InscriptionContent() {
                   style={{ background: "var(--gradient-primary)" }}
                   onClick={lastRaw ? reopenCrop : undefined}
                   role={lastRaw ? "button" : undefined}
-                  title={lastRaw ? "Cliquer pour recadrer la photo" : undefined}
+                  title={lastRaw ? t("avatar.recrop") : undefined}
                 >
                   {avatar ? (
-                    <NextImage src={avatar} alt="Photo de profil" fill sizes="96px" style={{ objectFit: "cover" }} />
+                    <NextImage src={avatar} alt={t("avatar.imageAlt")} fill sizes="96px" style={{ objectFit: "cover" }} />
                   ) : (
                     <User className="w-6 h-6 text-white/80" />
                   )}
@@ -327,7 +329,7 @@ function InscriptionContent() {
                 <button
                   type="button"
                   onClick={() => avatarInputRef.current?.click()}
-                  aria-label="Choisir une photo de profil"
+                  aria-label={t("avatar.choose")}
                   className="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full flex items-center justify-center text-white transition-transform hover:scale-110"
                   style={{ background: "var(--gradient-button)" }}
                 >
@@ -337,7 +339,7 @@ function InscriptionContent() {
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-xs" style={{ color: "var(--text-secondary)" }}>Photo de profil (optionnel)</span>
+                <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{t("avatar.label")}</span>
                 {avatar && (
                   <button
                     type="button"
@@ -345,9 +347,8 @@ function InscriptionContent() {
                     className="text-xs font-semibold transition-colors hover:text-red-500"
                     style={{ color: "var(--color-error)" }}
                   >
-                    Retirer
-                  </button>
-                )}
+                    {t("avatar.remove")}
+                  </button>                )}
               </div>
             </motion.div>
 
@@ -359,7 +360,7 @@ function InscriptionContent() {
               >
                 <input
                   type="text"
-                  placeholder="Prénom"
+                  placeholder={t("fields.firstName")}
                   required
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
@@ -376,7 +377,7 @@ function InscriptionContent() {
               >
                 <input
                   type="text"
-                  placeholder="Nom"
+                  placeholder={t("fields.lastName")}
                   required
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
@@ -395,7 +396,7 @@ function InscriptionContent() {
             >
               <input
                 type="email"
-                placeholder="Email"
+                placeholder={t("fields.email")}
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -414,7 +415,7 @@ function InscriptionContent() {
             >
               <input
                 type={showPassword ? "text" : "password"}
-                placeholder="Mot de passe"
+                placeholder={t("fields.password")}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -426,6 +427,7 @@ function InscriptionContent() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
+                aria-label={t("fields.togglePassword")}
                 className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:text-blue-500"
                 style={{ color: "var(--text-secondary)" }}
               >
@@ -441,7 +443,7 @@ function InscriptionContent() {
             >
               <input
                 type={showConfirm ? "text" : "password"}
-                placeholder="Confirmer le mot de passe"
+                placeholder={t("fields.confirmPassword")}
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -453,6 +455,7 @@ function InscriptionContent() {
               <button
                 type="button"
                 onClick={() => setShowConfirm(!showConfirm)}
+                aria-label={t("fields.toggleConfirmPassword")}
                 className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:text-blue-500"
                 style={{ color: "var(--text-secondary)" }}
               >
@@ -476,7 +479,7 @@ function InscriptionContent() {
                 animation: "gradient-shift 3s ease infinite",
               }}
             >
-              {loading ? "Création..." : "Créer mon compte"}
+              {loading ? t("submitLoading") : t("submit")}
             </motion.button>
 
             <motion.p
@@ -486,7 +489,7 @@ function InscriptionContent() {
               className="text-sm text-center pt-2"
               style={{ color: "var(--text-secondary)" }}
             >
-              Déjà un compte ?{" "}
+              {t("alreadyAccount")}{" "}
               <Link
                 href="/connexion"
                 className="font-semibold"
@@ -497,7 +500,7 @@ function InscriptionContent() {
                   color: "transparent",
                 }}
               >
-                Se connecter
+                {tn("login")}
               </Link>
             </motion.p>
           </form>
@@ -515,8 +518,8 @@ function InscriptionContent() {
             style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)", boxShadow: "var(--shadow-card)" }}
           >
             <div className="flex items-center justify-between px-5 py-4">
-              <h3 className="font-bold" style={{ color: "var(--text-primary)" }}>Recadrer la photo</h3>
-              <button onClick={() => setSelectedImage(null)} aria-label="Fermer">
+              <h3 className="font-bold" style={{ color: "var(--text-primary)" }}>{t("crop.title")}</h3>
+              <button onClick={() => setSelectedImage(null)} aria-label={t("crop.close")}>
                 <X className="w-5 h-5" style={{ color: "var(--text-secondary)" }} />
               </button>
             </div>
@@ -544,6 +547,7 @@ function InscriptionContent() {
                   min={1}
                   max={3}
                   step={0.1}
+                  ariaLabel={t("crop.zoom")}
                 />
               </div>
               <div className="flex justify-end gap-3">
@@ -552,7 +556,7 @@ function InscriptionContent() {
                   className="px-4 py-2 rounded-xl text-sm font-medium"
                   style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
                 >
-                  Annuler
+                  {t("crop.cancel")}
                 </button>
                 <button
                   onClick={handleApplyCrop}
@@ -560,7 +564,7 @@ function InscriptionContent() {
                   className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-60"
                   style={{ background: "var(--gradient-button)", boxShadow: "0 5px 14px -5px rgba(var(--blue-rgb),0.4)" }}
                 >
-                  <CheckCircle2 size={15} /> {cropping ? "Traitement..." : "Valider"}
+                  <CheckCircle2 size={15} /> {cropping ? t("crop.processing") : t("crop.confirm")}
                 </button>
               </div>
             </div>

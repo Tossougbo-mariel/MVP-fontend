@@ -2,9 +2,12 @@
 
 import { Link } from "@/i18n/navigation";
 import { ArrowRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { RevealGroup, RevealItem } from "./Reveal";
 
 export default function FinalCTA() {
+  const t = useTranslations("Landing.finalCta");
+
   return (
     <section className="relative overflow-hidden py-16 md:py-20" style={{ background: "#010e2e" }}>
       {/* Glow radial */}
@@ -29,25 +32,25 @@ export default function FinalCTA() {
 
         <RevealItem>
           <h2 className="mx-auto max-w-2xl text-3xl font-extrabold tracking-tight text-white md:text-5xl">
-            Prêt à passer à la{" "}
-            <span
-              style={{
-                background: "linear-gradient(90deg, var(--blue), var(--blue-light))",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
-              vitesse supérieure
-            </span>{" "}
-            ?
+            {t.rich("title", {
+              highlight: (chunks) => (
+                <span
+                  style={{
+                    background: "linear-gradient(90deg, var(--blue), var(--blue-light))",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  {chunks}
+                </span>
+              ),
+            })}
           </h2>
         </RevealItem>
 
         <RevealItem>
           <p className="mx-auto mt-5 max-w-xl text-lg font-medium leading-8" style={{ color: "#ffffffC7" }}>
-            Rejoignez des centaines d&apos;équipes qui organisent leurs agences,
-            leurs projets et leurs tâches avec MVP Studio. C&apos;est gratuit
-            pour commencer.
+            {t("description")}
           </p>
         </RevealItem>
 
@@ -57,14 +60,14 @@ export default function FinalCTA() {
               href="/inscription"
               className="inline-flex items-center justify-center gap-2 rounded-[100px] bg-[color:var(--blue)] px-10 py-4 text-base font-bold text-white shadow-lg transition-all hover:brightness-110"
             >
-              Créer mon compte gratuit
+              {t("primaryCta")}
               <ArrowRight size={18} />
             </Link>
             <Link
               href="/connexion"
               className="rounded-[100px] border border-[#ffffff33] bg-[#ffffff0d] px-10 py-4 text-base font-bold text-white backdrop-blur transition-colors hover:bg-[#ffffff1a]"
             >
-              J&apos;ai déjà un compte
+              {t("secondaryCta")}
             </Link>
           </div>
         </RevealItem>

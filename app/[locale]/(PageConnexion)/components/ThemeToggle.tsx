@@ -1,11 +1,12 @@
 "use client";
 
 import { Monitor, Moon, Sun } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useTheme, type Theme } from "./ThemeProvider";
 
-const OPTIONS: { value: Theme; label: string; icon: typeof Sun }[] = [
-  { value: "light", label: "Clair", icon: Sun },
-  { value: "dark", label: "Sombre", icon: Moon },
+const OPTIONS: { value: Theme; icon: typeof Sun }[] = [
+  { value: "light", icon: Sun },
+  { value: "dark", icon: Moon },
 ];
 
 /**
@@ -15,16 +16,17 @@ const OPTIONS: { value: Theme; label: string; icon: typeof Sun }[] = [
  * sur toutes les pages).
  */
 export default function ThemeToggle({ onChange }: { onChange?: (theme: Theme) => void } = {}) {
+  const t = useTranslations("Settings.theme");
   const { theme, setTheme } = useTheme();
 
   return (
     <div
       role="radiogroup"
-      aria-label="Thème de l'interface"
+      aria-label={t("label")}
       className="inline-flex items-center gap-1 rounded-xl p-1"
       style={{ background: "var(--hover-soft)", border: "1px solid var(--border-subtle)" }}
     >
-      {OPTIONS.map(({ value, label, icon: Icon }) => {
+      {OPTIONS.map(({ value, icon: Icon }) => {
         const active = theme === value;
         return (
           <button
@@ -48,7 +50,7 @@ export default function ThemeToggle({ onChange }: { onChange?: (theme: Theme) =>
             }
           >
             <Icon size={14} />
-            {label}
+            {t(value === "light" ? "light" : "dark")}
           </button>
         );
       })}
@@ -57,6 +59,7 @@ export default function ThemeToggle({ onChange }: { onChange?: (theme: Theme) =>
 }
 
 export function ThemeToggleRow() {
+  const t = useTranslations("Settings.theme");
   return (
     <div className="flex items-center gap-3">
       <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}>
@@ -64,10 +67,10 @@ export function ThemeToggleRow() {
       </span>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-          Thème de l&apos;interface
+          {t("label")}
         </p>
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          Choisis entre l&apos;apparence claire et sombre.
+          {t("description")}
         </p>
       </div>
       <ThemeToggle />

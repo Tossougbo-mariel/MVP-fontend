@@ -12,6 +12,7 @@ import AuthCard from "../components/AuthCard";
 import { useAuthStore } from "@/app/store/authStore";
 import { acceptInvitation, fetchInvitationPreview, getApiErrorMessage } from "@/lib/services";
 import type { InvitationPreview } from "@/lib/types";
+import { useTranslations } from "next-intl";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -31,6 +32,8 @@ export default function AcceptInvitationPage() {
 }
 
 function AcceptInvitationContent() {
+  const t = useTranslations("Auth.invitation");
+  const tErrors = useTranslations("Errors");
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
   const router = useRouter();
@@ -39,7 +42,7 @@ function AcceptInvitationContent() {
   const [preview, setPreview] = useState<InvitationPreview | null>(null);
   const [loading, setLoading] = useState(() => !!token);
   const [pageError, setPageError] = useState<string | null>(
-    token ? null : "Lien invalide : aucun code d'invitation fourni.",
+    token ? null : t("pageError"),
   );
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
@@ -76,7 +79,7 @@ function AcceptInvitationContent() {
     if (!preview) return;
     if (user && user.email.toLowerCase() === preview.email.toLowerCase()) return;
     const target = preview.hasAccount ? "/connexion" : "/inscription";
-    router.replace(`${target}?invitation=${encodeURIComponent(token)}`);
+    router.replace({ pathname: target, query: { invitation: token } });
   }, [preview, user, token, router]);
 
   const handleAccept = async () => {
@@ -114,18 +117,17 @@ function AcceptInvitationContent() {
                 <X className="w-7 h-7" />
               </div>
               <h1 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                Invitation introuvable ou expirée
+                {t("error.title")}
               </h1>
               <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
-                {pageError} Cette invitation a peut-être expiré, été annulée, ou le lien est incomplet.
-                Contactez le propriétaire de l&apos;agence pour obtenir un nouveau lien.
+                {pageError} {t("error.message")}
               </p>
               <Link
                 href="/connexion"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
                 style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
               >
-                <ArrowRight size={16} /> Aller à la connexion
+                <ArrowRight size={16} /> {t("error.goToLogin")}
               </Link>
             </div>
           </AuthCard>
@@ -155,10 +157,10 @@ function AcceptInvitationContent() {
                 <Check className="w-8 h-8" />
               </motion.div>
               <h1 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                Invitation acceptée !
+                {t("accepted.title")}
               </h1>
               <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                Votre adhésion est confirmée. Redirection vers Mes agences...
+                {t("accepted.message")}
               </p>
             </div>
           </AuthCard>
@@ -185,7 +187,7 @@ function AcceptInvitationContent() {
                 <Mail className="w-6 h-6 text-white" />
               </div>
               <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                Vérification de l&apos;invitation...
+                {t("loading")}
               </p>
             </div>
           </AuthCard>
@@ -217,7 +219,7 @@ function AcceptInvitationContent() {
               <UserPlus className="w-7 h-7 text-white" />
             </motion.div>
             <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>
-              Invitation à rejoindre une agence
+              {t("title")}
             </h1>
             {preview && (
               <p className="mt-2 text-sm flex items-center justify-center gap-1.5" style={{ color: "var(--text-muted)" }}>
@@ -233,13 +235,13 @@ function AcceptInvitationContent() {
                 style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
               >
                 <div className="text-xs uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>
-                  Vous êtes invité·e à rejoindre
+                  {t("invitedTo")}
                 </div>
                 <div className="text-lg font-bold truncate" style={{ color: "var(--text-primary)" }}>
                   {preview.agency.name}
                 </div>
                 <div className="text-sm font-semibold mt-2" style={{ color: "var(--text-secondary)" }}>
-                  Rôle : {preview.role === "admin" ? "Admin" : "Membre"}
+                  {t("role.label")} {preview.role === "admin" ? t("role.admin") : t("role.member")}
                 </div>
               </div>
             </motion.div>
@@ -251,22 +253,21 @@ function AcceptInvitationContent() {
                 className="rounded-xl px-4 py-3 text-sm"
                 style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
               >
-                Pour rejoindre l&apos;agence, créez votre compte ou connectez-vous — la confirmation se fera
-                automatiquement ensuite.
+                {t("notConnected.message")}
               </div>
               <Link
-                href={`/inscription?invitation=${token}`}
+                href={{ pathname: "/inscription", query: { invitation: token } }}
                 className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-[1.01] active:scale-[0.99]"
                 style={{ background: "var(--gradient-button)", boxShadow: "0 10px 30px -10px rgba(var(--blue-rgb),0.55)" }}
               >
-                Créer mon compte <ArrowRight size={16} />
+                {t("notConnected.createAccount")} <ArrowRight size={16} />
               </Link>
               <Link
-                href={`/connexion?invitation=${token}`}
+                href={{ pathname: "/connexion", query: { invitation: token } }}
                 className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold transition-all"
                 style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
               >
-                J&apos;ai déjà un compte · Me connecter
+                {t("notConnected.signIn")}
               </Link>
             </motion.div>
           ) : (
@@ -276,7 +277,7 @@ function AcceptInvitationContent() {
                   className="text-sm px-4 py-3 rounded-xl"
                   style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--color-error)" }}
                 >
-                  {error}
+                  {error === "Errors.generic" ? tErrors("generic") : error}
                 </p>
               )}
               <button
@@ -285,14 +286,14 @@ function AcceptInvitationContent() {
                 className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60"
                 style={{ background: "var(--gradient-button)", boxShadow: "0 10px 30px -10px rgba(var(--blue-rgb),0.55)" }}
               >
-                {processing ? "Traitement..." : (
+                {processing ? t("accept.processing") : (
                   <>
-                    <Check size={16} /> Accepter l&apos;invitation
+                    <Check size={16} /> {t("accept.idle")}
                   </>
                 )}
               </button>
               <p className="text-xs text-center" style={{ color: "var(--text-muted)" }}>
-                Connecté en tant que {user.firstName} {user.lastName} ({user.email})
+                {t("connectedAs", { firstName: user.firstName, lastName: user.lastName, email: user.email })}
               </p>
             </motion.div>
           )}

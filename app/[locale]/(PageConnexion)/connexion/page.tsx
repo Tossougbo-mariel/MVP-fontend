@@ -14,12 +14,11 @@ import AuthCard from "../components/AuthCard";
 import CodeStep from "../components/CodeStep";
 import GoogleButton from "../components/GoogleButton";
 import MagneticButton from "../components/MagneticButton";
-import { messageForGoogleError } from "@/lib/auth";
+import { useTranslations } from "next-intl";
 
-/** Trois étapes possibles de la connexion. */
+/** Étapes possibles de la connexion. */
 type Step =
   | { kind: "password" }
-  | { kind: "otp"; email: string }
   | { kind: "twoFactor"; ticket: string; email: string };
 
 /** Récupère le token renvoyé par le callback Google dans le fragment. */
@@ -38,11 +37,13 @@ export default function ConnexionPage() {
 }
 
 function ConnexionContent() {
+  const t = useTranslations("Auth.login");
+  const tn = useTranslations("Navigation");
+  const tErrors = useTranslations("Errors");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<Step>({ kind: "password" });
   const router = useRouter();
@@ -72,16 +73,14 @@ function ConnexionContent() {
   }, [googleError]);
 
   const login = useAuthStore((s) => s.login);
-  const requestEmailCode = useAuthStore((s) => s.requestEmailCode);
-  const loginWithEmailCode = useAuthStore((s) => s.loginWithEmailCode);
   const verifyTwoFactor = useAuthStore((s) => s.verifyTwoFactor);
   const resendTwoFactor = useAuthStore((s) => s.resendTwoFactor);
   const completeGoogleSession = useAuthStore((s) => s.completeGoogleSession);
   const status = useAuthStore((s) => s.status);
 
   const destination = invitationId
-    ? `/accepter-invitation?token=${invitationId}`
-    : "/bienvenue";
+    ? { pathname: "/accepter-invitation" as const, query: { token: invitationId } }
+    : ({ pathname: "/bienvenue" } as const);
 
   // ── Retour de Google ──
   // Le callback renvoie le token dans le fragment de l'URL. On l'absorbe puis
@@ -135,14 +134,20 @@ function ConnexionContent() {
   };
 
   // Message de retour du callback Google, affiché au-dessus du formulaire.
-  const banner = googleError ? messageForGoogleError(googleError) : null;
+  const googleErrorKeys: Record<string, string> = {
+    email_deja_utilise: "emailDejaUtilise",
+    google_email_absent: "googleEmailAbsent",
+    google_echec: "googleEchec",
+  };
+  const banner = googleError
+    ? t(`googleErrors.${googleErrorKeys[googleError] ?? "fallback"}`)
+    : null;
 
   // ✅ CORRIGÉ : Login asynchrone branché sur l'API backend
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegisteredOk(false);
     setError(null);
-    setInfo(null);
     setLoading(true);
 
     const result = await login(email, password);
@@ -162,25 +167,6 @@ function ConnexionContent() {
     }
 
     router.push(destination);
-  };
-
-  // --- Connexion sans mot de passe : on demande un code ---
-  const handleRequestCode = async () => {
-    setRegisteredOk(false);
-    setError(null);
-    setInfo(null);
-    setLoading(true);
-
-    const result = await requestEmailCode(email);
-    setLoading(false);
-
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-
-    setInfo(result.message);
-    setStep({ kind: "otp", email });
   };
 
   // --- Entrée en cascade : chaque enfant apparaît l'un après l'autre ---
@@ -229,7 +215,7 @@ function ConnexionContent() {
         <div className="absolute inset-0">
           <Image
             src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=1600&auto=format&fit=crop"
-            alt="Gestion de tâches"
+            alt={t("hero.imageAlt")}
             fill
             sizes="100vw"
             style={{ objectFit: "cover" }}
@@ -251,9 +237,9 @@ function ConnexionContent() {
             transition={{ duration: 0.7, delay: 0.3, ease: "easeOut" }}
             className="text-gradient text-4xl font-black mb-3 leading-tight"
           >
-            Organisez. Collaborez.
+            {t("hero.titleLine1")}
             <br />
-            {"Réalisez l'extraordinaire."}
+            {t("hero.titleLine2")}
           </motion.h2>
           <motion.p
             initial={{ y: 20, opacity: 0 }}
@@ -261,7 +247,7 @@ function ConnexionContent() {
             transition={{ duration: 0.7, delay: 0.45, ease: "easeOut" }}
             className="text-white/80 mb-8 max-w-md"
           >
-            Gérez vos projets et vos tâches en équipe, simplement et efficacement.
+            {t("hero.description")}
           </motion.p>
 
           {/* Cartes flottantes */}
@@ -275,7 +261,7 @@ function ConnexionContent() {
               <CheckCircle2 className="w-6 h-6" style={{ color: "var(--color-success)" }} />
               <div>
                 <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>98%</p>
-                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>tâches à temps</p>
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{t("hero.stats.onTime")}</p>
               </div>
             </motion.div>
 
@@ -287,8 +273,8 @@ function ConnexionContent() {
             >
               <Rocket className="w-6 h-6" style={{ color: "var(--blue)" }} />
               <div>
-                <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Livraisons</p>
-                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>en avance</p>
+                <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>{t("hero.stats.deliveriesTitle")}</p>
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{t("hero.stats.deliveriesLabel")}</p>
               </div>
             </motion.div>
 
@@ -300,8 +286,8 @@ function ConnexionContent() {
             >
               <Users className="w-6 h-6" style={{ color: "var(--blue-light)" }} />
               <div>
-                <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>Équipes</p>
-                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>synchronisées</p>
+                <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>{t("hero.stats.teamsTitle")}</p>
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{t("hero.stats.teamsLabel")}</p>
               </div>
             </motion.div>
           </div>
@@ -316,7 +302,7 @@ function ConnexionContent() {
           style={{ color: "var(--text-secondary)" }}
         >
           <ArrowLeft className="w-4 h-4" />
-          Retour à l&apos;accueil
+          {t("backToHome")}
         </Link>
         {/* Halo derrière la carte */}
         <div
@@ -356,10 +342,10 @@ function ConnexionContent() {
                       className="text-xl font-black mb-1"
                       style={{ color: "var(--text-primary)" }}
                     >
-                      Connexion
+                      {t("title")}
                     </h1>
                     <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                      Ravi de vous revoir ! Entrez dans votre espace.
+                      {t("subtitle")}
                     </p>
                   </div>
                 </motion.div>
@@ -372,7 +358,7 @@ function ConnexionContent() {
                     style={{ color: "var(--color-success)" }}
                   >
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
-                    Votre compte a été créé avec succès. Connectez-vous.
+                    {t("signupSuccess")}
                   </motion.p>
                 )}
 
@@ -394,36 +380,14 @@ function ConnexionContent() {
                     className="text-sm mb-4"
                     style={{ color: "var(--color-error)", animation: "shake 0.4s" }}
                   >
-                    {error}
+                    {error === "Errors.generic" ? tErrors("generic") : error}
                   </motion.p>
-                )}
-
-                {info && step.kind === "password" && (
-                  <motion.p
-                    initial={{ y: -10, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    className="text-sm mb-4"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    {info}
-                  </motion.p>
-                )}
-
-                {step.kind === "otp" && (
-                  <CodeStep
-                    title="Votre code"
-                    subtitle={`Un code à 6 chiffres a été envoyé à ${step.email}.`}
-                    onSubmit={(code) => loginWithEmailCode(step.email, code)}
-                    onResend={() => requestEmailCode(step.email)}
-                    onBack={() => setStep({ kind: "password" })}
-                    backLabel="Changer d'e-mail"
-                  />
                 )}
 
                 {step.kind === "twoFactor" && (
                   <CodeStep
-                    title="Vérification en deux étapes"
-                    subtitle={`Un code a été envoyé à ${step.email}.`}
+                    title={t("twoFactor.title")}
+                    subtitle={t("twoFactor.subtitle", { email: step.email })}
                     onSubmit={(code) => verifyTwoFactor(step.ticket, code)}
                     onResend={async () => {
                       const result = await resendTwoFactor(step.ticket);
@@ -434,7 +398,7 @@ function ConnexionContent() {
                       setStep({ kind: "password" });
                       setError(null);
                     }}
-                    backLabel="Revenir"
+                    backLabel={t("twoFactor.backLabel")}
                   />
                 )}
 
@@ -449,7 +413,7 @@ function ConnexionContent() {
                       />
                       <input
                         type="email"
-                        placeholder="Adresse e-mail"
+                        placeholder={t("fields.email")}
                         required
                         value={email}
                         onChange={(e) => {
@@ -472,7 +436,7 @@ function ConnexionContent() {
                       />
                       <input
                         type={showPassword ? "text" : "password"}
-                        placeholder="Mot de passe"
+                        placeholder={t("fields.password")}
                         required
                         value={password}
                         onChange={(e) => {
@@ -489,7 +453,7 @@ function ConnexionContent() {
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-4 top-1/2 -translate-y-1/2"
                         style={{ color: "var(--text-muted)" }}
-                        aria-label="Afficher ou masquer le mot de passe"
+                        aria-label={t("fields.togglePassword")}
                       >
                         {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
@@ -502,7 +466,7 @@ function ConnexionContent() {
                       className="text-sm transition-colors hover:text-blue-500"
                       style={{ color: "var(--text-secondary)" }}
                     >
-                      Mot de passe oublié ?
+                      {t("forgotPassword")}
                     </Link>
                   </motion.div>
 
@@ -520,7 +484,7 @@ function ConnexionContent() {
                       }}
                       className="w-full py-2.5 rounded-xl font-semibold focus:outline-none"
                     >
-                      {loading ? "Connexion..." : "Se connecter"}
+                      {loading ? t("submitLoading") : t("submit")}
                     </MagneticButton>
                   </motion.div>
 
@@ -529,7 +493,7 @@ function ConnexionContent() {
                     className="text-sm text-center pt-2"
                     style={{ color: "var(--text-secondary)" }}
                   >
-                    Pas encore de compte ?{" "}
+                    {t("noAccount")}{" "}
                     <Link
                       href="/inscription"
                       className="font-semibold"
@@ -540,7 +504,7 @@ function ConnexionContent() {
                         color: "transparent",
                       }}
                     >
-                      {"S'inscrire"}
+                      {tn("signUp")}
                     </Link>
                   </motion.p>
                 </form>
@@ -549,28 +513,13 @@ function ConnexionContent() {
                 <motion.div variants={item} className="flex items-center gap-3 pt-1">
                   <span className="h-px flex-1" style={{ background: "var(--border-subtle)" }} />
                   <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                    ou
+                    {t("separator")}
                   </span>
                   <span className="h-px flex-1" style={{ background: "var(--border-subtle)" }} />
                 </motion.div>
 
                 <motion.div variants={item}>
                   <GoogleButton disabled={loading} />
-                </motion.div>
-
-                <motion.div variants={item} className="text-center">
-                  <button
-                    type="button"
-                    onClick={handleRequestCode}
-                    disabled={loading || !email}
-                    className="text-sm font-semibold transition-opacity hover:opacity-70 disabled:opacity-40"
-                    style={{ color: "var(--accent-text)" }}
-                  >
-                    {loading ? "Envoi en cours..." : "Recevoir un code par email"}
-                  </button>
-                  <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                    Saisissez d&apos;abord votre adresse e-mail ci-dessus.
-                  </p>
                 </motion.div>
                   </>
                 )}

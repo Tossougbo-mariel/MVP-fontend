@@ -4,7 +4,7 @@ import { Link } from "@/i18n/navigation";
 import dynamic from "next/dynamic";
 import { useRouter } from "@/i18n/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations, useLocale } from "next-intl";
+import { useLocale } from "next-intl";
 import { Menu, Bell, LogOut, User, ImageIcon, CheckCheck, AtSign, Sparkles, ChevronsRight } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
@@ -37,7 +37,6 @@ export default function Header({
   onToggleRail?: () => void;
 }) {
   const router = useRouter();
-  const t = useTranslations("Notifications");
   const locale = useLocale();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -256,7 +255,7 @@ export default function Header({
                                 className="text-[10px] font-bold uppercase tracking-wide"
                                 style={{ color: meta.color }}
                               >
-                                 {t(meta.labelKey as any)}
+                                {meta.label}
                               </span>
                               <span className="text-[10px]" style={{ color: "var(--chrome-text-muted)" }}>
                                 {relativeTime(n.createdAt, locale)}

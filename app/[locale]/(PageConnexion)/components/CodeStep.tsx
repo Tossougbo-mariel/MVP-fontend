@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, KeyRound, MailCheck } from "lucide-react";
+import { useTranslations } from "next-intl";
 import MagneticButton from "./MagneticButton";
 
 export type CodeStepResult = { ok: boolean; error: string | null };
@@ -32,9 +33,10 @@ export default function CodeStep({
   onSubmit,
   onResend,
   onBack,
-  backLabel = "Retour",
-  resendLabel = "Renvoyer le code",
+  backLabel,
+  resendLabel,
 }: CodeStepProps) {
+  const t = useTranslations("Auth.codeStep");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -69,7 +71,7 @@ export default function CodeStep({
     setResending(true);
 
     const result = await onResend();
-    if (result.ok) setNotice("Un nouveau code vient d'être envoyé.");
+    if (result.ok) setNotice(t("resent"));
     else setError(result.error);
 
     setResending(false);
@@ -157,7 +159,7 @@ export default function CodeStep({
           }}
           className="w-full py-3.5 rounded-xl font-semibold focus:outline-none"
         >
-          {loading ? "Vérification..." : "Valider le code"}
+          {loading ? t("verifying") : t("submit")}
         </MagneticButton>
       </form>
 
@@ -170,7 +172,7 @@ export default function CodeStep({
             style={{ color: "var(--text-secondary)" }}
           >
             <ArrowLeft className="w-4 h-4" />
-            {backLabel}
+            {backLabel ?? t("back")}
           </button>
         ) : (
           <span />
@@ -184,7 +186,7 @@ export default function CodeStep({
             className="font-semibold transition-opacity hover:opacity-70 disabled:opacity-50"
             style={{ color: "var(--accent-text)" }}
           >
-            {resending ? "Envoi..." : resendLabel}
+            {resending ? t("sending") : (resendLabel ?? t("resend"))}
           </button>
         )}
       </div>

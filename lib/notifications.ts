@@ -32,7 +32,10 @@ import {
  */
 
 export type NotificationMeta = {
-  labelKey: string;
+  /** Libellé du type de notification, en dur : la traduction du module
+   *  notifications est encore à faire (une seule passe : lib, page, en-tête,
+   *  toast, namespaces fr/en). */
+  label: string;
   icon: typeof Bell;
   /** Couleur du texte/icône : suit le thème (neutre, sauf invitation). */
   color: string;
@@ -44,7 +47,7 @@ const META: Record<string, NotificationMeta> = {
   invitation: {
     // L'invitation est la seule notification qui appelle une décision
     // immédiate : elle garde le rouge, tout le reste reste neutre.
-    label: "Notifications.types.invitation",
+    label: "Invitation",
     icon: UserPlus,
     color: "var(--color-error)",
     bg: "color-mix(in srgb, var(--color-error) 14%, transparent)",
@@ -148,7 +151,7 @@ export const getNotificationMeta = (type: string): NotificationMeta =>
   };
 
 export type NotificationAction = {
-  labelKey: string;
+  label: string;
   href: string;
   icon: typeof Bell;
 };
@@ -161,7 +164,7 @@ export type NotificationAction = {
  * `null` partout ailleurs.
  */
 export const notificationAction = (n: AppNotification): NotificationAction | null => {
-  if (!n.link || n.type !== "Notifications.types.invitation") return null;
+  if (!n.link || n.type !== "invitation") return null;
 
   return { label: "Accepter l'invitation", href: n.link, icon: ArrowRight };
 };
@@ -172,7 +175,7 @@ export const notificationAction = (n: AppNotification): NotificationAction | nul
  * plus cliquer dessus — et n'existe plus que pour être lue puis supprimée.
  */
 export const isNeutralNotification = (n: AppNotification): boolean =>
-  n.type === "Notifications.types.invitation" && !n.link;
+  n.type === "invitation" && !n.link;
 
 /**
  * Filtres proposés, dans l'ordre d'affichage.

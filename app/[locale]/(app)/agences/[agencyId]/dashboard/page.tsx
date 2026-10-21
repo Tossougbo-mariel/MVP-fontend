@@ -56,7 +56,6 @@ const smoothCurve = (pts: { x: number; y: number }[]) => {
 
 export default function AgencyDashboardPage() {
   const { agencyId } = useParams<{ agencyId: string }>();
-  const locale = useLocale();
   const user = useAuthStore((s) => s.user);
 
   // Résumé dédié (UNE seule agence) : le tableau de bord n'attend plus le
@@ -225,6 +224,8 @@ function AdminDashboard({
 }) {
   const isOwner = role === "owner";
   const { statuses, isTerminal } = useTaskStatuses();
+  // La locale sert à dater l'activité (« il y a 5 min » / « 5 min ago »).
+  const locale = useLocale();
 
   const { data: activity, loading: activityLoading } = useAsync(
     () => fetchActivity({ agencyId }),

@@ -8,8 +8,10 @@ import { motion } from "framer-motion";
 import { Sparkles, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import AuthCard from "../components/AuthCard";
 import api, { getApiErrorMessage } from "@/lib/api";
+import { useTranslations } from "next-intl";
 
 export default function ReinitialiserMotDePassePage() {
+  const t = useTranslations("Auth.reset");
   return (
     <Suspense
       fallback={
@@ -17,7 +19,7 @@ export default function ReinitialiserMotDePassePage() {
           className="min-h-screen flex items-center justify-center"
           style={{ color: "var(--text-secondary)" }}
         >
-          Chargement...
+          {t("loading")}
         </div>
       }
     >
@@ -27,6 +29,8 @@ export default function ReinitialiserMotDePassePage() {
 }
 
 function ReinitialiserMotDePasseForm() {
+  const t = useTranslations("Auth.reset");
+  const tErrors = useTranslations("Errors");
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const email = searchParams.get("email");
@@ -58,19 +62,19 @@ function ReinitialiserMotDePasseForm() {
     setError(null);
 
     if (!token) {
-      setError("Lien de réinitialisation invalide ou manquant.");
+      setError(t("errors.invalidLink"));
       return;
     }
     if (!email) {
-      setError("L'e-mail manque dans ce lien : redemandez votre lien de réinitialisation.");
+      setError(t("errors.missingEmail"));
       return;
     }
     if (password.length < 8) {
-      setError("Le mot de passe doit contenir au moins 8 caractères.");
+      setError(t("errors.passwordTooShort"));
       return;
     }
     if (password !== confirmPassword) {
-      setError("Les mots de passe ne correspondent pas.");
+      setError(t("errors.mismatch"));
       return;
     }
 
@@ -102,7 +106,7 @@ function ReinitialiserMotDePasseForm() {
       >
         <Image
           src="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=1600&auto=format&fit=crop"
-          alt="Sécurité"
+          alt={t("hero.imageAlt")}
           fill
           sizes="(min-width: 1024px) 60vw, 0px"
           style={{ objectFit: "cover" }}
@@ -124,10 +128,10 @@ function ReinitialiserMotDePasseForm() {
               color: "transparent",
             }}
           >
-            Définissez un nouveau mot de passe
+            {t("hero.title")}
           </h2>
           <p className="text-white/80">
-            Choisissez un mot de passe sécurisé pour protéger votre compte.
+            {t("hero.description")}
           </p>
         </div>
       </motion.div>
@@ -167,7 +171,7 @@ function ReinitialiserMotDePasseForm() {
                 animation: "gradient-shift 4s ease infinite",
               }}
             >
-              Nouveau mot de passe
+              {t("title")}
             </motion.h1>
 
             <motion.p
@@ -178,8 +182,8 @@ function ReinitialiserMotDePasseForm() {
               style={{ color: "var(--text-secondary)" }}
             >
               {success
-                ? "Votre mot de passe a été modifié avec succès."
-                : "Saisissez votre nouveau mot de passe ci-dessous"}
+                ? t("subtitle.success")
+                : t("subtitle.form")}
             </motion.p>
           </div>
 
@@ -201,7 +205,7 @@ function ReinitialiserMotDePasseForm() {
                   animation: "gradient-shift 3s ease infinite",
                 }}
               >
-                Se connecter
+                {t("successLogin")}
               </Link>
             </motion.div>
           ) : (
@@ -213,7 +217,7 @@ function ReinitialiserMotDePasseForm() {
                   className="text-sm"
                   style={{ color: "var(--color-error)", animation: "shake 0.4s" }}
                 >
-                  {error}
+                  {error === "Errors.generic" ? tErrors("generic") : error}
                 </motion.p>
               )}
 
@@ -225,7 +229,7 @@ function ReinitialiserMotDePasseForm() {
               >
                 <input
                   type={showPassword ? "text" : "password"}
-                  placeholder="Nouveau mot de passe"
+                  placeholder={t("fields.password")}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -239,6 +243,7 @@ function ReinitialiserMotDePasseForm() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:text-blue-500"
                   style={{ color: "var(--text-secondary)" }}
+                  aria-label={t("fields.togglePassword")}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -252,7 +257,7 @@ function ReinitialiserMotDePasseForm() {
               >
                 <input
                   type={showConfirm ? "text" : "password"}
-                  placeholder="Confirmer le nouveau mot de passe"
+                  placeholder={t("fields.confirm")}
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -266,6 +271,7 @@ function ReinitialiserMotDePasseForm() {
                   onClick={() => setShowConfirm(!showConfirm)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:text-blue-500"
                   style={{ color: "var(--text-secondary)" }}
+                  aria-label={t("fields.toggleConfirm")}
                 >
                   {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -287,7 +293,7 @@ function ReinitialiserMotDePasseForm() {
                   animation: "gradient-shift 3s ease infinite",
                 }}
               >
-                {loading ? "Enregistrement..." : "Réinitialiser le mot de passe"}
+                {loading ? t("submitLoading") : t("submit")}
               </motion.button>
 
               <motion.div
@@ -301,7 +307,7 @@ function ReinitialiserMotDePasseForm() {
                   className="text-sm transition-colors hover:text-blue-500"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  Retour à la connexion
+                  {t("backToLogin")}
                 </Link>
               </motion.div>
             </form>

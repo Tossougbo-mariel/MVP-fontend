@@ -4,11 +4,12 @@ import { useState, useEffect } from "react";
 import { Link } from "@/i18n/navigation";
 import { Menu, X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import LanguageSwitcher from "@/app/[locale]/_components/LanguageSwitcher";
 
 const navLinks = [
   { href: "#", labelKey: "home" },
   { href: "#features", labelKey: "features" },
-  { href: "#how-it-works", labelKey: "how-it-works" },
+  { href: "#how-it-works", labelKey: "howItWorks" },
   { href: "#testimonials", labelKey: "testimonials" },
 ];
 
@@ -59,6 +60,7 @@ export default function Navbar() {
           </div>
 
           <div className="hidden items-center gap-2 md:flex">
+            <LanguageSwitcher />
             <Link
               href="/inscription"
               className="rounded-[100px] bg-[color:var(--blue)] px-5 py-2.5 text-[15px] font-bold text-white transition-all hover:brightness-110"
@@ -77,15 +79,20 @@ export default function Navbar() {
             </Link>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-[#ffffff1a] md:hidden"
-            style={{ transitionDuration: "0.25s" }}
-            aria-label="Ouvrir le menu"
-          >
-            {open ? <X size={22} /> : <Menu size={22} />}
-          </button>
+          <div className="flex items-center gap-2 md:hidden">
+            <div className="md:hidden">
+              <LanguageSwitcher />
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-[#ffffff1a] md:hidden"
+              style={{ transitionDuration: "0.25s" }}
+              aria-label="Ouvrir le menu"
+            >
+              {open ? <X size={22} /> : <Menu size={22} />}
+            </button>
+          </div>
         </div>
       </header>
 

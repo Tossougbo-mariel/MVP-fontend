@@ -1,38 +1,11 @@
+import { useTranslations } from "next-intl";
 import { Reveal } from "./Reveal";
 
 const testimonials = [
-  {
-    quote:
-      "MVP Studio a transformé notre façon de travailler. Toutes nos agences et projets sont enfin centralisés au même endroit.",
-    name: "Amina Benali",
-    role: "Directrice · Agence Créative",
-    initials: "AB",
-    color: "var(--blue)",
-  },
-  {
-    quote:
-      "Le suivi des tâches est limpide. Chaque membre de l'équipe sait exactement quoi faire et où en est chaque projet.",
-    name: "Karim Haddad",
-    role: "Chef de projet · Studio Digital",
-    initials: "KH",
-    color: "var(--blue-accent)",
-  },
-  {
-    quote:
-      "Simple, rapide et efficace. Gain de temps énorme.",
-    name: "Leila Mansouri",
-    role: "Fondatrice · Web Studio",
-    initials: "LM",
-    color: "var(--blue-mid)",
-  },
-  {
-    quote:
-      "La vision d'ensemble qu'on a enfin sur tous nos projets. Le dashboard est clair, les notifications sont pertinentes.",
-    name: "Youssef Amrani",
-    role: "Directeur technique · Agence Web",
-    initials: "YA",
-    color: "var(--blue-light)",
-  },
+  { key: "amina", name: "Amina Benali", initials: "AB", color: "var(--blue)" },
+  { key: "karim", name: "Karim Haddad", initials: "KH", color: "var(--blue-accent)" },
+  { key: "leila", name: "Leila Mansouri", initials: "LM", color: "var(--blue-mid)" },
+  { key: "youssef", name: "Youssef Amrani", initials: "YA", color: "var(--blue-light)" },
 ];
 
 function Stars() {
@@ -55,6 +28,7 @@ function Stars() {
 }
 
 export default function Testimonials() {
+  const t = useTranslations("Landing.testimonials");
   const items = [...testimonials, ...testimonials];
 
   return (
@@ -80,14 +54,14 @@ export default function Testimonials() {
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <Reveal className="mx-auto max-w-2xl text-center">
           <span className="inline-block rounded-full bg-[color:rgba(var(--blue-rgb),0.10)] px-4 py-1.5 text-xs font-bold uppercase tracking-widest" style={{ color: "var(--blue)" }}>
-            Témoignages
+            {t("badge")}
           </span>
           <h2 className="mt-4 text-4xl font-extrabold tracking-tight md:text-5xl" style={{ color: "#0b1521", letterSpacing: "-0.02em" }}>
-            Ils utilisent MVP Studio au quotidien
+            {t("title")}
           </h2>
           <div className="mx-auto mt-4 h-1 w-16 rounded-full bg-[color:var(--blue)]" />
           <p className="mt-4 text-lg font-medium" style={{ color: "#4B5767" }}>
-            Nos clients gèrent leurs agences, projets et équipes avec succès.
+            {t("subtitle")}
           </p>
         </Reveal>
       </div>
@@ -100,7 +74,7 @@ export default function Testimonials() {
         >
           {items.map((item, index) => (
             <div
-              key={`${item.name}-${index}`}
+              key={`${item.key}-${index}`}
               className="flex w-[320px] shrink-0 flex-col gap-3.5 rounded-[20px] border bg-white p-7 transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(var(--blue-rgb),0.12)]"
               style={{
                 borderColor: "var(--blue)",
@@ -119,7 +93,7 @@ export default function Testimonials() {
                       {item.name}
                     </p>
                     <p className="text-[11px]" style={{ color: "#5e6773" }}>
-                      {item.role}
+                      {t(`items.${item.key}.role`)}
                     </p>
                   </div>
                 </div>
@@ -135,7 +109,7 @@ export default function Testimonials() {
                   overflow: "hidden",
                 }}
               >
-                &laquo; {item.quote} &raquo;
+                {t("quoted", { quote: t(`items.${item.key}.quote`) })}
               </p>
             </div>
           ))}

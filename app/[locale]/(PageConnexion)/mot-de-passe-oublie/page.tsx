@@ -7,8 +7,11 @@ import { motion } from "framer-motion";
 import { Sparkles, ArrowLeft } from "lucide-react";
 import AuthCard from "../components/AuthCard";
 import api, { getApiErrorMessage } from "@/lib/api";
+import { useTranslations } from "next-intl";
 
 export default function MotDePasseOubliePage() {
+  const t = useTranslations("Auth.forgot");
+  const tErrors = useTranslations("Errors");
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -54,7 +57,7 @@ export default function MotDePasseOubliePage() {
       >
         <Image
           src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1600&auto=format&fit=crop"
-          alt="Sécurité"
+          alt={t("hero.imageAlt")}
           fill
           sizes="(min-width: 1024px) 60vw, 0px"
           style={{ objectFit: "cover" }}
@@ -76,10 +79,10 @@ export default function MotDePasseOubliePage() {
               color: "transparent",
             }}
           >
-            Récupérez votre accès
+            {t("hero.title")}
           </h2>
           <p className="text-white/80">
-            Nous vous enverrons un lien sécurisé pour réinitialiser votre mot de passe.
+            {t("hero.description")}
           </p>
         </div>
       </motion.div>
@@ -119,7 +122,7 @@ export default function MotDePasseOubliePage() {
                 animation: "gradient-shift 4s ease infinite",
               }}
             >
-              Mot de passe oublié
+              {t("title")}
             </motion.h1>
 
             <motion.p
@@ -130,8 +133,8 @@ export default function MotDePasseOubliePage() {
               style={{ color: "var(--text-secondary)" }}
             >
               {sent
-                ? "Un lien de réinitialisation a été envoyé à votre adresse."
-                : "Entrez votre e-mail pour recevoir un lien de réinitialisation"}
+                ? t("subtitle.sent")
+                : t("subtitle.form")}
             </motion.p>
           </div>
 
@@ -144,7 +147,7 @@ export default function MotDePasseOubliePage() {
                   className="text-sm"
                   style={{ color: "var(--color-error)", animation: "shake 0.4s" }}
                 >
-                  {error}
+                  {error === "Errors.generic" ? tErrors("generic") : error}
                 </motion.p>
               )}
               <motion.div
@@ -154,7 +157,7 @@ export default function MotDePasseOubliePage() {
               >
                 <input
                   type="email"
-                  placeholder="Email"
+                  placeholder={t("fields.email")}
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -181,7 +184,7 @@ export default function MotDePasseOubliePage() {
                   animation: "gradient-shift 3s ease infinite",
                 }}
               >
-                {loading ? "Envoi..." : "Envoyer le lien"}
+                {loading ? t("submitLoading") : t("submit")}
               </motion.button>
             </form>
           )}
@@ -198,7 +201,7 @@ export default function MotDePasseOubliePage() {
               style={{ color: "var(--text-secondary)" }}
             >
               <ArrowLeft size={16} />
-              Retour à la connexion
+              {t("backToLogin")}
             </Link>
           </motion.div>
         </AuthCard>

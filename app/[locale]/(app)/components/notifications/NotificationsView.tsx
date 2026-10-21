@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "@/i18n/navigation";
-import { useTranslations, useLocale } from "next-intl";
+import { useLocale } from "next-intl";
 import { motion, type Variants } from "framer-motion";
 import {
   Bell, Check, CheckCheck, CheckSquare, EllipsisVertical, EyeOff, RotateCcw, Trash2, X,
@@ -78,7 +78,6 @@ function NotificationDetailModal({
   onClose: () => void;
   onToggle: (n: AppNotification) => void;
 }) {
-  const t = useTranslations("Notifications");
   const locale = useLocale();
   useEffect(() => {
     if (!notification) return;
@@ -152,7 +151,7 @@ function NotificationDetailModal({
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-transform hover:scale-[1.03]"
               style={{ background: "var(--gradient-button)", color: "#fff", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.45)" }}
             >
-              {t(action.labelKey as any)}
+              {action.label}
             </ActionLink>
           )}
 
@@ -605,7 +604,7 @@ export default function NotificationsView({
                           className="text-[10px] font-bold uppercase tracking-wide"
                           style={{ color: meta.color }}
                         >
-                          {t(meta.labelKey as any)}
+                          {meta.label}
                         </span>
                         <time
                           title={formatFullDate(n.createdAt, locale)}

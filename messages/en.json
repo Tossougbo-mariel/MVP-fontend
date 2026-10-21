@@ -7,14 +7,210 @@
   "Navigation": {
     "home": "Home",
     "features": "Features",
-    "how-it-works": "How it works",
+    "howItWorks": "How it works",
     "testimonials": "Testimonials",
     "signUp": "Sign Up",
-    "login": "Login"
+    "login": "Login",
+    "openMenu": "Open menu",
+    "language": "Language"
   },
-  "Auth": {},
+  "Auth": {
+    "signup": {
+      "hero": {
+        "title": "Join your team",
+        "description": "Create your account and start managing your projects today.",
+        "imageAlt": "Teamwork"
+      },
+      "backToHome": "Back to home",
+      "title": "Sign up",
+      "subtitle": "Create your free account",
+      "avatar": {
+        "label": "Profile picture (optional)",
+        "imageAlt": "Profile picture",
+        "choose": "Choose a profile picture",
+        "recrop": "Click to crop the photo",
+        "remove": "Remove"
+      },
+      "fields": {
+        "firstName": "First name",
+        "lastName": "Last name",
+        "email": "Email",
+        "password": "Password",
+        "confirmPassword": "Confirm password",
+        "togglePassword": "Show or hide password",
+        "toggleConfirmPassword": "Show or hide password confirmation"
+      },
+      "submit": "Create my account",
+      "submitLoading": "Creating...",
+      "alreadyAccount": "Already have an account?",
+      "errors": {
+        "mismatch": "Passwords do not match.",
+        "passwordTooShort": "Password must be at least 8 characters long."
+      },
+      "crop": {
+        "title": "Crop the photo",
+        "close": "Close",
+        "cancel": "Cancel",
+        "confirm": "Confirm",
+        "processing": "Processing...",
+        "zoom": "Zoom"
+      }
+    },
+    "login": {
+      "hero": {
+        "imageAlt": "Task management",
+        "titleLine1": "Organize. Collaborate.",
+        "titleLine2": "Achieve the extraordinary.",
+        "description": "Manage your projects and tasks as a team, simply and efficiently.",
+        "stats": {
+          "onTime": "tasks on time",
+          "deliveriesTitle": "Deliveries",
+          "deliveriesLabel": "ahead of schedule",
+          "teamsTitle": "Teams",
+          "teamsLabel": "in sync"
+        }
+      },
+      "backToHome": "Back to home",
+      "title": "Login",
+      "subtitle": "Welcome back! Enter your workspace.",
+      "signupSuccess": "Your account has been created successfully. Log in.",
+      "twoFactor": {
+        "title": "Two-step verification",
+        "subtitle": "A code has been sent to {email}.",
+        "backLabel": "Back"
+      },
+      "fields": {
+        "email": "Email address",
+        "password": "Password",
+        "togglePassword": "Show or hide password"
+      },
+      "forgotPassword": "Forgot password?",
+      "submit": "Login",
+      "submitLoading": "Logging in...",
+      "noAccount": "Don't have an account yet?",
+      "separator": "or",
+      "google": "Continue with Google",
+      "googleErrors": {
+        "emailDejaUtilise": "An account already exists with this address. Log in with your password.",
+        "googleEmailAbsent": "Your Google account does not share an email address: unable to create an account.",
+        "googleEchec": "Google sign-in failed. Please try again.",
+        "fallback": "Google sign-in failed."
+      }
+    },
+    "codeStep": {
+      "back": "Back",
+      "resend": "Resend code",
+      "sending": "Sending...",
+      "submit": "Submit code",
+      "verifying": "Verifying...",
+      "resent": "A new code has just been sent."
+    },
+    "forgot": {
+      "hero": {
+        "imageAlt": "Security",
+        "title": "Recover your access",
+        "description": "We'll send you a secure link to reset your password."
+      },
+      "title": "Forgot password",
+      "subtitle": {
+        "sent": "A reset link has been sent to your address.",
+        "form": "Enter your email to receive a reset link"
+      },
+      "fields": {
+        "email": "Email"
+      },
+      "submit": "Send link",
+      "submitLoading": "Sending...",
+      "backToLogin": "Back to login"
+    },
+    "reset": {
+      "loading": "Loading...",
+      "hero": {
+        "imageAlt": "Security",
+        "title": "Set a new password",
+        "description": "Choose a secure password to protect your account."
+      },
+      "title": "New password",
+      "subtitle": {
+        "success": "Your password has been changed successfully.",
+        "form": "Enter your new password below"
+      },
+      "successLogin": "Sign in",
+      "fields": {
+        "password": "New password",
+        "confirm": "Confirm new password",
+        "togglePassword": "Show or hide the new password",
+        "toggleConfirm": "Show or hide the new password confirmation"
+      },
+      "submit": "Reset password",
+      "submitLoading": "Saving...",
+      "backToLogin": "Back to login",
+      "errors": {
+        "invalidLink": "Invalid or missing reset link.",
+        "missingEmail": "The email is missing from this link: request your reset link again.",
+        "passwordTooShort": "The password must contain at least 8 characters.",
+        "mismatch": "The passwords do not match."
+      }
+    },
+    "changePassword": {
+      "title": "Change password",
+      "subtitle": "Choose a new secure password.",
+      "fields": {
+        "current": "Current password",
+        "new": "New password",
+        "confirm": "Confirm new password",
+        "toggleCurrent": "Show or hide the current password",
+        "toggleNew": "Show or hide the new password",
+        "toggleConfirm": "Show or hide the confirmation"
+      },
+      "submit": "Update",
+      "submitLoading": "Saving...",
+      "success": {
+        "title": "Password changed!",
+        "message": "Your password has been updated successfully."
+      },
+      "backToProfile": "Back to <profile>my profile</profile>",
+      "errors": {
+        "passwordTooShort": "The new password must contain at least 8 characters.",
+        "mismatch": "The two new passwords do not match.",
+        "sameAsCurrent": "The new password must be different from the current one."
+      }
+    },
+    "invitation": {
+      "pageError": "Invalid link: no invitation code provided.",
+      "error": {
+        "title": "Invitation not found or expired",
+        "message": "This invitation may have expired, been cancelled, or the link is incomplete. Contact the agency owner to get a new link.",
+        "goToLogin": "Go to login"
+      },
+      "accepted": {
+        "title": "Invitation accepted!",
+        "message": "Your membership is confirmed. Redirecting to My agencies..."
+      },
+      "loading": "Verifying the invitation...",
+      "title": "Invitation to join an agency",
+      "invitedTo": "You are invited to join",
+      "role": {
+        "label": "Role:",
+        "admin": "Admin",
+        "member": "Member"
+      },
+      "notConnected": {
+        "message": "To join the agency, create your account or sign in — confirmation will happen automatically afterwards.",
+        "createAccount": "Create my account",
+        "signIn": "I already have an account · Sign in"
+      },
+      "accept": {
+        "idle": "Accept invitation",
+        "processing": "Processing..."
+      },
+      "connectedAs": "Signed in as {firstName} {lastName} ({email})"
+    }
+  },
   "Validation": {},
-  "Errors": {},
+  "Errors": {
+    "generic": "Something went wrong. Please try again."
+  },
   "Landing": {
      "hero": {
       "titleStart": "Manage your",
@@ -48,6 +244,95 @@
         "sep18": "Sep 18",
         "sep20": "Sep 20"
       }
+    },
+    "features": {
+      "badge": "Features",
+      "title": "Everything you need to run your projects",
+      "subtitle": "A complete tool, built for agencies and teams that want to move fast and do it right.",
+      "items": {
+        "multiAgency": {
+          "title": "Multi-agency",
+          "description": "Manage several agencies from a single account, with clear navigation between each of them."
+        },
+        "projects": {
+          "title": "Project management",
+          "description": "Create projects, track their progress and keep an overview of all your missions."
+        },
+        "tasks": {
+          "title": "Task tracking",
+          "description": "Organize your tasks by status, priority or member. Nothing slips through the cracks."
+        },
+        "team": {
+          "title": "Team management",
+          "description": "Invite your colleagues, define roles and see everyone's activity."
+        },
+        "notifications": {
+          "title": "Notifications",
+          "description": "Stay informed about new tasks, comments and important changes in real time."
+        },
+        "settings": {
+          "title": "Advanced settings",
+          "description": "Customize your agencies, manage permissions and adapt the tool to the way you work."
+        }
+      }
+    },
+    "howItWorks": {
+      "badge": "How it works",
+      "title": "Get started in three simple steps",
+      "subtitle": "From creating your agency to collaborating as a team, you're up and running in minutes.",
+      "stepLabel": "Step {number}",
+      "steps": {
+        "createAgency": {
+          "title": "Create your agency",
+          "description": "Create your agency in a few seconds. Generate an invitation link to add your colleagues and start structuring your organization."
+        },
+        "organizeProjects": {
+          "title": "Organize your projects",
+          "description": "Create projects by client or by mission. Break them down into clear tasks, set priorities and keep an overview of every milestone."
+        },
+        "collaborate": {
+          "title": "Collaborate as a team",
+          "description": "Assign tasks to your members, follow notifications, and manage the activity of the whole agency from a single, simple dashboard."
+        }
+      }
+    },
+    "testimonials": {
+      "badge": "Testimonials",
+      "title": "They use MVP Studio every day",
+      "subtitle": "Our customers successfully manage their agencies, projects and teams.",
+      "quoted": "“{quote}”",
+      "items": {
+        "amina": {
+          "quote": "MVP Studio has transformed the way we work. All our agencies and projects are finally centralized in one place.",
+          "role": "Director · Creative Agency"
+        },
+        "karim": {
+          "quote": "Task tracking is crystal clear. Every team member knows exactly what to do and where each project stands.",
+          "role": "Project Manager · Digital Studio"
+        },
+        "leila": {
+          "quote": "Simple, fast and effective. Huge time saver.",
+          "role": "Founder · Web Studio"
+        },
+        "youssef": {
+          "quote": "The overview we finally have of all our projects. The dashboard is clear, the notifications are relevant.",
+          "role": "Technical Director · Web Agency"
+        }
+      }
+    },
+    "finalCta": {
+      "title": "Ready to <highlight>level up</highlight>?",
+      "description": "Join hundreds of teams who organize their agencies, projects and tasks with MVP Studio. It's free to get started.",
+      "primaryCta": "Create my free account",
+      "secondaryCta": "I already have an account"
+    },
+    "footer": {
+      "description": "The all-in-one platform to manage your agencies, projects and teams, simply and efficiently.",
+      "productTitle": "Product",
+      "accountTitle": "Account",
+      "createAccount": "Create an account",
+      "forgotPassword": "Forgot password",
+      "copyright": "© {year} MVP Studio. All rights reserved."
     }
   },
   "Dashboard": {},
@@ -59,7 +344,14 @@
   "Notifications": {},
   "Deadlines": {},
   "Profile": {},
-  "Settings": {},
+  "Settings": {
+    "theme": {
+      "label": "Interface theme",
+      "description": "Choose between light and dark appearance.",
+      "light": "Light",
+      "dark": "Dark"
+    }
+  },
   "Statuses": {},
   "Priorities": {},
   "ProjectStatuses": {},

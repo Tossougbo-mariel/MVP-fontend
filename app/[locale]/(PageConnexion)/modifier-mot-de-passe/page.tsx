@@ -9,8 +9,11 @@ import AuthCard from "../components/AuthCard";
 import MagneticButton from "../components/MagneticButton";
 import { useAuthStore } from "@/app/store/authStore";
 import api, { getApiErrorMessage } from "@/lib/api";
+import { useTranslations } from "next-intl";
 
 export default function ModifierMotDePassePage() {
+  const t = useTranslations("Auth.changePassword");
+  const tErrors = useTranslations("Errors");
   const router = useRouter();
   const logout = useAuthStore((s) => s.logout);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -51,15 +54,15 @@ export default function ModifierMotDePassePage() {
     setError(null);
 
     if (password.length < 8) {
-      setError("Le nouveau mot de passe doit contenir au moins 8 caractères.");
+      setError(t("errors.passwordTooShort"));
       return;
     }
     if (password !== confirmPassword) {
-      setError("Les deux nouveaux mots de passe ne correspondent pas.");
+      setError(t("errors.mismatch"));
       return;
     }
     if (currentPassword === password) {
-      setError("Le nouveau mot de passe doit être différent de l'actuel.");
+      setError(t("errors.sameAsCurrent"));
       return;
     }
 
@@ -107,10 +110,10 @@ export default function ModifierMotDePassePage() {
                 className="text-3xl font-black mb-1 text-center"
                 style={{ color: "var(--text-primary)" }}
               >
-                Modifier le mot de passe
+                {t("title")}
               </h1>
               <p className="text-sm text-center" style={{ color: "var(--text-secondary)" }}>
-                Choisissez un nouveau mot de passe sécurisé.
+                {t("subtitle")}
               </p>
             </motion.div>
 
@@ -121,7 +124,7 @@ export default function ModifierMotDePassePage() {
                 className="text-sm mb-4"
                 style={{ color: "var(--color-error)", animation: "shake 0.4s" }}
               >
-                {error}
+                {error === "Errors.generic" ? tErrors("generic") : error}
               </motion.p>
             )}
 
@@ -137,30 +140,34 @@ export default function ModifierMotDePassePage() {
                   style={{ color: "var(--color-success)" }}
                 />
                 <p className="font-bold text-lg" style={{ color: "var(--text-primary)" }}>
-                  Mot de passe modifié !
+                  {t("success.title")}
                 </p>
                 <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
-                  Votre mot de passe a été mis à jour avec succès.
+                  {t("success.message")}
                 </p>
-                <Link
-                  href="/connexion"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    void (async () => {
-                      await logout();
-                      router.push("/connexion");
-                    })();
-                  }}
-                  className="font-semibold"
-                  style={{
-                    backgroundImage: "linear-gradient(135deg, var(--blue-accent), var(--blue))",
-                    backgroundClip: "text",
-                    WebkitBackgroundClip: "text",
-                    color: "transparent",
-                  }}
-                >
-                  Retour à mon profil
-                </Link>
+                {t.rich("backToProfile", {
+                  profile: (chunks) => (
+                    <Link
+                      href="/connexion"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        void (async () => {
+                          await logout();
+                          router.push("/connexion");
+                        })();
+                      }}
+                      className="font-semibold"
+                      style={{
+                        backgroundImage: "linear-gradient(135deg, var(--blue-accent), var(--blue))",
+                        backgroundClip: "text",
+                        WebkitBackgroundClip: "text",
+                        color: "transparent",
+                      }}
+                    >
+                      {chunks}
+                    </Link>
+                  ),
+                })}
               </motion.div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-5">
@@ -173,7 +180,7 @@ export default function ModifierMotDePassePage() {
                     />
                     <input
                       type={showCurrent ? "text" : "password"}
-                      placeholder="Mot de passe actuel"
+                      placeholder={t("fields.current")}
                       required
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
@@ -187,7 +194,7 @@ export default function ModifierMotDePassePage() {
                       onClick={() => setShowCurrent(!showCurrent)}
                       className="absolute right-4 top-1/2 -translate-y-1/2"
                       style={{ color: "var(--text-muted)" }}
-                      aria-label="Afficher ou masquer le mot de passe actuel"
+                      aria-label={t("fields.toggleCurrent")}
                     >
                       {showCurrent ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -203,7 +210,7 @@ export default function ModifierMotDePassePage() {
                     />
                     <input
                       type={showNew ? "text" : "password"}
-                      placeholder="Nouveau mot de passe"
+                      placeholder={t("fields.new")}
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -217,7 +224,7 @@ export default function ModifierMotDePassePage() {
                       onClick={() => setShowNew(!showNew)}
                       className="absolute right-4 top-1/2 -translate-y-1/2"
                       style={{ color: "var(--text-muted)" }}
-                      aria-label="Afficher ou masquer le nouveau mot de passe"
+                      aria-label={t("fields.toggleNew")}
                     >
                       {showNew ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -233,7 +240,7 @@ export default function ModifierMotDePassePage() {
                     />
                     <input
                       type={showConfirm ? "text" : "password"}
-                      placeholder="Confirmer le nouveau mot de passe"
+                      placeholder={t("fields.confirm")}
                       required
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
@@ -247,7 +254,7 @@ export default function ModifierMotDePassePage() {
                       onClick={() => setShowConfirm(!showConfirm)}
                       className="absolute right-4 top-1/2 -translate-y-1/2"
                       style={{ color: "var(--text-muted)" }}
-                      aria-label="Afficher ou masquer la confirmation"
+                      aria-label={t("fields.toggleConfirm")}
                     >
                       {showConfirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -268,7 +275,7 @@ export default function ModifierMotDePassePage() {
                     }}
                     className="w-full py-3.5 rounded-xl font-semibold focus:outline-none"
                   >
-                    {loading ? "Enregistrement..." : "Mettre à jour"}
+                    {loading ? t("submitLoading") : t("submit")}
                   </MagneticButton>
                 </motion.div>
 
@@ -277,19 +284,22 @@ export default function ModifierMotDePassePage() {
                   className="text-sm text-center pt-2"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  Retour à{" "}
-                  <Link
-                    href="/connexion"
-                    className="font-semibold"
-                    style={{
-                      backgroundImage: "linear-gradient(135deg, var(--blue-accent), var(--blue))",
-                      backgroundClip: "text",
-                      WebkitBackgroundClip: "text",
-                      color: "transparent",
-                    }}
-                  >
-                    mon profil
-                  </Link>
+                  {t.rich("backToProfile", {
+                    profile: (chunks) => (
+                      <Link
+                        href="/connexion"
+                        className="font-semibold"
+                        style={{
+                          backgroundImage: "linear-gradient(135deg, var(--blue-accent), var(--blue))",
+                          backgroundClip: "text",
+                          WebkitBackgroundClip: "text",
+                          color: "transparent",
+                        }}
+                      >
+                        {chunks}
+                      </Link>
+                    ),
+                  })}
                 </motion.p>
               </form>
             )}

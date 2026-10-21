@@ -210,11 +210,11 @@ export default function ReglagesPage() {
             {showThemes && (
               <>
                 <div className="mt-3 grid grid-cols-6 gap-x-1.5 gap-y-2">
-                  {[{ label: `Défaut (${DEFAULT_ACCENT})`, hex: DEFAULT_ACCENT }, ...PRESET_COLORS].map((preset) => {
+                  {[{ key: "default", label: `Défaut (${DEFAULT_ACCENT})`, hex: DEFAULT_ACCENT }, ...PRESET_COLORS].map((preset) => {
                     const active = userAccent.toLowerCase() === preset.hex.toLowerCase();
                     return (
                       <button
-                        key={preset.label}
+                        key={preset.key}
                         onClick={() => handleAccentSelect(preset.hex)}
                         title={preset.label}
                         aria-label={`Couleur d'accent ${preset.label}`}
