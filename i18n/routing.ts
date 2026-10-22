@@ -15,5 +15,6 @@ export const routing = defineRouting({
     "/modifier-mot-de-passe": { fr: "/modifier-mot-de-passe", en: "/change-password" },
     "/accepter-invitation": { fr: "/accepter-invitation", en: "/accept-invitation" },
     "/agences/nouvelle": { fr: "/agences/nouvelle", en: "/agency/new" },
+    "/mes-agences": { fr: "/mes-agences", en: "/my-agencies" },
   },
 });

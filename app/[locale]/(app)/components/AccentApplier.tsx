@@ -1,17 +1,31 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { useAuthStore } from "@/app/store/authStore";
 import { applyAccent, readStoredAccent, storeAccent } from "@/lib/applyAccent";
 import { toAccentHex } from "@/lib/accentTheme";
 
+// Équivalent client/serveur de useLayoutEffect : appliquer l'accent avant la
+// peinture évite un cadre bleu par défaut sur un appareil sans cache (pattern
+// identique dans app/(PageConnexion)/layout.tsx).
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
 /**
  * Applique la couleur d'accent choisie par l'utilisateur.
  *
- * Monté dans tous les écrans de l'application authentifiée : la base de
- * données (`user.themeColor`) est l'unique source de vérité. Un utilisateur
- * sans couleur enregistrée reçoit le bleu par défaut de la marque, sans
- * hériter d'éventuelles couleurs résiduelles du navigateur.
+ * Monté dans tous les écrans de l'application authentifiée, AVANT RequireAuth :
+ * le store persisté (localStorage) contient déjà `user.themeColor` au premier
+ * rendu client, donc l'accent s'applique dès l'hydratation sans attendre la
+ * réponse de /api/me (sinon l'app apparaissait en bleu par défaut pendant le
+ * chargement du réseau).
+ *
+ * La base de données reste l'unique source de vérité : la valeur appliquée est
+ * ré-écrite dans le cache `mvp-accent`, que relit le script anti-FOUC de
+ * app/layout.tsx avant la première peinture. Utilisateur connecté sans couleur
+ * enregistrée → cache vidé (bleu par défaut). Déconnecté (user null) → le
+ * cache n'est pas touché : l'accent survit à la session, cf. ACCENT_STORAGE_KEY
+ * dans lib/applyAccent.ts.
  *
  * Deux cas distincts, qui ne doivent pas être confondus :
  * - le compte n'a pas (encore) de couleur : on ne touche à rien tant que
@@ -27,7 +41,7 @@ export default function AccentApplier() {
   const themeColor = useAuthStore((s) => s.user?.themeColor);
   const userSynced = useAuthStore((s) => s.userSynced);
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (themeColor) {
       const hex = toAccentHex(themeColor);
       applyAccent(hex);

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "@/i18n/navigation";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { motion, type Variants } from "framer-motion";
 import {
   Bell, Check, CheckCheck, CheckSquare, EllipsisVertical, EyeOff, RotateCcw, Trash2, X,
@@ -15,6 +15,7 @@ import {
   isNeutralNotification,
   matchesFilter,
   notificationAction,
+  parseInvitationText,
   relativeTime,
   type NotificationAction,
 } from "@/lib/notifications";
@@ -79,6 +80,7 @@ function NotificationDetailModal({
   onToggle: (n: AppNotification) => void;
 }) {
   const locale = useLocale();
+  const t = useTranslations("Notifications");
   useEffect(() => {
     if (!notification) return;
     const onKey = (e: KeyboardEvent) => {
@@ -94,6 +96,10 @@ function NotificationDetailModal({
   const Icon = meta.icon;
   const action = notificationAction(notification);
   const unread = isUnread(notification);
+  const isInvit = notification.type === "invitation";
+  const parsed = isInvit ? parseInvitationText(notification) : null;
+  const title = isInvit && parsed?.agency ? t("invitTitle", { agency: parsed.agency }) : notification.title;
+  const message = isInvit && parsed?.agency && parsed?.inviter ? t("invitBody", { inviter: parsed.inviter, agency: parsed.agency, role: parsed.role === "admin" ? t("roleAdmin") : t("roleMember") }) : notification.message;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
@@ -121,25 +127,25 @@ function NotificationDetailModal({
               className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide"
               style={{ background: meta.bg, color: meta.color }}
             >
-              {meta.label}
+              {t(meta.labelKey)}
             </span>
             <h2 className="mt-1.5 text-lg font-bold leading-tight" style={{ color: "var(--chrome-text)" }}>
-              {notification.title}
+              {title}
             </h2>
             <p className="text-xs mt-1" style={{ color: "var(--chrome-text-muted)" }}>
               {formatFullDate(notification.createdAt, locale)}
               {" · "}
-              {unread ? "Non lu" : "Lu"}
+              {unread ? t("unread") : t("read")}
             </p>
           </div>
         </div>
 
-        {notification.message && (
+        {message && (
           <div
             className="rounded-xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap"
             style={{ background: "var(--chrome-hover)", border: "1px solid var(--chrome-border)", color: "var(--chrome-text-secondary)" }}
           >
-            {notification.message}
+            {message}
           </div>
         )}
 
@@ -151,7 +157,7 @@ function NotificationDetailModal({
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-transform hover:scale-[1.03]"
               style={{ background: "var(--gradient-button)", color: "#fff", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.45)" }}
             >
-              {action.label}
+              {t(action.labelKey)}
             </ActionLink>
           )}
 
@@ -165,7 +171,7 @@ function NotificationDetailModal({
             }}
           >
             {unread ? <Check size={14} /> : <RotateCcw size={13} />}
-            {unread ? "Marquer comme lu" : "Marquer comme non lu"}
+            {unread ? t("markAsRead") : t("markAsUnread")}
           </button>
 
           <button
@@ -173,7 +179,7 @@ function NotificationDetailModal({
             className="ml-auto px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80"
             style={{ color: "var(--chrome-text-muted)" }}
           >
-            Fermer
+            {t("close")}
           </button>
         </div>
       </motion.div>
@@ -209,6 +215,7 @@ export default function NotificationsView({
   const [confirmIds, setConfirmIds] = useState<number[] | null>(null);
   const { reload } = useAppData();
   const locale = useLocale();
+  const t = useTranslations("Notifications");
 
   // Le menu d'actions se referme au clic à l'extérieur et sur Échap.
   useEffect(() => {
@@ -366,8 +373,8 @@ export default function NotificationsView({
   };
 
   const chips: { key: string; label: string; mentions: number }[] = [
-    { key: "toutes", label: "Toutes", mentions: unreadMentions },
-    { key: "non-lues", label: "Non lues", mentions: unreadMentions },
+    { key: "toutes", label: t("tabAll"), mentions: unreadMentions },
+    { key: "non-lues", label: t("tabUnread"), mentions: unreadMentions },
   ];
 
   return (
@@ -382,15 +389,15 @@ export default function NotificationsView({
           </span>
           <div className="min-w-0">
             <h1 className="text-2xl lg:text-3xl font-black tracking-tight" style={{ color: "var(--chrome-text)" }}>
-              Notifications
+              {t("title")}
             </h1>
             <p className="text-sm truncate" style={{ color: "var(--chrome-text-secondary)" }}>
               {subtitle}
               {subtitle ? " · " : ""}
-              {sorted.length} notification{sorted.length > 1 ? "s" : ""}
+              {t("summary", { count: sorted.length })}
               {unreadCount > 0 && (
                 <span className="font-semibold" style={{ color: "var(--color-error)" }}>
-                  {" "}· {unreadCount} non lue{unreadCount > 1 ? "s" : ""}
+                  {" "}· {t("unreadSummary", { count: unreadCount })}
                 </span>
               )}
             </p>
@@ -409,7 +416,7 @@ export default function NotificationsView({
                 color: "var(--chrome-text-secondary)",
               }}
             >
-              <CheckCheck size={15} /> Tout marquer comme lu
+              <CheckCheck size={15} /> {t("markAllRead")}
             </button>
           )}
 
@@ -428,7 +435,7 @@ export default function NotificationsView({
             }
           >
             {selecting ? <X size={15} /> : <CheckSquare size={15} />}
-            {selecting ? "Quitter la sélection" : "Sélectionner"}
+            {selecting ? t("exitSelection") : t("select")}
           </button>
         </div>
       </motion.div>
@@ -460,7 +467,7 @@ export default function NotificationsView({
                 {chip.mentions > 0 && (
                   <span
                     className="absolute -top-2 right-1 text-[17px] leading-none"
-                    title={`${chip.mentions} mention${chip.mentions > 1 ? "s" : ""} ici`}
+                    title={t("mentionsHere", { count: chip.mentions })}
                     style={{
                       color: "var(--accent-text)",
                       fontWeight: 900,
@@ -488,7 +495,7 @@ export default function NotificationsView({
 
       {loading && sorted.length === 0 ? (
         <motion.p variants={item} className="text-sm text-center py-12" style={{ color: "var(--chrome-text-muted)" }}>
-          Chargement des notifications…
+          {t("loading")}
         </motion.p>
       ) : visible.length === 0 ? (
         <motion.div
@@ -508,13 +515,13 @@ export default function NotificationsView({
           <div>
             <p className="font-semibold" style={{ color: "var(--chrome-text)" }}>
               {activeFilter === "toutes"
-                ? (emptyMessage ?? "Aucune notification pour le moment.")
-                : "Aucune notification dans cette catégorie."}
+                ? (emptyMessage ?? t("emptyDefault"))
+                : t("emptyCategory")}
             </p>
             <p className="text-sm mt-1" style={{ color: "var(--chrome-text-muted)" }}>
               {activeFilter === "toutes"
-                ? "Une nouvelle tâche, un commentaire ou une échéance apparaîtra ici."
-                : "Choisissez un autre filtre."}
+                ? t("emptyHint")
+                : t("emptyCategoryHint")}
             </p>
           </div>
         </motion.div>
@@ -531,6 +538,10 @@ export default function NotificationsView({
             const neutral = isNeutralNotification(n);
             const isSelected = selected.has(n.id);
             const clickable = selecting || !neutral;
+            const isInvit = n.type === "invitation";
+            const parsed = isInvit ? parseInvitationText(n) : null;
+            const title = isInvit && parsed?.agency ? t("invitTitle", { agency: parsed.agency }) : n.title;
+            const message = isInvit && parsed?.agency && parsed?.inviter ? t("invitBody", { inviter: parsed.inviter, agency: parsed.agency, role: parsed.role === "admin" ? t("roleAdmin") : t("roleMember") }) : n.message;
 
             // En sélection le clic coche ; sinon il ouvre le contenu, sauf sur
             // une notification neutre qui n'a plus rien à ouvrir.
@@ -548,9 +559,9 @@ export default function NotificationsView({
                 aria-label={
                   selecting
                     ? isSelected
-                      ? `Désélectionner : ${n.title}`
-                      : `Sélectionner : ${n.title}`
-                    : `Ouvrir la notification : ${n.title}`
+                      ? `${t("deselectNotification")} : ${title}`
+                      : `${t("selectNotification")} : ${title}`
+                    : `${t("openNotification")} : ${title}`
                 }
                 aria-pressed={selecting ? isSelected : undefined}
                 onClick={clickable ? activate : undefined}
@@ -604,7 +615,7 @@ export default function NotificationsView({
                           className="text-[10px] font-bold uppercase tracking-wide"
                           style={{ color: meta.color }}
                         >
-                          {meta.label}
+                          {t(meta.labelKey)}
                         </span>
                         <time
                           title={formatFullDate(n.createdAt, locale)}
@@ -617,7 +628,7 @@ export default function NotificationsView({
                           <span
                             className="w-1.5 h-1.5 rounded-full shrink-0"
                             style={{ background: "var(--blue)" }}
-                            aria-label="Non lu"
+                            aria-label={t("unread")}
                           />
                         )}
                       </div>
@@ -626,11 +637,11 @@ export default function NotificationsView({
                         className={`mt-0.5 text-[13px] ${unread ? "font-semibold" : "font-medium"}`}
                         style={{ color: "var(--chrome-text)" }}
                       >
-                        {n.title}
+                        {title}
                       </p>
-                      {n.message && (
+                      {message && (
                         <p className="mt-0.5 text-[11px] line-clamp-2" style={{ color: "var(--chrome-text-muted)" }}>
-                          {n.message}
+                          {message}
                         </p>
                       )}
                     </div>
@@ -644,7 +655,7 @@ export default function NotificationsView({
                            sur la carte coche déjà, la case sert de repère visuel. */
                         <button
                           onClick={() => toggleSelect(n.id)}
-                          aria-label={isSelected ? "Désélectionner" : "Sélectionner"}
+                          aria-label={isSelected ? t("deselectNotification") : t("selectNotification")}
                           aria-pressed={isSelected}
                           className="w-7 h-7 rounded-lg inline-flex items-center justify-center transition-colors"
                           style={{
@@ -661,10 +672,10 @@ export default function NotificationsView({
                         <div className="relative" data-notif-menu>
                           <button
                             onClick={() => setMenuFor((c) => (c === n.id ? null : n.id))}
-                            aria-label="Actions de la notification"
+                            aria-label={t("notificationActions")}
                             aria-haspopup="menu"
                             aria-expanded={menuFor === n.id}
-                            title="Actions"
+                            title={t("actions")}
                             className="w-7 h-7 rounded-lg inline-flex items-center justify-center transition-colors"
                             style={{
                               background:
@@ -701,7 +712,7 @@ export default function NotificationsView({
                                   style={{ color: "var(--chrome-text)" }}
                                 >
                                   {unread ? <Check size={14} /> : <RotateCcw size={13} />}
-                                  {unread ? "Marquer comme lu" : "Marquer comme non lu"}
+                                  {unread ? t("markAsRead") : t("markAsUnread")}
                                 </button>
                               )}
 
@@ -718,7 +729,7 @@ export default function NotificationsView({
                                     className="w-full flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold transition-colors hover:bg-[var(--chrome-hover)]"
                                     style={{ color: meta.color }}
                                   >
-                                    {action.label}
+                                    {t(action.labelKey)}
                                   </ActionLink>
                                 </>
                               )}
@@ -737,7 +748,7 @@ export default function NotificationsView({
                                 style={{ color: "var(--color-error)" }}
                               >
                                 <Trash2 size={14} />
-                                Supprimer
+                                {t("delete")}
                               </button>
                             </div>
                           )}
@@ -764,9 +775,7 @@ export default function NotificationsView({
           }}
         >
           <span className="text-sm font-semibold" style={{ color: "var(--chrome-text)" }}>
-            {selected.size} notification{selected.size > 1 ? "s" : ""}
-            {" sélectionnée"}
-            {selected.size > 1 ? "s" : ""}
+            {t("selectedOne", { count: selected.size })}
           </span>
 
           <div className="ml-auto flex items-center gap-2">
@@ -776,7 +785,7 @@ export default function NotificationsView({
               className="px-3.5 py-2 rounded-xl text-xs font-semibold transition-opacity hover:opacity-80 disabled:opacity-40"
               style={{ color: "var(--chrome-text-secondary)" }}
             >
-              Tout désélectionner
+              {t("deselectAll")}
             </button>
             <button
               onClick={() => askDelete([...selected])}
@@ -785,7 +794,7 @@ export default function NotificationsView({
               style={{ background: "var(--color-error)", color: "#fff" }}
             >
               <Trash2 size={14} />
-              Supprimer
+              {t("delete")}
             </button>
           </div>
         </div>
@@ -793,13 +802,13 @@ export default function NotificationsView({
 
       <ConfirmDialog
         open={confirmIds !== null}
-        title={(confirmIds?.length ?? 0) > 1 ? "Supprimer ces notifications ?" : "Supprimer cette notification ?"}
+        title={(confirmIds?.length ?? 0) > 1 ? t("deleteConfirmTitleMany") : t("deleteConfirmTitleOne")}
         message={
           (confirmIds?.length ?? 0) > 1
-            ? `${confirmIds?.length} notifications seront définitivement retirées de votre liste.`
-            : "Cette notification sera définitivement retirée de votre liste."
+            ? t("deleteConfirmMessageMany", { count: confirmIds?.length ?? 0 })
+            : t("deleteConfirmMessageOne")
         }
-        confirmLabel="Supprimer"
+        confirmLabel={t("delete")}
         tone="danger"
         onConfirm={() => void confirmDelete()}
         onCancel={() => setConfirmIds(null)}

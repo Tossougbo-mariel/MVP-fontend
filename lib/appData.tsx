@@ -10,8 +10,9 @@ import {
   useState,
 } from "react";
 import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { useAuthStore } from "@/app/store/authStore";
-import { getNotificationMeta, notificationAction } from "./notifications";
+import { getNotificationMeta, notificationAction, parseInvitationText } from "./notifications";
 import {
   fetchAgencies,
   fetchBootstrap,
@@ -91,6 +92,50 @@ type BootstrapPayload = {
   notifications: AppNotification[];
 };
 
+// Cache persistant du bootstrap : au rechargement, la dernière copie connue est
+// relue de façon SYNCHRONE (localStorage) et affichée tout de suite, sans
+// écran « Chargement… ». Le réseau rafraîchit ensuite la copie en arrière-plan.
+const DATA_STORAGE_KEY = "mvp-app-data";
+const DATA_TTL = 24 * 60 * 60 * 1000;
+
+type PersistedData = BootstrapPayload & { savedAt: number };
+
+const readPersistedData = (): PersistedData | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(DATA_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedData;
+    if (!parsed || typeof parsed.savedAt !== "number") return null;
+    if (Date.now() - parsed.savedAt > DATA_TTL) return null;
+    if (!Array.isArray(parsed.agencies) || !Array.isArray(parsed.projects)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const writePersistedData = (payload: BootstrapPayload) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      DATA_STORAGE_KEY,
+      JSON.stringify({ ...payload, savedAt: Date.now() } satisfies PersistedData),
+    );
+  } catch {
+    // quota plein ou stockage indisponible : le cache est un confort, pas un dû
+  }
+};
+
+const clearPersistedData = () => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(DATA_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+};
+
 /**
  * Repli sur les routes unitaires, pour les backends qui n'exposent pas encore
  * GET /api/bootstrap. Un 404 sur /bootstrap ne doit pas laisser l'application
@@ -132,9 +177,26 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const userId = user?.id ?? null;
-  const [data, setData] = useState<AppDataState>(
-    () => (cachedUserId === userId && cachedData ? cachedData : EMPTY),
-  );
+  const [data, setData] = useState<AppDataState>(() => {
+    // Cache mémoire : le segment [locale] est remonté en bloc à chaque
+    // changement de langue, on garde la dernière copie connue.
+    if (cachedUserId === userId && cachedData) return cachedData;
+
+    // Cache persistant : au rechargement complet de la page, la dernière copie
+    // connue est relue de façon synchrone (localStorage) et affichée tout de
+    // suite, sans écran « Chargement… ».
+    const persisted = token ? readPersistedData() : null;
+    if (!persisted) return EMPTY;
+    return {
+      agencies: persisted.agencies,
+      projects: persisted.projects,
+      tasks: persisted.tasks,
+      notifications: persisted.notifications,
+      loading: false,
+      error: null,
+      lastLoadedAt: persisted.savedAt,
+    };
+  });
   const [toast, setToast] = useState<AppNotification | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -185,6 +247,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         error: null,
         lastLoadedAt: Date.now(),
       }));
+      // Mémorise la copie pour le prochain rechargement : affichage immédiat.
+      writePersistedData(boot);
     } catch (err) {
       // En silencieux, on ignore l'erreur : les données existantes restent affichées.
       if (!silent) {
@@ -215,7 +279,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const refresh = useCallback(() => fetchAll({ silent: true }), [fetchAll]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      // Session terminée : le cache persisté ne doit pas survivre à la
+      // déconnexion (il appartient au compte précédent).
+      clearPersistedData();
+      setData(EMPTY);
+      return;
+    }
     void load();
   }, [token, load]);
 
@@ -358,6 +428,11 @@ function RealtimeToast({
   const meta = getNotificationMeta(notification.type);
   const action = notificationAction(notification);
   const Icon = meta.icon;
+  const t = useTranslations("Notifications");
+  const isInvit = notification.type === "invitation";
+  const parsed = isInvit ? parseInvitationText(notification) : null;
+  const title = isInvit && parsed?.agency ? t("invitTitle", { agency: parsed.agency }) : notification.title;
+  const message = isInvit && parsed?.agency && parsed?.inviter ? t("invitBody", { inviter: parsed.inviter, agency: parsed.agency, role: parsed.role === "admin" ? t("roleAdmin") : t("roleMember") }) : notification.message;
 
   return (
     <div
@@ -377,14 +452,14 @@ function RealtimeToast({
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: meta.color }}>
-          {meta.label}
+          {t(meta.labelKey)}
         </p>
         <p className="text-sm font-bold truncate" style={{ color: "var(--chrome-text)" }}>
-          {notification.title}
+          {title}
         </p>
-        {notification.message && (
+        {message && (
           <p className="text-xs mt-0.5 line-clamp-2" style={{ color: "var(--chrome-text-muted)" }}>
-            {notification.message}
+            {message}
           </p>
         )}
         <Link
@@ -393,12 +468,12 @@ function RealtimeToast({
           className="inline-block mt-1.5 text-xs font-semibold"
           style={{ color: meta.color }}
         >
-          {action?.label ?? "Voir la notification"}
+          {action ? t(action.labelKey) : t("actionViewNotification")}
         </Link>
       </div>
       <button
         onClick={onClose}
-        aria-label="Fermer"
+        aria-label={t("close")}
         className="shrink-0 text-lg leading-none"
         style={{ color: "var(--chrome-text-muted)" }}
       >

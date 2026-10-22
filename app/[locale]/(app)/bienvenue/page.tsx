@@ -5,6 +5,7 @@ import { Link } from "@/i18n/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Building2, Sparkles } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
+import { useTranslations } from "next-intl";
 
 const SLIDES = [
   { src: "/image/welcome.jpg", alt: "Planning kanban avec des notes de tâches" },
@@ -16,6 +17,7 @@ const SLIDES = [
 const AUTOPLAY_MS = 5000;
 
 export default function BienvenuePage() {
+  const t = useTranslations("Bienvenue");
   const user = useAuthStore((s) => s.user);
   const firstName = user?.firstName || user?.email?.split("@")[0] || "";
   const [index, setIndex] = useState(0);
@@ -98,11 +100,9 @@ export default function BienvenuePage() {
       <div className="absolute inset-x-0 bottom-0 p-6 lg:p-10">
         <div className="max-w-2xl">
           <h1 className="text-3xl lg:text-5xl font-black leading-tight text-white drop-shadow">
-            Bienvenue, {firstName}
-          </h1>
+              {t("greeting", { name: firstName })}          </h1>
           <p className="mt-3 text-sm lg:text-base text-white/85 max-w-lg drop-shadow">
-            Pilotez vos agences, vos projets et vos tâches depuis un seul espace.
-          </p>
+                 {t("subtitle")}          </p>
           <div className="mt-6 flex flex-wrap items-center gap-4">
             <Link
               href="/mes-agences"
@@ -115,11 +115,11 @@ export default function BienvenuePage() {
               }}
             >
               <Building2 className="w-4 h-4" />
-              Voir mes agences
+              {t("cta")}
               <ArrowRight className="w-4 h-4" />
             </Link>
             <span className="text-xs text-white/70">
-              En cliquant, vos agences passent au premier plan.
+             {t("ctaHint")}
             </span>
           </div>
         </div>
@@ -136,7 +136,7 @@ export default function BienvenuePage() {
               key={s.src}
               type="button"
               onClick={() => go(i)}
-              aria-label={`Image ${i + 1}`}
+              aria-label={t("dotLabel", { number: i + 1 })}
               className="h-1.5 rounded-full transition-all"
               style={{
                 width: i === index ? 22 : 8,
