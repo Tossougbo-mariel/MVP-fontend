@@ -9,9 +9,8 @@ import {
   useRef,
   useState,
 } from "react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { useAuthStore } from "@/app/store/authStore";
-import { getEcho, disconnectEcho } from "./echo";
 import { getNotificationMeta, notificationAction } from "./notifications";
 import {
   fetchAgencies,
@@ -76,6 +75,15 @@ const EMPTY: AppDataState = {
   lastLoadedAt: null,
 };
 
+// Cache hors composant : le segment [locale] est remonté en bloc à chaque
+// changement de langue (la clé de segment Next.js contient la locale), ce qui
+// rejouait le chargement et vidait l'écran le temps de /api/bootstrap. Les
+// données survivent ici d'un montage à l'autre ; le rafraîchissement qui suit
+// se fait en arrière-plan, sans repasser par l'écran « Chargement… ». Le cache
+// est lié à l'utilisateur : changer de compte repart de zéro.
+let cachedData: AppDataState | null = null;
+let cachedUserId: number | null = null;
+
 type BootstrapPayload = {
   agencies: Agency[];
   projects: Project[];
@@ -123,9 +131,18 @@ const loadEverythingFanOut = async (): Promise<BootstrapPayload> => {
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
-  const [data, setData] = useState<AppDataState>(EMPTY);
+  const userId = user?.id ?? null;
+  const [data, setData] = useState<AppDataState>(
+    () => (cachedUserId === userId && cachedData ? cachedData : EMPTY),
+  );
   const [toast, setToast] = useState<AppNotification | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Mémorise le dernier état pour survivre au remontage du segment [locale].
+  useEffect(() => {
+    cachedData = data;
+    cachedUserId = userId;
+  }, [data, userId]);
 
   const fetchAllNow = useCallback(async (opts: { silent?: boolean } = {}) => {
     const { silent = false } = opts;
@@ -204,42 +221,58 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   // ── Temps réel : écoute du canal privé de l'utilisateur (WebSocket Reverb) ──
   useEffect(() => {
+    let cancelled = false;
+
     if (!token || !user?.id) {
-      disconnectEcho();
-      return;
+      void import("./echo").then(({ disconnectEcho }) => {
+        if (!cancelled) disconnectEcho();
+      });
+      return () => {
+        cancelled = true;
+      };
     }
 
-    const echo = getEcho(token);
-    const channel = echo.private(`App.Models.User.${user.id}`);
+    const uid = user.id;
+    let stopListening: (() => void) | undefined;
 
-    channel.listen(".notification.created", (payload: { notification?: Record<string, unknown> }) => {
-      const raw = payload?.notification;
-      if (!raw?.id) return;
+    void (async () => {
+      const { getEcho } = await import("./echo");
+      if (cancelled) return;
 
-      const incoming: AppNotification = {
-        id: Number(raw.id),
-        agencyId: raw.agency_id != null ? Number(raw.agency_id) : null,
-        type: String(raw.type ?? ""),
-        title: String(raw.title ?? ""),
-        message: raw.message != null ? String(raw.message) : null,
-        link: raw.link != null ? String(raw.link) : null,
-        readAt: (raw.read_at as string | null) ?? null,
-        createdAt: String(raw.created_at ?? new Date().toISOString()),
-      };
+      const channel = getEcho(token).private(`App.Models.User.${uid}`);
 
-      setData((prev) => {
-        if (prev.notifications.some((n) => n.id === incoming.id)) return prev;
-        return {
-          ...prev,
-          notifications: [incoming, ...prev.notifications].slice(0, 100),
-          lastLoadedAt: Date.now(),
+      channel.listen(".notification.created", (payload: { notification?: Record<string, unknown> }) => {
+        const raw = payload?.notification;
+        if (!raw?.id) return;
+
+        const incoming: AppNotification = {
+          id: Number(raw.id),
+          agencyId: raw.agency_id != null ? Number(raw.agency_id) : null,
+          type: String(raw.type ?? ""),
+          title: String(raw.title ?? ""),
+          message: raw.message != null ? String(raw.message) : null,
+          link: raw.link != null ? String(raw.link) : null,
+          readAt: (raw.read_at as string | null) ?? null,
+          createdAt: String(raw.created_at ?? new Date().toISOString()),
         };
+
+        setData((prev) => {
+          if (prev.notifications.some((n) => n.id === incoming.id)) return prev;
+          return {
+            ...prev,
+            notifications: [incoming, ...prev.notifications].slice(0, 100),
+            lastLoadedAt: Date.now(),
+          };
+        });
+        setToast(incoming);
       });
-      setToast(incoming);
-    });
+
+      stopListening = () => channel.stopListening(".notification.created");
+    })();
 
     return () => {
-      channel.stopListening(".notification.created");
+      cancelled = true;
+      stopListening?.();
     };
   }, [token, user?.id]);
 

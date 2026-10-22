@@ -21,17 +21,17 @@ export function getEcho(token: string): Echo<"pusher"> {
       // l'hôte de repli.
       cluster: "mt1",
       wsHost: process.env.NEXT_PUBLIC_REVERB_HOST ?? "127.0.0.1",
-      wsPort: Number(process.env.NEXT_PUBLIC_REVERB_PORT ?? 8080),
+      wsPort: Number(process.env.NEXT_PUBLIC_REVERB_PORT ?? 8081),
       // Ne PAS définir wsPath ici : pusher-js préfixe déjà le chemin interne
       // par la valeur de wsPath, il appende ensuite "/app/{key}". Mettre
       // wsPath: "/app" produisait "/app/app/{key}". On garde le défaut vide,
       // et on aligne wssPort sur wsPort pour éviter la retentative TLS sur 443.
-      wssPort: Number(process.env.NEXT_PUBLIC_REVERB_PORT ?? 8080),
+      wssPort: Number(process.env.NEXT_PUBLIC_REVERB_PORT ?? 8081),
       // Indispensable : sans httpHost, pusher-js dérive son hôte de repli HTTP
       // de la seule valeur `cluster`, soit sockjs-mt1.pusher.com. Le frontend
       // partait alors en CORS vers le cloud public de Pusher au lieu de
       // retenter le serveur Reverb local.
-      httpHost: `${process.env.NEXT_PUBLIC_REVERB_HOST ?? "127.0.0.1"}:${process.env.NEXT_PUBLIC_REVERB_PORT ?? 8080}`,
+      httpHost: `${process.env.NEXT_PUBLIC_REVERB_HOST ?? "127.0.0.1"}:${process.env.NEXT_PUBLIC_REVERB_PORT ?? 8081}`,
       forceTLS: false,
       disableStats: true,
       authEndpoint: `${process.env.NEXT_PUBLIC_BACKEND_URL ?? ""}/api/broadcasting/auth`,

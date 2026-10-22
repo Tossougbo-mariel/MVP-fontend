@@ -239,6 +239,25 @@ export const fetchBootstrap = async (): Promise<{
   return { agencies, projects, tasks, notifications };
 };
 
+// ---------- Tableau de bord d'une agence ----------
+// Résumé léger d'UNE seule agence (même forme qu'une entrée de /bootstrap,
+// sans notifications). Permet à la page dashboard de ne pas attendre le
+// bootstrap complet (toutes agences + tâches lourdes) avant d'afficher ses
+// indicateurs. Réutilise les mêmes mappers que fetchBootstrap.
+export const fetchAgencyDashboard = async (
+  agencyId: number | string,
+): Promise<{ agency: Agency | null; projects: Project[]; tasks: Task[] }> => {
+  const { data } = await api.get<{ agencies?: Array<{ projects?: unknown[] }> }>(
+    `/agencies/${agencyId}/dashboard`,
+  );
+  const raw = Array.isArray(data?.agencies) ? data.agencies[0] : null;
+  if (!raw) return { agency: null, projects: [], tasks: [] };
+  const agency = mapAgency(raw);
+  const projects: Project[] = Array.isArray(raw.projects) ? raw.projects.map(mapProject) : [];
+  const tasks: Task[] = projects.flatMap((p) => p.tasks ?? []);
+  return { agency, projects, tasks };
+};
+
 // ---------- Agences ----------
 export const fetchAgencies = async (): Promise<Agency[]> => {
   const { data } = await api.get("/agencies");

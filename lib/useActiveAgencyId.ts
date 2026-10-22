@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { usePathname } from "@/i18n/navigation";
 
 export function useActiveAgencyId(): string | null {
   const pathname = usePathname();

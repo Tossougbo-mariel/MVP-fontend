@@ -1,0 +1,983 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { motion, type Variants } from "framer-motion";
+import {
+  FolderKanban, Users, AlertTriangle,
+  ShieldCheck, ListTodo, ArrowLeft, CalendarClock,
+  Lightbulb, Award, AlarmClock, Ban, TrendingUp,
+  History, CalendarPlus, Flag, UserRound, MessageSquare,
+  ChevronDown, ChevronUp, ArrowRight, FileDown,
+} from "lucide-react";
+import { Link } from "@/i18n/navigation";
+import { useParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
+import { useAuthStore } from "@/app/store/authStore";
+import { fetchAgencyDashboard, fetchActivity, getApiErrorMessage, exportAgencyReportPdf } from "@/lib/services";
+import { userRoleInAgency, type Agency, type AgencyRole, type Project, type Task, ACTIVITY_LABELS, getProjectProgress, getProjectStatusFromTasks, formatActivitySentence } from "@/lib/types";
+import { useTaskStatuses } from "@/lib/useTaskStatuses";
+import { useAsync } from "@/lib/appData";
+import { relativeTime, weekdayShort } from "@/lib/dates";
+
+const container: Variants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.08 } },
+};
+const item: Variants = {
+  hidden: { y: 16, opacity: 0 },
+  show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
+};
+
+// Les libellés sont des clés (namespace « Tasks ») : la config vit au niveau
+// du module, la traduction se fait au rendu.
+const activityConfig: Record<string, { labelKey: string; color: string; bg: string; icon: React.ElementType }> = {
+  creation: { labelKey: ACTIVITY_LABELS["creation"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CalendarPlus },
+  changement_statut: { labelKey: ACTIVITY_LABELS["changement_statut"], color: "var(--accent-text)", bg: "var(--accent-soft)", icon: Flag },
+  changement_responsable: { labelKey: ACTIVITY_LABELS["changement_responsable"], color: "#7c3aed", bg: "rgba(139,92,246,0.12)", icon: UserRound },
+  changement_priorite: { labelKey: ACTIVITY_LABELS["changement_priorite"], color: "#d97706", bg: "rgba(245,158,11,0.15)", icon: Flag },
+  changement_echeance: { labelKey: ACTIVITY_LABELS["changement_echeance"], color: "#db2777", bg: "rgba(219,39,119,0.12)", icon: CalendarClock },
+  commentaire: { labelKey: ACTIVITY_LABELS["commentaire"], color: "var(--accent-text)", bg: "var(--accent-soft)", icon: MessageSquare },
+};
+
+const smoothCurve = (pts: { x: number; y: number }[]) => {
+  if (pts.length < 2) return "";
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] ?? p2;
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x} ${p2.y}`;
+  }
+  return d;
+};
+
+export default function AgencyDashboardPage() {
+  const { agencyId } = useParams<{ agencyId: string }>();
+  const user = useAuthStore((s) => s.user);
+  const t = useTranslations("Dashboard");
+
+  // Résumé dédié (UNE seule agence) : le tableau de bord n'attend plus le
+  // bootstrap complet (toutes agences + notifications) pour afficher ses
+  // indicateurs. Le bootstrap continue de tourner en arrière-plan pour le
+  // shell (cloche, recherche…).
+  const { data: summary, loading } = useAsync(
+    () => fetchAgencyDashboard(agencyId),
+    [agencyId],
+  );
+  const agency = summary?.agency ?? null;
+  const agencyProjects = useMemo(() => summary?.projects ?? [], [summary]);
+  const agencyTasks = useMemo(() => summary?.tasks ?? [], [summary]);
+
+  const tasksByProject = useMemo(() => {
+    const byProject = new Map<number, Task[]>();
+    for (const t of agencyTasks) {
+      const list = byProject.get(t.projectId);
+      if (list) list.push(t);
+      else byProject.set(t.projectId, [t]);
+    }
+    return (projectId: number | string) => byProject.get(Number(projectId)) ?? [];
+  }, [agencyTasks]);
+
+  const role = user && agency ? userRoleInAgency(agency, user.email) : "membre";
+  const isAdmin = role === "owner" || role === "admin";
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>{t("loading")}</p>
+      </div>
+    );
+  }
+
+  if (!agency) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
+          {t("notFound")}
+        </p>
+        <Link
+          href="/mes-agences"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
+          style={{ background: "var(--gradient-button)" }}
+        >
+          <ArrowLeft size={16} /> {t("breadcrumbRoot")}
+        </Link>
+      </div>
+    );
+  }
+
+  if (!user || !agency.members?.some((m) => m.user.email.toLowerCase() === user.email.toLowerCase())) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
+          {t("notMember")}
+        </p>
+        <Link
+          href="/mes-agences"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
+          style={{ background: "var(--gradient-button)" }}
+        >
+          <ArrowLeft size={16} /> {t("backToAgencies")}
+        </Link>
+      </div>
+    );
+  }
+
+  const me = agency.members.find((m) => m.user.email.toLowerCase() === user.email.toLowerCase());
+
+  return isAdmin ? (
+    <AdminDashboard
+      agencyId={agencyId}
+      agency={agency}
+      role={role}
+      userName={me?.user.firstName ?? user.firstName ?? "vous"}
+      agencyName={agency.name}
+      agencyProjects={agencyProjects}
+      agencyTasks={agencyTasks}
+      tasksByProject={tasksByProject}
+    />
+  ) : (
+    <MemberDashboard
+      userName={me?.user.firstName ?? user.firstName ?? "vous"}
+      agencyId={agencyId}
+      agencyName={agency.name}
+      agencyProjects={agencyProjects}
+      tasksByProject={tasksByProject}
+    />
+  );
+}
+
+/* ============ FIL D'ARIANE ============ */
+function Breadcrumb({ title, agencyName }: { title: string; agencyName: string }) {
+  const t = useTranslations("Dashboard");
+  return (
+    <motion.div variants={item}>
+      <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
+        {title}
+      </h1>
+      <nav className="mt-1 text-xs">
+        <ol className="flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
+          <li>
+            <Link href="/mes-agences" className="hover:underline" style={{ color: "var(--text-muted)" }}>
+              {t("breadcrumbRoot")}
+            </Link>
+          </li>
+          <li>/</li>
+          <li>{agencyName}</li>
+          <li>/</li>
+          <li className="font-semibold" style={{ color: "var(--blue)" }}>{t("breadcrumbCurrent")}</li>
+        </ol>
+      </nav>
+    </motion.div>
+  );
+}
+
+/* ============ BANNIÈRE DE BIENVENUE ============ */
+function WelcomeBanner({ name, subtitle }: { name: string; subtitle: string }) {
+  const t = useTranslations("Dashboard");
+  return (
+    <motion.div
+      variants={item}
+      className="relative overflow-hidden rounded-3xl px-6 py-5 md:px-8 md:py-6 text-white"
+      style={{
+        background: "var(--banner-gradient)",
+        boxShadow: "var(--banner-shadow)",
+      }}
+    >
+      <div
+        className="absolute -top-10 -right-10 w-48 h-48 rounded-full opacity-25"
+        style={{ background: "radial-gradient(circle, var(--banner-glow) 0%, transparent 70%)" }}
+      />
+      <div
+        className="absolute -bottom-16 right-24 w-40 h-40 rounded-full opacity-20"
+        style={{ background: "radial-gradient(circle, var(--banner-circle) 0%, transparent 70%)" }}
+      />
+      <div className="relative">
+        <div className="text-xl md:text-2xl font-black leading-snug">
+          {t("welcome", { name })}
+        </div>
+        <p className="mt-1 text-sm opacity-90 max-w-2xl">{subtitle}</p>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ============ VUE ADMIN : accès complet (propriétaire) / élargi (admin promu) ============ */
+function AdminDashboard({
+  agencyId,
+  agency,
+  role,
+  userName,
+  agencyName,
+  agencyProjects,
+  agencyTasks,
+  tasksByProject,
+}: {
+  agencyId: string;
+  agency: Agency;
+  role: AgencyRole;
+  userName: string;
+  agencyName: string;
+  agencyProjects: Project[];
+  agencyTasks: Task[];
+  tasksByProject: (projectId: number | string) => Task[];
+}) {
+  const isOwner = role === "owner";
+  const { statuses, isTerminal } = useTaskStatuses();
+  // La locale sert à dater l'activité (« il y a 5 min » / « 5 min ago »).
+  const locale = useLocale();
+  const t = useTranslations("Dashboard");
+  const tTasks = useTranslations("Tasks");
+
+  const { data: activity, loading: activityLoading } = useAsync(
+    () => fetchActivity({ agencyId }),
+    [agencyId],
+  );
+  const [activityExpanded, setActivityExpanded] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const ACTIVITY_VISIBLE = 5;
+
+  const handleExportPdf = async () => {
+    if (!agency || exportingPdf) return;
+    setExportingPdf(true);
+    try {
+      await exportAgencyReportPdf(agency);
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
+  const members = agency.members ?? [];
+  const totalMembers = members.length;
+  const activeMembers = members.filter((m) => m.status === "actif").length;
+  const inactiveMembers = members.filter((m) => m.status === "inactif").length;
+
+  const totalTasks = agencyTasks.length;
+  const totalProjects = agencyProjects.length;
+  // Le statut calculé par le backend fait foi (logique identique à « Mes
+  // tâches ») : une tâche bloquée par un prérequis non terminé est volontairement
+  // renvoyée en « a_venir » et ne doit pas être comptée en retard. On ne retombe
+  // sur la comparaison de dates que si le backend ne fournit aucun statut.
+  const isLateTask = (t: Task) =>
+    !isTerminal(t.status) &&
+    (t.deadlineStatus
+      ? t.deadlineStatus === "en_retard"
+      : !!t.dueDate && t.dueDate < new Date().toISOString().slice(0, 10));
+
+  const overdueCount = agencyTasks.filter(isLateTask).length;
+
+  // Projets en retard : échéance projet dépassée (avec tâches restantes) ou
+  // tâches en retard. Exclut les projets archivés/vides/terminés.
+  const overdueProjectsCount = agencyProjects.filter(
+    (p) =>
+      p.status !== "archive" &&
+      getProjectStatusFromTasks(p.status, tasksByProject(p.id), statuses, p.dueDate) === "en_retard",
+  ).length;
+
+  // Lundi de la semaine courante à 00:00
+  const thisWeekStart = (() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return d;
+  })();
+
+  // Lundi de la semaine précédente
+  const lastWeekStart = new Date(thisWeekStart);
+  lastWeekStart.setDate(thisWeekStart.getDate() - 7);
+
+  // Les 7 jours de la semaine courante, nommés dans la locale active.
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(thisWeekStart);
+    d.setDate(thisWeekStart.getDate() + i);
+    return d;
+  });
+
+  // Compte les tâches terminées (completedAt) jour par jour dans un intervalle
+  const countDone = (from: Date, to: Date): number[] => {
+    const counts = Array(7).fill(0) as number[];
+    for (const t of agencyTasks) {
+      if (!isTerminal(t.status) || !t.completedAt) continue;
+      const completed = new Date(t.completedAt);
+      if (completed >= from && completed < to) {
+        counts[(completed.getDay() + 6) % 7]++;
+      }
+    }
+    return counts;
+  };
+
+  const thisWeek = countDone(thisWeekStart, new Date(thisWeekStart.getTime() + 7 * 86400000));
+  const lastWeek = countDone(lastWeekStart, thisWeekStart);
+
+  const weeklyReport = weekDays.map((day, i) => ({ day: weekdayShort(day, locale), value: thisWeek[i] }));
+
+  const doneThisWeek = thisWeek.reduce((s, n) => s + n, 0);
+  const doneLastWeek = lastWeek.reduce((s, n) => s + n, 0);
+  const deltaPct: number | null =
+    doneLastWeek === 0
+      ? doneThisWeek > 0
+        ? 100
+        : null
+      : Math.round(((doneThisWeek - doneLastWeek) / doneLastWeek) * 100);
+  // Une ligne par statut réel de l'agence (libellés/couleurs propres) : les
+  // statuts personnalisés sont donc comptés et la somme des lignes égale
+  // « Total tâches ». « En retard » n'est pas un statut mais un recouvrement
+  // transversal : il n'apparaît ici que pour éviter tout double comptage.
+  const taskStatuses = [
+    ...statuses.map((s) => ({
+      label: s.label,
+      value: agencyTasks.filter((t) => t.status === s.key).length,
+      color: s.color,
+    })),
+    { label: t("statuses.overdue"), value: overdueCount, color: "var(--color-error)" },
+  ];
+
+  const maxStatusValue = Math.max(1, ...taskStatuses.map((x) => x.value));
+
+  const totalCompleted = weeklyReport.reduce((s, r) => s + r.value, 0);
+
+  const maxReport = Math.max(1, ...weeklyReport.map((r) => r.value));
+
+  // Géométrie du graphique — courbe lissée (smooth curve)
+  const chartWidth = 640;
+  const chartHeight = 166;
+  const chartTop = 16;
+  const chartBottom = 30;
+  const chartMax = Math.max(10, Math.ceil((maxReport * 1.25) / 2) * 2);
+  const points = weeklyReport.map((r, i) => ({
+    x: 28 + ((chartWidth - 56) / (weeklyReport.length - 1)) * i,
+    y: chartTop + (1 - r.value / chartMax) * (chartHeight - chartTop - chartBottom),
+  }));
+  const linePath = smoothCurve(points);
+  const areaPath = `${linePath} L ${points[points.length - 1].x} ${chartHeight - chartBottom} L ${points[0].x} ${
+    chartHeight - chartBottom
+  } Z`;
+  const avg = weeklyReport.reduce((s, r) => s + r.value, 0) / weeklyReport.length;
+  const avgY = chartTop + (1 - avg / chartMax) * (chartHeight - chartTop - chartBottom);
+
+  const statCards = [
+    { label: t("kpi.totalProjects"), value: String(totalProjects), icon: FolderKanban, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+    { label: t("kpi.totalTasks"), value: String(totalTasks), icon: ListTodo, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+    { label: t("kpi.members"), value: String(totalMembers), icon: Users, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+    { label: t("kpi.overdueTasks"), value: String(overdueCount), icon: AlarmClock, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+    { label: t("kpi.overdueProjects"), value: String(overdueProjectsCount), icon: CalendarClock, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+  ];
+
+  return (
+    <motion.div variants={container} initial={false} animate="show" className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <Breadcrumb title={t("breadcrumb")} agencyName={agencyName} />
+        <button
+          onClick={handleExportPdf}
+          disabled={exportingPdf}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-transform hover:scale-[1.03] disabled:opacity-60"
+          style={{ background: "var(--accent-soft)", color: "var(--accent-text)", boxShadow: "0 2px 6px -2px rgba(var(--blue-rgb),0.35)" }}
+        >
+          <FileDown size={15} /> {exportingPdf ? t("export.preparing") : t("export.button")}
+        </button>
+      </div>
+
+      <WelcomeBanner
+        name={userName}
+        subtitle={isOwner ? t("welcomeOwner") : t("welcomeAdmin")}
+      />
+
+      {/* Indicateurs clés */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {statCards.map((s) => (
+          <motion.div
+            key={s.label}
+            variants={item}
+            whileHover={{ y: -4, scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
+            className="relative overflow-hidden glass rounded-2xl p-5 cursor-default"
+            style={{ boxShadow: "var(--shadow-card)" }}
+          >
+            <motion.div
+              className="absolute inset-0"
+              style={{ background: s.grad, opacity: 0.5 }}
+              animate={{ opacity: [0.35, 0.6, 0.35] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <div className="relative flex items-center gap-3.5">
+              <motion.div
+                initial={{ scale: 0, rotate: -20 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 240, damping: 15 }}
+                whileHover={{ rotate: 8, scale: 1.1 }}
+                className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: `linear-gradient(135deg, rgba(var(--blue-rgb),0.12) 0%, rgba(var(--blue-mid-rgb),0.28) 100%)`, border: `1px solid rgba(var(--blue-rgb),0.35)` }}
+              >
+                <s.icon className="w-5 h-5" style={{ color: "var(--blue)" }} />
+              </motion.div>
+              <div className="min-w-0">
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="text-xl font-black leading-none"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  {s.value}
+                </motion.div>
+                <div className="text-xs mt-1 truncate" style={{ color: "var(--text-secondary)" }}>{s.label}</div>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Colonne gauche */}
+        <div className="xl:col-span-2 space-y-6">
+          {/* Répartition des tâches */}
+          <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(var(--blue-rgb),0.12)" }}>
+                <CalendarClock size={16} style={{ color: "var(--blue)" }} />
+              </div>
+              <div>
+                <h2 className="font-bold leading-none" style={{ color: "var(--text-primary)" }}>{t("tasksByStatus.title")}</h2>
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>{t("tasksByStatus.subtitle")}</span>
+              </div>
+            </div>
+            <ul className="space-y-3">
+              {taskStatuses.map((t, i) => (
+                <li key={t.label} className="flex items-center gap-3 text-sm">
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: t.color, boxShadow: `0 0 8px ${t.color}` }} />
+                  <span style={{ color: "var(--text-secondary)" }}>{t.label}</span>
+                  <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{t.value}</span>
+                  <div className="w-20 h-1.5 rounded-full shrink-0" style={{ background: "rgba(255,255,255,0.08)" }}>
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(t.value / maxStatusValue) * 100}%` }}
+                      transition={{ duration: 0.8, delay: 0.2 + i * 0.1, ease: "easeOut" }}
+                      className="h-full rounded-full"
+                      style={{ background: t.color }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </motion.div>
+
+          {/* Rapport hebdomadaire */}
+          <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(16,185,129,0.12)" }}>
+                  <TrendingUp size={16} style={{ color: "var(--color-success)" }} />
+                </div>
+                <div>
+                  <h2 className="font-bold leading-none" style={{ color: "var(--text-primary)" }}>{t("weekly.title")}</h2>
+                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>{t("weekly.subtitle")}</span>
+                </div>
+              </div>
+              <span
+                className="text-[11px] font-semibold px-3 py-1 rounded-full"
+                style={{ background: "rgba(16,185,129,0.12)", color: "var(--color-success)" }}
+              >
+                {deltaPct === null
+                  ? t("weekly.completed", { count: totalCompleted })
+                  : t("weekly.delta", { value: `${deltaPct >= 0 ? "+" : ""}${deltaPct}` })}
+              </span>
+            </div>
+            <div className="mb-4 flex items-center gap-5 text-xs">
+              <span className="flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
+                <span className="w-4 h-0.5 rounded-full" style={{ background: "linear-gradient(90deg, var(--blue), var(--blue-mid))" }} />
+                {t("weekly.legendDone")}
+              </span>
+              <span className="flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
+                <span className="w-4 border-t border-dashed" style={{ borderColor: "#7C3AED" }} />
+                {t("weekly.legendAverage")}
+              </span>
+            </div>
+
+            <div className="relative">
+              <svg viewBox="0 0 640 200" className="w-full h-auto overflow-visible">
+                <defs>
+                  <linearGradient id="chartLine" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="var(--blue-accent)" />
+                    <stop offset="55%" stopColor="var(--blue-mid)" />
+                    <stop offset="100%" stopColor="#8b5cf6" />
+                  </linearGradient>
+                  <linearGradient id="chartArea" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--blue)" stopOpacity="0.35" />
+                    <stop offset="100%" stopColor="var(--blue)" stopOpacity="0.02" />
+                  </linearGradient>
+                </defs>
+
+                {[0, 1, 2, 3, 4].map((i) => {
+                  const y = 16 + (i / 4) * 150;
+                  const label = Math.round((maxReport * 1.25 * (4 - i)) / 4);
+                  return (
+                    <g key={i}>
+                      <line x1="28" y1={y} x2="612" y2={y} stroke="rgba(155,170,220,0.14)" strokeDasharray="4 4" />
+                      <text x="0" y={y + 3} fontSize="9" fill="var(--text-muted)" fontWeight="500">
+                        {label}
+                      </text>
+                    </g>
+                  );
+                })}
+
+                <motion.path
+                  initial={{ pathLength: 0 }}
+                  animate={{ pathLength: 1 }}
+                  transition={{ duration: 1.4, ease: "easeInOut" }}
+                  d={areaPath}
+                  fill="url(#chartArea)"
+                  style={{ opacity: 0 }}
+                />
+                <motion.path
+                  initial={{ pathLength: 0, opacity: 0 }}
+                  animate={{ pathLength: 1, opacity: 1 }}
+                  transition={{ duration: 1.4, ease: "easeInOut" }}
+                  d={linePath}
+                  fill="none"
+                  stroke="url(#chartLine)"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  style={{ filter: "drop-shadow(0 0 6px rgba(var(--blue-rgb),0.45))" }}
+                />
+
+                <line x1="28" y1={avgY} x2="612" y2={avgY} stroke="#7C3AED" strokeDasharray="5 4" strokeWidth="1" opacity="0.7" />
+
+                {weeklyReport.map((r, i) => (
+                  <g key={r.day} className="group">
+                    <motion.circle
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.15 + i * 0.08, type: "spring", stiffness: 260, damping: 16 }}
+                      cx={points[i].x}
+                      cy={points[i].y}
+                      r="10"
+                      fill="rgba(var(--blue-rgb),0.15)"
+                      className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 cursor-pointer"
+                    />
+                    <motion.circle
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.15 + i * 0.08, type: "spring", stiffness: 260, damping: 16 }}
+                      cx={points[i].x}
+                      cy={points[i].y}
+                      r="4"
+                      fill="var(--blue-accent)"
+                      stroke="rgba(255,255,255,0.6)"
+                      strokeWidth="1.5"
+                      className="cursor-pointer"
+                    />
+                    <circle cx={points[i].x} cy={points[i].y} r="7" fill="transparent" className="cursor-pointer" />
+                    <motion.text
+                      initial={{ opacity: 0, y: 4 }}
+                      whileHover={{ opacity: 1, y: 0 }}
+                      textAnchor="middle"
+                      x={points[i].x}
+                      y={points[i].y - 14}
+                      fontSize="11"
+                      fontWeight="700"
+                      fill="var(--blue-light)"
+                    >
+                      {r.value}
+                    </motion.text>
+                    <text textAnchor="middle" x={points[i].x} y="196" fontSize="10" fill="var(--text-muted)" fontWeight="600">
+                      {r.day}
+                    </text>
+                  </g>
+                ))}
+              </svg>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Colonne droite */}
+        <div className="space-y-6">
+          {/* Statut de l'équipe */}
+          <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(var(--blue-rgb),0.12)" }}>
+                <Users size={16} style={{ color: "var(--blue)" }} />
+              </div>
+              <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>{t("team.title")}</h2>
+            </div>
+            <ul className="space-y-2.5">
+              <li className="flex items-center gap-3 text-sm">
+                <span className="relative w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "var(--color-success)" }}>
+                  <motion.span
+                    className="absolute inset-0 rounded-full"
+                    style={{ background: "var(--color-success)" }}
+                    animate={{ scale: [1, 2.4], opacity: [0.6, 0] }}
+                    transition={{ duration: 1.8, repeat: Infinity }}
+                  />
+                </span>
+                {t("team.active")}
+                <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{activeMembers}</span>
+              </li>
+              <li className="flex items-center gap-3 text-sm">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "var(--color-error)", boxShadow: "0 0 8px var(--color-error)" }} />
+                {t("team.inactive")}
+                <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{inactiveMembers}</span>
+              </li>
+              <li className="flex items-center gap-3 text-sm">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "#C7961A", boxShadow: "0 0 8px #C7961A" }} />
+                {t("team.cumulative")}
+                <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{totalTasks}</span>
+              </li>
+            </ul>
+          </motion.div>
+
+          {/* Activité récente — à côté, comme l'historique des tâches */}
+          <motion.div variants={item} className="glass rounded-2xl p-5" style={{ boxShadow: "var(--shadow-card)" }}>
+            <h2 className="font-bold flex items-center gap-2.5 mb-3" style={{ color: "var(--text-primary)" }}>
+              <span
+                className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: "rgba(139,92,246,0.15)" }}
+              >
+                <History size={14} style={{ color: "#7c3aed" }} />
+              </span>
+              {t("activity.title")}
+            </h2>
+
+            {activityLoading ? (
+              <p className="text-sm text-center py-3" style={{ color: "var(--text-muted)" }}>
+                {t("activity.loading")}
+              </p>
+            ) : activity && activity.length > 0 ? (
+              <>
+                {(() => {
+                  const visible = activity.slice(0, activityExpanded ? activity.length : ACTIVITY_VISIBLE);
+                  return (
+                    <div className="flex flex-col">
+                      {visible.map((a, idx) => {
+                        const cfg = activityConfig[a.action] ?? {
+                          labelKey: null,
+                          color: "var(--text-secondary)",
+                          bg: "var(--hover-soft)",
+                          icon: History,
+                        };
+                        const Icon = cfg.icon;
+                        const isLast = idx === visible.length - 1;
+                        return (
+                          <div key={a.id} className="flex gap-3">
+                            <div className="flex flex-col items-center shrink-0">
+                              <div
+                                className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                                style={{ background: cfg.bg }}
+                              >
+                                <Icon className="w-3.5 h-3.5" style={{ color: cfg.color }} />
+                              </div>
+                              {!isLast && (
+                                <div className="w-px flex-1 min-h-3" style={{ background: "var(--border-subtle)" }} />
+                              )}
+                            </div>
+
+                            <div className={`flex-1 min-w-0 ${isLast ? "" : "pb-3"}`}>
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                                  {formatActivitySentence(a, undefined, tTasks)}
+                                </span>
+                                <span
+                                  className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                                  style={{ color: cfg.color, background: cfg.bg }}
+                                >
+                                  {cfg.labelKey ? tTasks(cfg.labelKey) : a.action}
+                                </span>
+                              </div>
+                              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                                {relativeTime(a.createdAt, locale)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+                {activity.length > ACTIVITY_VISIBLE && (
+                  <button
+                    onClick={() => setActivityExpanded((v) => !v)}
+                    className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors hover:bg-[var(--hover-soft)]"
+                    style={{ color: "var(--accent-text)", background: "var(--accent-soft)" }}
+                  >
+                    {activityExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    {activityExpanded
+                      ? t("activity.seeLess")
+                      : t("activity.seeMore", { count: activity.length - ACTIVITY_VISIBLE })}
+                  </button>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-center py-3" style={{ color: "var(--text-muted)" }}>
+                {t("activity.empty")}
+              </p>
+            )}
+          </motion.div>
+
+          {/* Droits */}
+          <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
+            <div className="flex items-center gap-2 mb-3">
+              <ShieldCheck className="w-4 h-4" style={{ color: "var(--blue)" }} />
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                {isOwner ? t("rights.owner") : t("rights.admin")}
+              </p>
+            </div>
+            <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+              {isOwner ? t("rights.ownerDesc") : t("rights.adminDesc")}
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ============ VUE MEMBRE : vue personnelle, accès limité ============ */
+// Les textes sont des clés (namespace « Dashboard ») : les tableaux restent
+// au niveau du module, la traduction se fait au rendu.
+const goodPractices = [
+  {
+    icon: Lightbulb,
+    titleKey: "practices.good.deadlines.title",
+    descKey: "practices.good.deadlines.desc",
+  },
+  {
+    icon: Award,
+    titleKey: "practices.good.rigor.title",
+    descKey: "practices.good.rigor.desc",
+  },
+  {
+    icon: Users,
+    titleKey: "practices.good.teamwork.title",
+    descKey: "practices.good.teamwork.desc",
+  },
+];
+
+const badPractices = [
+  {
+    icon: AlarmClock,
+    titleKey: "practices.bad.late.title",
+    descKey: "practices.bad.late.desc",
+  },
+  {
+    icon: Ban,
+    titleKey: "practices.bad.details.title",
+    descKey: "practices.bad.details.desc",
+  },
+  {
+    icon: AlertTriangle,
+    titleKey: "practices.bad.conflicts.title",
+    descKey: "practices.bad.conflicts.desc",
+  },
+];
+
+function MemberDashboard({
+  userName,
+  agencyId,
+  agencyName,
+  agencyProjects,
+  tasksByProject,
+}: {
+  userName: string;
+  agencyId: string;
+  agencyName: string;
+  agencyProjects: Project[];
+  tasksByProject: (projectId: number | string) => Task[];
+}) {
+  // Projets du membre, non archivés. L'API ne renvoie déjà que les projets où
+  // le membre est rattaché (cf. ProjectController@index) ; on ne filtre donc
+  // plus sur les tâches assignées : appartenir au projet suffit à le voir ici,
+  // même sans aucune tâche assignée.
+  const t = useTranslations("Dashboard");
+  const tStatus = useTranslations("ProjectStatuses");
+  const myProjects = agencyProjects.filter((p) => p.status !== "archive");
+
+  const projectStatusInfo: Record<string, { labelKey: string; color: string; bg: string }> = {
+    a_venir: { labelKey: "a_venir", color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+    en_cours: { labelKey: "en_cours", color: "#056cf2", bg: "rgba(5,108,242,0.12)" },
+    en_retard: { labelKey: "en_retard", color: "#D85A30", bg: "rgba(216,90,48,0.14)" },
+    termine: { labelKey: "termine", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
+  };
+
+  return (
+    <motion.div variants={container} initial={false} animate="show" className="space-y-6">
+      <Breadcrumb title={t("breadcrumb")} agencyName={agencyName} />
+
+      <WelcomeBanner
+        name={userName}
+        subtitle={t("welcomeMember")}
+      />
+
+      {/* Bonnes pratiques / Erreurs à éviter */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div variants={item} className="space-y-3">
+          <h4 className="font-bold flex items-center gap-2" style={{ color: "var(--color-success)" }}>
+            ✅ {t("practices.goodTitle")}
+          </h4>
+          <img
+            src="/bonnes_pratiques.png"
+            alt={t("practices.goodTitle")}
+            width={558}
+            height={447}
+            loading="lazy"
+            decoding="async"
+            className="mx-auto rounded-xl mb-2"
+            style={{ width: "70%", maxWidth: "220px", height: "auto" }}
+          />
+          <motion.div
+            initial="hidden"
+            animate="show"
+            variants={{ show: { transition: { staggerChildren: 0.1 } } }}
+            className="space-y-3"
+          >
+            {goodPractices.map((p) => (
+              <motion.div
+                key={p.titleKey}
+                variants={{ hidden: { opacity: 0, x: -14 }, show: { opacity: 1, x: 0, transition: { duration: 0.4 } } }}
+                whileHover={{ x: 4, scale: 1.01 }}
+                className="glass rounded-2xl p-5 flex items-start gap-4"
+                style={{
+                  boxShadow: "var(--shadow-card)",
+                  borderLeft: "5px solid var(--color-success)",
+                  background: "rgba(16,185,129,0.06)",
+                }}
+              >
+                <motion.div whileHover={{ rotate: 10, scale: 1.15 }} className="w-8 h-8 shrink-0 mt-0.5">
+                  <p.icon className="w-8 h-8" style={{ color: "var(--color-success)" }} />
+                </motion.div>
+                <div>
+                  <h5 className="font-bold" style={{ color: "var(--text-primary)" }}>{t(p.titleKey)}</h5>
+                  <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>{t(p.descKey)}</p>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        </motion.div>
+
+        <motion.div variants={item} className="space-y-3">
+          <h4 className="font-bold flex items-center gap-2" style={{ color: "var(--color-error)" }}>
+            ❌ {t("practices.badTitle")}
+          </h4>
+          <img
+            src="/mauvaises_pratiques.png"
+            alt={t("practices.badTitle")}
+            width={360}
+            height={288}
+            loading="lazy"
+            decoding="async"
+            className="mx-auto rounded-xl mb-2"
+            style={{ width: "70%", maxWidth: "220px", height: "auto" }}
+          />
+          <motion.div
+            initial="hidden"
+            animate="show"
+            variants={{ show: { transition: { staggerChildren: 0.1 } } }}
+            className="space-y-3"
+          >
+            {badPractices.map((p) => (
+              <motion.div
+                key={p.titleKey}
+                variants={{ hidden: { opacity: 0, x: 14 }, show: { opacity: 1, x: 0, transition: { duration: 0.4 } } }}
+                whileHover={{ x: -4, scale: 1.01 }}
+                className="glass rounded-2xl p-5 flex items-start gap-4"
+                style={{
+                  boxShadow: "var(--shadow-card)",
+                  borderLeft: "5px solid var(--color-error)",
+                  background: "rgba(239,68,68,0.06)",
+                }}
+              >
+                <motion.div whileHover={{ rotate: -10, scale: 1.15 }} className="w-8 h-8 shrink-0 mt-0.5">
+                  <p.icon className="w-8 h-8" style={{ color: "var(--color-error)" }} />
+                </motion.div>
+                <div>
+                  <h5 className="font-bold" style={{ color: "var(--text-primary)" }}>{t(p.titleKey)}</h5>
+                  <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>{t(p.descKey)}</p>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        </motion.div>
+      </div>
+
+      <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(var(--blue-rgb),0.12)" }}>
+              <FolderKanban size={16} style={{ color: "var(--blue)" }} />
+            </div>
+            <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>{t("projects.title")}</h2>
+          </div>
+          <Link
+            href={`/agences/${agencyId}/projets`}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold transition-transform hover:scale-105"
+            style={{ color: "var(--accent-text)" }}
+          >
+            {t("projects.seeAll")} <ArrowRight size={13} />
+          </Link>
+        </div>
+
+        {myProjects.length === 0 ? (
+          <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            {t("projects.empty")}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {myProjects.slice(0, 4).map((p) => {
+              const projectStatus = getProjectStatusFromTasks(p.status, tasksByProject(p.id), undefined, p.dueDate);
+              const info = projectStatusInfo[projectStatus] ?? projectStatusInfo.en_cours;
+              const progress = getProjectProgress(tasksByProject(p.id));
+              return (
+                <Link
+                  key={p.id}
+                  href={`/agences/${agencyId}/projets/${p.id}/kanban`}
+                  className="block rounded-xl px-4 py-3 transition-colors hover:bg-[var(--hover-soft)]"
+                  style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>
+                      {p.name}
+                    </span>
+                    <span
+                      className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full"
+                      style={{ background: info.bg, color: info.color }}
+                    >
+                      <FolderKanban size={10} /> {tStatus(info.labelKey)}
+                    </span>
+                  </div>
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <div className="flex-1 h-1.5 rounded-full" style={{ background: "var(--surface)" }}>
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress}%` }}
+                        transition={{ duration: 0.8, ease: "easeOut" }}
+                        className="h-full rounded-full"
+                        style={{ background: "var(--gradient-button)" }}
+                      />
+                    </div>
+                    <span className="text-[11px] font-bold shrink-0" style={{ color: "var(--text-secondary)" }}>
+                      {progress}%
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+            {myProjects.length > 4 && (
+              <Link
+                href={`/agences/${agencyId}/projets`}
+                className="block text-center text-xs font-semibold pt-1 transition-colors hover:opacity-80"
+                style={{ color: "var(--accent-text)" }}
+              >
+                {t("projects.others", { count: myProjects.length - 4 })}
+              </Link>
+            )}
+          </div>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+}

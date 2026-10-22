@@ -6,10 +6,8 @@ import api, { AUTH_STORAGE_KEY, getApiErrorMessage } from "@/lib/api";
 import {
   fetchTwoFactorState,
   isTwoFactorChallenge,
-  requestLoginCode,
   resendTwoFactorCode,
   setTwoFactorEnabled,
-  verifyLoginCode,
   verifyTwoFactorCode,
   type LoginResponse,
   type TwoFactorChallenge,
@@ -31,6 +29,8 @@ export type User = {
   hasPassword?: boolean;
   /** Couleur d'accent choisie par l'utilisateur (thème). */
   themeColor?: string;
+  /** Apparence clair/sombre enregistrée sur le compte. */
+  theme?: "light" | "dark";
   createdAt: string;
 };
 
@@ -48,8 +48,6 @@ type LoginOutcome =
   | { ok: true; twoFactor: TwoFactorChallenge; error: null }
   | { ok: false; twoFactor: null; error: string };
 
-type OtpResult = { ok: true; message: string; error: null } | { ok: false; message: null; error: string };
-
 type RegisterData = {
   firstName: string;
   lastName: string;
@@ -63,8 +61,6 @@ type AuthState = {
   token: string | null;
   status: AuthStatus;
   login: (email: string, password: string) => Promise<LoginOutcome>;
-  requestEmailCode: (email: string) => Promise<OtpResult>;
-  loginWithEmailCode: (email: string, code: string) => Promise<LoginResult>;
   verifyTwoFactor: (ticket: string, code: string) => Promise<LoginResult>;
   resendTwoFactor: (ticket: string) => Promise<{ ok: boolean; ticket?: string; error: string | null }>;
   completeGoogleSession: (token: string) => Promise<LoginResult>;
@@ -73,6 +69,17 @@ type AuthState = {
   fetchMe: () => Promise<void>;
   clearAuth: () => void;
   updateUser: (patch: Partial<User>) => Promise<void>;
+  /**
+   * Vrai quand les données du compte ont été confirmées par l'API.
+   *
+   * Tant qu'elles ne le sont pas, la session persistée peut être périmée :
+   * l'apparence (accent, thème) ne doit alors pas être réinitialisée, sinon
+   * l'application clignote en bleu par défaut le temps de la réponse.
+   *
+   * Volontairement non persisté : à chaque chargement, on repart du principe
+   * que le compte n'est pas encore connu.
+   */
+  userSynced: boolean;
   twoFactorEnabled: boolean;
   fetchTwoFactor: () => Promise<boolean>;
   toggleTwoFactor: (enabled: boolean, password?: string) => Promise<LoginResult>;
@@ -85,6 +92,7 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
       status: "idle",
+      userSynced: false,
       twoFactorEnabled: false,
       setThemeColorLocal: (color) => {
         const user = get().user;
@@ -104,37 +112,11 @@ export const useAuthStore = create<AuthState>()(
             return { ok: true, twoFactor: data, error: null };
           }
 
-          set({ user: apiUserToLocalUser(data.user), token: data.token, status: "authenticated" });
+          set({ user: apiUserToLocalUser(data.user), token: data.token, status: "authenticated", userSynced: true });
           return { ok: true, twoFactor: null, error: null };
         } catch (error) {
           set({ status: "guest" });
           return { ok: false, twoFactor: null, error: getApiErrorMessage(error) };
-        }
-      },
-
-      // Connexion sans mot de passe : on demande un code à l'API.
-      requestEmailCode: async (email) => {
-        try {
-          const message = await requestLoginCode(email);
-          return { ok: true, message, error: null };
-        } catch (error) {
-          return { ok: false, message: null, error: getApiErrorMessage(error) };
-        }
-      },
-
-      loginWithEmailCode: async (email, code) => {
-        set({ status: "loading" });
-        try {
-          const session = await verifyLoginCode(email, code);
-          set({
-            user: apiUserToLocalUser(session.user),
-            token: session.token,
-            status: "authenticated",
-          });
-          return { ok: true, error: null };
-        } catch (error) {
-          set({ status: "guest" });
-          return { ok: false, error: getApiErrorMessage(error) };
         }
       },
 
@@ -148,6 +130,7 @@ export const useAuthStore = create<AuthState>()(
             user: apiUserToLocalUser(session.user),
             token: session.token,
             status: "authenticated",
+            userSynced: true,
           });
           return { ok: true, error: null };
         } catch (error) {
@@ -171,10 +154,10 @@ export const useAuthStore = create<AuthState>()(
         set({ token, status: "loading" });
         try {
           const { data } = await api.get<ApiUser>("/me");
-          set({ user: apiUserToLocalUser(data), token, status: "authenticated" });
+          set({ user: apiUserToLocalUser(data), token, status: "authenticated", userSynced: true });
           return { ok: true, error: null };
         } catch (error) {
-          set({ user: null, token: null, status: "guest" });
+          set({ user: null, token: null, status: "guest", userSynced: true });
           return { ok: false, error: getApiErrorMessage(error) };
         }
       },
@@ -209,27 +192,27 @@ export const useAuthStore = create<AuthState>()(
           }
         }
         console.log("[authStore] Déconnexion");
-        set({ user: null, token: null, status: "guest" });
+        set({ user: null, token: null, status: "guest", userSynced: true });
       },
 
       // GET /api/me — réhydrate le user au démarrage et valide le token
       fetchMe: async () => {
         if (!get().token) {
-          set({ user: null, token: null, status: "guest" });
+          set({ user: null, token: null, status: "guest", userSynced: true });
           return;
         }
         set({ status: "loading" });
         try {
           const { data } = await api.get<ApiUser>("/me");
-          set({ user: apiUserToLocalUser(data), status: "authenticated" });
+          set({ user: apiUserToLocalUser(data), status: "authenticated", userSynced: true });
         } catch {
           // Token invalide/expiré → session réinitialisée
-          set({ user: null, token: null, status: "guest" });
+          set({ user: null, token: null, status: "guest", userSynced: true });
         }
       },
 
       clearAuth: () => {
-        set({ user: null, token: null, status: "guest" });
+        set({ user: null, token: null, status: "guest", userSynced: true });
       },
 
       fetchTwoFactor: async () => {
@@ -268,10 +251,11 @@ export const useAuthStore = create<AuthState>()(
             bio: merged.bio ?? null,
             job_title: merged.jobTitle ?? null,
             theme_color: merged.themeColor ?? null,
+            theme: merged.theme ?? null,
           ...(patch.avatar !== undefined ? { avatar: patch.avatar } : {}),
         });
           const local = apiUserToLocalUser(data);
-          set({ user: local });
+          set({ user: local, userSynced: true });
         } catch (error) {
           set({ user: prev });
           throw error;
