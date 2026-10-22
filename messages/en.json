@@ -3,16 +3,45 @@
     "title": "MVP Studio — Task management",
     "description": "Task management and tracking platform for teams, freelancers and agencies."
   },
-  "Common": {},
+  "Common": {
+    "loading": "Loading...",
+    "seeMore": "See more",
+    "seeLess": "See less",
+    "seeAll": "See all",
+    "backToMyAgencies": "Back to my agencies",
+    "project": "project"
+  },
   "Navigation": {
     "home": "Home",
     "features": "Features",
     "howItWorks": "How it works",
     "testimonials": "Testimonials",
-    "signUp": "Sign Up",
+    "signUp": "Sign up",
     "login": "Login",
     "openMenu": "Open menu",
-    "language": "Language"
+    "language": "Language",
+    "app": {
+      "myAgencies": "My agencies",
+      "myAgenciesShort": "Agency",
+      "createAgency": "Create an agency",
+      "notifications": "Notifications",
+      "myProfile": "My profile",
+      "profileShort": "Profile",
+      "settings": "Settings",
+      "aiAssistant": "AI assistant",
+      "aiAssistantShort": "Assistant",
+      "logout": "Log out",
+      "logoutShort": "Log out",
+      "closeMenu": "Close menu",
+      "noAgency": "No agency",
+      "createFirstAgency": "Create your first agency or accept an invitation to manage your projects.",
+      "dashboard": "Dashboard",
+      "projects": "Projects",
+      "myTasks": "My tasks",
+      "team": "Team",
+      "agencySettings": "Settings",
+      "agency": "Agency"
+    }
   },
   "Auth": {
     "signup": {
@@ -135,7 +164,7 @@
         "success": "Your password has been changed successfully.",
         "form": "Enter your new password below"
       },
-      "successLogin": "Sign in",
+      "successLogin": "Log in",
       "fields": {
         "password": "New password",
         "confirm": "Confirm new password",
@@ -196,9 +225,9 @@
         "member": "Member"
       },
       "notConnected": {
-        "message": "To join the agency, create your account or sign in — confirmation will happen automatically afterwards.",
+        "message": "To join the agency, create your account or log in — confirmation will happen automatically afterwards.",
         "createAccount": "Create my account",
-        "signIn": "I already have an account · Sign in"
+        "signIn": "I already have an account · Login"
       },
       "accept": {
         "idle": "Accept invitation",
@@ -212,14 +241,14 @@
     "generic": "Something went wrong. Please try again."
   },
   "Landing": {
-     "hero": {
+    "hero": {
       "titleStart": "Manage your",
       "titleHighlight": "agencies and teams",
       "titleEnd": "with precision",
       "description": "MVP Studio brings your agencies, projects and tasks together in one elegant dashboard. Follow every mission, lead every team — simply.",
       "primaryCta": "Start for free",
       "secondaryCta": "Learn more"
-  },
+    },
     "mockup": {
       "project": "ABC Real Estate website",
       "columns": {
@@ -335,14 +364,184 @@
       "copyright": "© {year} MVP Studio. All rights reserved."
     }
   },
-  "Dashboard": {},
-  "Agencies": {},
+  "Dashboard": {
+    "loading": "Loading...",
+    "notFound": "Agency not found",
+    "notMember": "You are not a member of this agency.",
+    "backToAgencies": "Back to My agencies",
+    "breadcrumb": "Dashboard",
+    "breadcrumbRoot": "My agencies",
+    "breadcrumbCurrent": "Dashboard",
+    "welcome": "Welcome, {name}! 👋",
+    "welcomeOwner": "As an owner, make informed decisions and unlock your team's potential.",
+    "welcomeAdmin": "As an administrator, organize, monitor and motivate your team.",
+    "welcomeMember": "Discover the best practices to excel in your work.",
+    "export": {
+      "button": "Export the report",
+      "preparing": "Preparing..."
+    },
+    "kpi": {
+      "totalProjects": "Total projects",
+      "totalTasks": "Total tasks",
+      "members": "Members",
+      "overdueTasks": "Overdue tasks",
+      "overdueProjects": "Overdue projects"
+    },
+    "statuses": {
+      "overdue": "Overdue"
+    },
+    "tasksByStatus": {
+      "title": "Tasks by status",
+      "subtitle": "Overview of the overall progress"
+    },
+    "weekly": {
+      "title": "Weekly report",
+      "subtitle": "Tasks completed per day",
+      "legendDone": "Completed tasks",
+      "legendAverage": "Daily average",
+      "completed": "{count, plural, one {# task completed} other {# tasks completed}}",
+      "delta": "{value}% this week"
+    },
+    "team": {
+      "title": "Team status",
+      "active": "Active members",
+      "inactive": "Inactive members",
+      "cumulative": "Cumulative tasks"
+    },
+    "activity": {
+      "title": "Recent activity",
+      "loading": "Loading activity...",
+      "empty": "No recent activity.",
+      "seeMore": "See more ({count})",
+      "seeLess": "See less"
+    },
+    "rights": {
+      "owner": "Owner view — full access",
+      "admin": "Administrator view — broader but limited access",
+      "ownerDesc": "You manage everything: team, projects, tasks and settings.",
+      "adminDesc": "You manage the team and the projects, but not the settings."
+    },
+    "practices": {
+      "goodTitle": "Best practices",
+      "badTitle": "Mistakes to avoid",
+      "good": {
+        "deadlines": {
+          "title": "Respect deadlines",
+          "desc": "Deliver every task on time to keep the team's trust."
+        },
+        "rigor": {
+          "title": "Work with rigor",
+          "desc": "The quality of your deliverables reflects your professionalism."
+        },
+        "teamwork": {
+          "title": "Collaborate with the team",
+          "desc": "Good communication improves the project's productivity."
+        }
+      },
+      "bad": {
+        "late": {
+          "title": "Don't fall behind",
+          "desc": "Delays slow the whole team down and hurt the schedule."
+        },
+        "details": {
+          "title": "Don't overlook the details",
+          "desc": "Incomplete deliverables block the project's progress."
+        },
+        "conflicts": {
+          "title": "Avoid conflicts",
+          "desc": "A healthy climate fosters collective success."
+        }
+      }
+    },
+    "projects": {
+      "title": "Your projects",
+      "seeAll": "See all",
+      "empty": "You are not part of any project for now. The projects you will be assigned to will show up here.",
+      "others": "{count, plural, one {# other project} other {# other projects}}..."
+    }
+  },
+  "Agencies": {
+    "title": "My agencies",
+    "subtitle": "The workspaces you belong to.",
+    "sectionTitle": "Your agencies",
+    "workspacesCount": "{count, plural, one {# workspace} other {# workspaces}}",
+    "createButton": "Create an agency",
+    "emptyTitle": "You don't have any agency yet.",
+    "emptySubtitle": "Create your first agency to start collaborating.",
+    "noMember": "No members",
+    "roleOwner": "Owner",
+    "roleAdmin": "Administrator",
+    "roleMember": "Member",
+    "projectsCount": "{count, plural, one {# project} other {# projects}}",
+    "runningCount": "{count} in progress",
+    "tasksCount": "{count, plural, one {# task} other {# tasks}}",
+    "createdAt": "Created on {date}",
+    "createTitle": "Create an agency",
+    "createSubtitle": "Create your workspace to manage projects, tasks and team.",
+    "createBack": "Back to my agencies",
+    "createNameLabel": "Agency name *",
+    "createNamePlaceholder": "e.g. MVP Studio",
+    "createDescriptionLabel": "Description (optional)",
+    "createDescriptionPlaceholder": "Describe your agency's activity...",
+    "createSubmit": "Create agency",
+    "createSubmitting": "Creating...",
+    "createNameRequired": "The agency name is required.",
+    "myAgenciesTitle": "My agencies",
+    "notMemberOfAny": "You are not a member of any agency.",
+    "projectsTitle": "Projects",
+    "planningOf": "Planning of {project}",
+    "planning": "Planning",
+    "othersCount": "{count, plural, one {+# other project} other {+# other projects}}"
+  },
   "Projects": {},
-  "Tasks": {},
+  "Tasks": {
+    "activity": {
+      "actions": {
+        "creation": "Creation",
+        "status_changed": "Status change",
+        "task_completed": "Task completed",
+        "reopened": "Reopened",
+        "assignee_changed": "Assignee change",
+        "priority_changed": "Priority change",
+        "due_date_changed": "Due date change",
+        "comment_added": "Comment",
+        "project_created": "Project created",
+        "member_added": "Member added"
+      },
+      "sentence": "{actor} {action}{project}",
+      "onProject": " on project “{project}”",
+      "somebody": "Someone",
+      "someAction": "performed an action"
+    }
+  },
   "Team": {},
   "Planning": {},
   "Notifications": {},
-  "Deadlines": {},
+  "Deadlines": {
+    "overdue": "Overdue",
+    "dueSoon": "Due soon",
+    "titleOverdue": "Overdue task",
+    "titleDueSoon": "Due soon",
+    "messageOverdue": "The task “{task}” is overdue. It was due on {date}. It is not completed yet.",
+    "messageDueSoon": "Heads up. The task “{task}” is due {day}, on {date}. Better not leave it too late.",
+    "labelOverdue": "Overdue",
+    "labelDue": "Due {day}",
+    "menuTitle": "Deadline alerts",
+    "menuTitleWithCount": "Deadline alerts ({count})",
+    "menuShort": "Alerts",
+    "seeAll": "See all alerts",
+    "empty": "No deadline alerts.",
+    "lateCount": "{count} overdue",
+    "all": "All",
+    "loading": "Loading alerts...",
+    "watchCount": "{count, plural, one {# task to watch} other {# tasks to watch}}",
+    "dueOn": "Due: {date}",
+    "viewTask": "View the task",
+    "emptyTitle": "No deadline alerts.",
+    "emptyFilterTitle": "No task in this category.",
+    "emptyText": "No task is overdue or close to its deadline.",
+    "emptyFilterText": "Choose another filter."
+  },
   "Profile": {},
   "Settings": {
     "theme": {
@@ -354,7 +553,13 @@
   },
   "Statuses": {},
   "Priorities": {},
-  "ProjectStatuses": {},
+  "ProjectStatuses": {
+    "a_venir": "Upcoming",
+    "en_cours": "In progress",
+    "en_retard": "Overdue",
+    "termine": "Completed",
+    "archive": "Archived"
+  },
   "DeadlineStatuses": {},
   "NotificationTypes": {},
   "Colors": {},

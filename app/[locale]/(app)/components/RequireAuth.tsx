@@ -19,6 +19,14 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
 
     const id = requestAnimationFrame(() => {
       (async () => {
+        // La session est déjà connue (store persisté, réhydraté de façon
+        // synchrone) : on affiche l'application sans attendre le réseau.
+        // Sans cela, un changement de langue — qui remonte tout le segment
+        // [locale] — rebloquait sur le squelette pendant tout l'appel /api/me.
+        if (!cancelled && useAuthStore.getState().user) {
+          setReady(true);
+        }
+
         // Si un token existe (persisté), on réhydrate/valide la session via /api/me
         if (token) {
           await fetchMe();

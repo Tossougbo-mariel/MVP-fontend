@@ -11,6 +11,7 @@ import {
   markAlertShown,
 } from "@/lib/deadlineAlerts";
 import { playDeadlineAlertSound } from "@/lib/deadlineSound";
+import { relativeDayLabel } from "@/lib/dates";
 
 /** Recalcul des tâches concernées toutes les 10 minutes. */
 const REFRESH_MS = 10 * 60 * 1000;
@@ -74,30 +75,40 @@ export default function DeadlineAlertCenter() {
 
     const win = window as unknown as Record<string, unknown>;
     win.__testDeadlineAlert = (stage: "bientot" | "retard" = "bientot") => {
-      const alert: DeadlineAlert =
-        stage === "retard"
-          ? {
-              taskId: 9999999,
-              stage: "retard",
-              title: "Tâche en retard",
-              taskTitle: "Test retard",
-              projectId: 0,
-              dueDate: "2000-01-01",
-              daysLeft: null,
-              message:
-                "Test : la tâche « Test retard » a dépassé son échéance du 1er janvier 2000 et n'est toujours pas terminée.",
-            }
-          : {
-              taskId: 9999998,
-              stage: "bientot",
-              title: "Échéance proche",
-              taskTitle: "Test échéance",
-              projectId: 0,
-              dueDate: new Date(Date.now() + 86_400_000).toISOString().slice(0, 10),
-              daysLeft: 1,
-              message:
-                "Test : la tâche « Test échéance » arrive à échéance demain, pensez à la terminer avant cette date.",
-            };
+        const alert: DeadlineAlert =
+          stage === "retard"
+            ? {
+                taskId: 9999999,
+                stage: "retard",
+                titleKey: "titleOverdue",
+                taskTitle: "Test retard",
+                projectId: 0,
+                dueDate: "2000-01-01",
+                daysLeft: null,
+                messageKey: "messageOverdue",
+                params: {
+                  task: "Test retard",
+                  date: formatDueDate("2000-01-01", locale),
+                },
+              }
+            : {
+                taskId: 9999998,
+                stage: "bientot",
+                titleKey: "titleDueSoon",
+                taskTitle: "Test échéance",
+                projectId: 0,
+                dueDate: new Date(Date.now() + 86_400_000).toISOString().slice(0, 10),
+                daysLeft: 1,
+                messageKey: "messageDueSoon",
+                params: {
+                  task: "Test échéance",
+                  day: relativeDayLabel(1, locale),
+                  date: formatDueDate(
+                    new Date(Date.now() + 86_400_000).toISOString().slice(0, 10),
+                    locale,
+                  ),
+                },
+              };
 
       const store = useDeadlineAlertStore.getState();
       markAlertShown(alert);
@@ -129,14 +140,17 @@ export default function DeadlineAlertCenter() {
         return {
           taskId: 8800000 + i,
           stage: late ? "retard" : "bientot",
-          title: late ? "Tâche en retard" : "Échéance proche",
+          titleKey: late ? "titleOverdue" : "titleDueSoon",
           taskTitle,
           projectId: 0,
           dueDate,
           daysLeft: late ? null : days,
-          message: late
-            ? `La tâche « ${taskTitle} » est en retard. Son échéance était le ${formatDueDate(dueDate, locale)}. Elle n'est pas encore terminée.`
-            : `Attention. La tâche « ${taskTitle} » doit être terminée ${days === 1 ? "demain" : `dans ${days} jours`}, le ${formatDueDate(dueDate, locale)}.`,
+          messageKey: late ? "messageOverdue" : "messageDueSoon",
+          params: {
+            task: taskTitle,
+            day: relativeDayLabel(days, locale),
+            date: formatDueDate(dueDate, locale),
+          },
         };
       });
 

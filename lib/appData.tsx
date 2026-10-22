@@ -75,6 +75,15 @@ const EMPTY: AppDataState = {
   lastLoadedAt: null,
 };
 
+// Cache hors composant : le segment [locale] est remonté en bloc à chaque
+// changement de langue (la clé de segment Next.js contient la locale), ce qui
+// rejouait le chargement et vidait l'écran le temps de /api/bootstrap. Les
+// données survivent ici d'un montage à l'autre ; le rafraîchissement qui suit
+// se fait en arrière-plan, sans repasser par l'écran « Chargement… ». Le cache
+// est lié à l'utilisateur : changer de compte repart de zéro.
+let cachedData: AppDataState | null = null;
+let cachedUserId: number | null = null;
+
 type BootstrapPayload = {
   agencies: Agency[];
   projects: Project[];
@@ -122,9 +131,18 @@ const loadEverythingFanOut = async (): Promise<BootstrapPayload> => {
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
-  const [data, setData] = useState<AppDataState>(EMPTY);
+  const userId = user?.id ?? null;
+  const [data, setData] = useState<AppDataState>(
+    () => (cachedUserId === userId && cachedData ? cachedData : EMPTY),
+  );
   const [toast, setToast] = useState<AppNotification | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Mémorise le dernier état pour survivre au remontage du segment [locale].
+  useEffect(() => {
+    cachedData = data;
+    cachedUserId = userId;
+  }, [data, userId]);
 
   const fetchAllNow = useCallback(async (opts: { silent?: boolean } = {}) => {
     const { silent = false } = opts;

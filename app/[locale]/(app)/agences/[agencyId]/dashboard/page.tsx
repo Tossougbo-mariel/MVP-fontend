@@ -11,13 +11,13 @@ import {
 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { useParams } from "next/navigation";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useAuthStore } from "@/app/store/authStore";
 import { fetchAgencyDashboard, fetchActivity, getApiErrorMessage, exportAgencyReportPdf } from "@/lib/services";
 import { userRoleInAgency, type Agency, type AgencyRole, type Project, type Task, ACTIVITY_LABELS, getProjectProgress, getProjectStatusFromTasks, formatActivitySentence } from "@/lib/types";
 import { useTaskStatuses } from "@/lib/useTaskStatuses";
 import { useAsync } from "@/lib/appData";
-import { relativeTime } from "@/lib/dates";
+import { relativeTime, weekdayShort } from "@/lib/dates";
 
 const container: Variants = {
   hidden: { opacity: 0 },
@@ -28,13 +28,15 @@ const item: Variants = {
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
 };
 
-const activityConfig: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  creation: { label: ACTIVITY_LABELS["creation"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CalendarPlus },
-  changement_statut: { label: ACTIVITY_LABELS["changement_statut"], color: "var(--accent-text)", bg: "var(--accent-soft)", icon: Flag },
-  changement_responsable: { label: ACTIVITY_LABELS["changement_responsable"], color: "#7c3aed", bg: "rgba(139,92,246,0.12)", icon: UserRound },
-  changement_priorite: { label: ACTIVITY_LABELS["changement_priorite"], color: "#d97706", bg: "rgba(245,158,11,0.15)", icon: Flag },
-  changement_echeance: { label: ACTIVITY_LABELS["changement_echeance"], color: "#db2777", bg: "rgba(219,39,119,0.12)", icon: CalendarClock },
-  commentaire: { label: ACTIVITY_LABELS["commentaire"], color: "var(--accent-text)", bg: "var(--accent-soft)", icon: MessageSquare },
+// Les libellés sont des clés (namespace « Tasks ») : la config vit au niveau
+// du module, la traduction se fait au rendu.
+const activityConfig: Record<string, { labelKey: string; color: string; bg: string; icon: React.ElementType }> = {
+  creation: { labelKey: ACTIVITY_LABELS["creation"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CalendarPlus },
+  changement_statut: { labelKey: ACTIVITY_LABELS["changement_statut"], color: "var(--accent-text)", bg: "var(--accent-soft)", icon: Flag },
+  changement_responsable: { labelKey: ACTIVITY_LABELS["changement_responsable"], color: "#7c3aed", bg: "rgba(139,92,246,0.12)", icon: UserRound },
+  changement_priorite: { labelKey: ACTIVITY_LABELS["changement_priorite"], color: "#d97706", bg: "rgba(245,158,11,0.15)", icon: Flag },
+  changement_echeance: { labelKey: ACTIVITY_LABELS["changement_echeance"], color: "#db2777", bg: "rgba(219,39,119,0.12)", icon: CalendarClock },
+  commentaire: { labelKey: ACTIVITY_LABELS["commentaire"], color: "var(--accent-text)", bg: "var(--accent-soft)", icon: MessageSquare },
 };
 
 const smoothCurve = (pts: { x: number; y: number }[]) => {
@@ -57,6 +59,7 @@ const smoothCurve = (pts: { x: number; y: number }[]) => {
 export default function AgencyDashboardPage() {
   const { agencyId } = useParams<{ agencyId: string }>();
   const user = useAuthStore((s) => s.user);
+  const t = useTranslations("Dashboard");
 
   // Résumé dédié (UNE seule agence) : le tableau de bord n'attend plus le
   // bootstrap complet (toutes agences + notifications) pour afficher ses
@@ -86,7 +89,7 @@ export default function AgencyDashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>{t("loading")}</p>
       </div>
     );
   }
@@ -95,14 +98,14 @@ export default function AgencyDashboardPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Agence introuvable
+          {t("notFound")}
         </p>
         <Link
           href="/mes-agences"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Mes agences
+          <ArrowLeft size={16} /> {t("breadcrumbRoot")}
         </Link>
       </div>
     );
@@ -112,14 +115,14 @@ export default function AgencyDashboardPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Vous n&apos;êtes pas membre de cette agence.
+          {t("notMember")}
         </p>
         <Link
           href="/mes-agences"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Retour à Mes agences
+          <ArrowLeft size={16} /> {t("backToAgencies")}
         </Link>
       </div>
     );
@@ -151,6 +154,7 @@ export default function AgencyDashboardPage() {
 
 /* ============ FIL D'ARIANE ============ */
 function Breadcrumb({ title, agencyName }: { title: string; agencyName: string }) {
+  const t = useTranslations("Dashboard");
   return (
     <motion.div variants={item}>
       <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
@@ -160,13 +164,13 @@ function Breadcrumb({ title, agencyName }: { title: string; agencyName: string }
         <ol className="flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
           <li>
             <Link href="/mes-agences" className="hover:underline" style={{ color: "var(--text-muted)" }}>
-              Mes agences
+              {t("breadcrumbRoot")}
             </Link>
           </li>
           <li>/</li>
           <li>{agencyName}</li>
           <li>/</li>
-          <li className="font-semibold" style={{ color: "var(--blue)" }}>Dashboard</li>
+          <li className="font-semibold" style={{ color: "var(--blue)" }}>{t("breadcrumbCurrent")}</li>
         </ol>
       </nav>
     </motion.div>
@@ -175,6 +179,7 @@ function Breadcrumb({ title, agencyName }: { title: string; agencyName: string }
 
 /* ============ BANNIÈRE DE BIENVENUE ============ */
 function WelcomeBanner({ name, subtitle }: { name: string; subtitle: string }) {
+  const t = useTranslations("Dashboard");
   return (
     <motion.div
       variants={item}
@@ -194,7 +199,7 @@ function WelcomeBanner({ name, subtitle }: { name: string; subtitle: string }) {
       />
       <div className="relative">
         <div className="text-xl md:text-2xl font-black leading-snug">
-          Bienvenue, {name} ! 👋
+          {t("welcome", { name })}
         </div>
         <p className="mt-1 text-sm opacity-90 max-w-2xl">{subtitle}</p>
       </div>
@@ -226,6 +231,8 @@ function AdminDashboard({
   const { statuses, isTerminal } = useTaskStatuses();
   // La locale sert à dater l'activité (« il y a 5 min » / « 5 min ago »).
   const locale = useLocale();
+  const t = useTranslations("Dashboard");
+  const tTasks = useTranslations("Tasks");
 
   const { data: activity, loading: activityLoading } = useAsync(
     () => fetchActivity({ agencyId }),
@@ -274,8 +281,6 @@ function AdminDashboard({
       getProjectStatusFromTasks(p.status, tasksByProject(p.id), statuses, p.dueDate) === "en_retard",
   ).length;
 
-  const WEEK_DAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-
   // Lundi de la semaine courante à 00:00
   const thisWeekStart = (() => {
     const d = new Date();
@@ -287,6 +292,13 @@ function AdminDashboard({
   // Lundi de la semaine précédente
   const lastWeekStart = new Date(thisWeekStart);
   lastWeekStart.setDate(thisWeekStart.getDate() - 7);
+
+  // Les 7 jours de la semaine courante, nommés dans la locale active.
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(thisWeekStart);
+    d.setDate(thisWeekStart.getDate() + i);
+    return d;
+  });
 
   // Compte les tâches terminées (completedAt) jour par jour dans un intervalle
   const countDone = (from: Date, to: Date): number[] => {
@@ -304,7 +316,7 @@ function AdminDashboard({
   const thisWeek = countDone(thisWeekStart, new Date(thisWeekStart.getTime() + 7 * 86400000));
   const lastWeek = countDone(lastWeekStart, thisWeekStart);
 
-  const weeklyReport = WEEK_DAY_LABELS.map((day, i) => ({ day, value: thisWeek[i] }));
+  const weeklyReport = weekDays.map((day, i) => ({ day: weekdayShort(day, locale), value: thisWeek[i] }));
 
   const doneThisWeek = thisWeek.reduce((s, n) => s + n, 0);
   const doneLastWeek = lastWeek.reduce((s, n) => s + n, 0);
@@ -324,7 +336,7 @@ function AdminDashboard({
       value: agencyTasks.filter((t) => t.status === s.key).length,
       color: s.color,
     })),
-    { label: "En retard", value: overdueCount, color: "var(--color-error)" },
+    { label: t("statuses.overdue"), value: overdueCount, color: "var(--color-error)" },
   ];
 
   const maxStatusValue = Math.max(1, ...taskStatuses.map((x) => x.value));
@@ -351,34 +363,30 @@ function AdminDashboard({
   const avgY = chartTop + (1 - avg / chartMax) * (chartHeight - chartTop - chartBottom);
 
   const statCards = [
-    { label: "Total projets", value: String(totalProjects), icon: FolderKanban, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
-    { label: "Total tâches", value: String(totalTasks), icon: ListTodo, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
-    { label: "Membres", value: String(totalMembers), icon: Users, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
-    { label: "Tâches en retard", value: String(overdueCount), icon: AlarmClock, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
-    { label: "Projets en retard", value: String(overdueProjectsCount), icon: CalendarClock, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+    { label: t("kpi.totalProjects"), value: String(totalProjects), icon: FolderKanban, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+    { label: t("kpi.totalTasks"), value: String(totalTasks), icon: ListTodo, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+    { label: t("kpi.members"), value: String(totalMembers), icon: Users, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+    { label: t("kpi.overdueTasks"), value: String(overdueCount), icon: AlarmClock, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
+    { label: t("kpi.overdueProjects"), value: String(overdueProjectsCount), icon: CalendarClock, grad: "linear-gradient(135deg, rgba(var(--blue-mid-rgb),0.35), rgba(var(--blue-rgb),0.10))", color: "var(--blue-mid)" },
   ];
 
   return (
     <motion.div variants={container} initial={false} animate="show" className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <Breadcrumb title="Tableau de bord" agencyName={agencyName} />
+        <Breadcrumb title={t("breadcrumb")} agencyName={agencyName} />
         <button
           onClick={handleExportPdf}
           disabled={exportingPdf}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-transform hover:scale-[1.03] disabled:opacity-60"
           style={{ background: "var(--accent-soft)", color: "var(--accent-text)", boxShadow: "0 2px 6px -2px rgba(var(--blue-rgb),0.35)" }}
         >
-          <FileDown size={15} /> {exportingPdf ? "Préparation…" : "Exporter le rapport"}
+          <FileDown size={15} /> {exportingPdf ? t("export.preparing") : t("export.button")}
         </button>
       </div>
 
       <WelcomeBanner
         name={userName}
-        subtitle={
-          isOwner
-            ? "En tant que propriétaire, prenez des décisions éclairées et libérez le potentiel de votre équipe."
-            : "En tant qu'administrateur, organisez, suivez et motivez votre équipe."
-        }
+        subtitle={isOwner ? t("welcomeOwner") : t("welcomeAdmin")}
       />
 
       {/* Indicateurs clés */}
@@ -436,8 +444,8 @@ function AdminDashboard({
                 <CalendarClock size={16} style={{ color: "var(--blue)" }} />
               </div>
               <div>
-                <h2 className="font-bold leading-none" style={{ color: "var(--text-primary)" }}>Tâches par statut</h2>
-                <span className="text-xs" style={{ color: "var(--text-muted)" }}>Vue d&apos;ensemble de l&apos;avancement</span>
+                <h2 className="font-bold leading-none" style={{ color: "var(--text-primary)" }}>{t("tasksByStatus.title")}</h2>
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>{t("tasksByStatus.subtitle")}</span>
               </div>
             </div>
             <ul className="space-y-3">
@@ -468,8 +476,8 @@ function AdminDashboard({
                   <TrendingUp size={16} style={{ color: "var(--color-success)" }} />
                 </div>
                 <div>
-                  <h2 className="font-bold leading-none" style={{ color: "var(--text-primary)" }}>Rapport hebdomadaire</h2>
-                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>Tâches terminées par jour</span>
+                  <h2 className="font-bold leading-none" style={{ color: "var(--text-primary)" }}>{t("weekly.title")}</h2>
+                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>{t("weekly.subtitle")}</span>
                 </div>
               </div>
               <span
@@ -477,18 +485,18 @@ function AdminDashboard({
                 style={{ background: "rgba(16,185,129,0.12)", color: "var(--color-success)" }}
               >
                 {deltaPct === null
-                  ? `${totalCompleted} tâche${totalCompleted > 1 ? "s" : ""} terminée${totalCompleted > 1 ? "s" : ""}`
-                  : `${deltaPct >= 0 ? "+" : ""}${deltaPct}% cette semaine`}
+                  ? t("weekly.completed", { count: totalCompleted })
+                  : t("weekly.delta", { value: `${deltaPct >= 0 ? "+" : ""}${deltaPct}` })}
               </span>
             </div>
             <div className="mb-4 flex items-center gap-5 text-xs">
               <span className="flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
                 <span className="w-4 h-0.5 rounded-full" style={{ background: "linear-gradient(90deg, var(--blue), var(--blue-mid))" }} />
-                Tâches terminées
+                {t("weekly.legendDone")}
               </span>
               <span className="flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
                 <span className="w-4 border-t border-dashed" style={{ borderColor: "#7C3AED" }} />
-                Moyenne journalière
+                {t("weekly.legendAverage")}
               </span>
             </div>
 
@@ -596,7 +604,7 @@ function AdminDashboard({
               <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(var(--blue-rgb),0.12)" }}>
                 <Users size={16} style={{ color: "var(--blue)" }} />
               </div>
-              <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Statut de l&apos;équipe</h2>
+              <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>{t("team.title")}</h2>
             </div>
             <ul className="space-y-2.5">
               <li className="flex items-center gap-3 text-sm">
@@ -608,17 +616,17 @@ function AdminDashboard({
                     transition={{ duration: 1.8, repeat: Infinity }}
                   />
                 </span>
-                Membres actifs
+                {t("team.active")}
                 <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{activeMembers}</span>
               </li>
               <li className="flex items-center gap-3 text-sm">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "var(--color-error)", boxShadow: "0 0 8px var(--color-error)" }} />
-                Membres inactifs
+                {t("team.inactive")}
                 <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{inactiveMembers}</span>
               </li>
               <li className="flex items-center gap-3 text-sm">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "#C7961A", boxShadow: "0 0 8px #C7961A" }} />
-                Tâches cumulées
+                {t("team.cumulative")}
                 <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{totalTasks}</span>
               </li>
             </ul>
@@ -633,12 +641,12 @@ function AdminDashboard({
               >
                 <History size={14} style={{ color: "#7c3aed" }} />
               </span>
-              Activité récente
+              {t("activity.title")}
             </h2>
 
             {activityLoading ? (
               <p className="text-sm text-center py-3" style={{ color: "var(--text-muted)" }}>
-                Chargement de l&apos;activité…
+                {t("activity.loading")}
               </p>
             ) : activity && activity.length > 0 ? (
               <>
@@ -648,7 +656,7 @@ function AdminDashboard({
                     <div className="flex flex-col">
                       {visible.map((a, idx) => {
                         const cfg = activityConfig[a.action] ?? {
-                          label: a.action,
+                          labelKey: null,
                           color: "var(--text-secondary)",
                           bg: "var(--hover-soft)",
                           icon: History,
@@ -672,13 +680,13 @@ function AdminDashboard({
                             <div className={`flex-1 min-w-0 ${isLast ? "" : "pb-3"}`}>
                               <div className="flex items-center justify-between gap-2 flex-wrap">
                                 <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                                  {formatActivitySentence(a)}
+                                  {formatActivitySentence(a, undefined, tTasks)}
                                 </span>
                                 <span
                                   className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                                   style={{ color: cfg.color, background: cfg.bg }}
                                 >
-                                  {cfg.label}
+                                  {cfg.labelKey ? tTasks(cfg.labelKey) : a.action}
                                 </span>
                               </div>
                               <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
@@ -699,14 +707,14 @@ function AdminDashboard({
                   >
                     {activityExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                     {activityExpanded
-                      ? "Voir moins"
-                      : `Voir plus (${activity.length - ACTIVITY_VISIBLE})`}
+                      ? t("activity.seeLess")
+                      : t("activity.seeMore", { count: activity.length - ACTIVITY_VISIBLE })}
                   </button>
                 )}
               </>
             ) : (
               <p className="text-sm text-center py-3" style={{ color: "var(--text-muted)" }}>
-                Aucune activité récente.
+                {t("activity.empty")}
               </p>
             )}
           </motion.div>
@@ -716,14 +724,11 @@ function AdminDashboard({
             <div className="flex items-center gap-2 mb-3">
               <ShieldCheck className="w-4 h-4" style={{ color: "var(--blue)" }} />
               <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                {isOwner
-                  ? "Vue propriétaire — accès complet"
-                  : "Vue administrateur — accès élargi mais limité"}
+                {isOwner ? t("rights.owner") : t("rights.admin")}
               </p>
             </div>
             <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {isOwner ? "Vous gérez tout : équipe, projets, tâches et réglages." : "Vous gérez l'équipe et les projets, sans les réglages."
-            }
+              {isOwner ? t("rights.ownerDesc") : t("rights.adminDesc")}
             </div>
           </motion.div>
         </div>
@@ -733,39 +738,41 @@ function AdminDashboard({
 }
 
 /* ============ VUE MEMBRE : vue personnelle, accès limité ============ */
+// Les textes sont des clés (namespace « Dashboard ») : les tableaux restent
+// au niveau du module, la traduction se fait au rendu.
 const goodPractices = [
   {
     icon: Lightbulb,
-    title: "Respectez les délais",
-    desc: "Livrez chaque tâche à temps pour garder la confiance de l'équipe.",
+    titleKey: "practices.good.deadlines.title",
+    descKey: "practices.good.deadlines.desc",
   },
   {
     icon: Award,
-    title: "Travaillez avec rigueur",
-    desc: "La qualité de vos livrables reflète votre professionnalisme.",
+    titleKey: "practices.good.rigor.title",
+    descKey: "practices.good.rigor.desc",
   },
   {
     icon: Users,
-    title: "Collaborez avec l'équipe",
-    desc: "Une bonne communication améliore la productivité du projet.",
+    titleKey: "practices.good.teamwork.title",
+    descKey: "practices.good.teamwork.desc",
   },
 ];
 
 const badPractices = [
   {
     icon: AlarmClock,
-    title: "Ne soyez pas en retard",
-    desc: "Les retards ralentissent toute l'équipe et nuisent au planning.",
+    titleKey: "practices.bad.late.title",
+    descKey: "practices.bad.late.desc",
   },
   {
     icon: Ban,
-    title: "Ne négligez pas les détails",
-    desc: "Des livrables incomplets bloquent l'avancement du projet.",
+    titleKey: "practices.bad.details.title",
+    descKey: "practices.bad.details.desc",
   },
   {
     icon: AlertTriangle,
-    title: "Évitez les conflits",
-    desc: "Un climat sain favorise la réussite collective.",
+    titleKey: "practices.bad.conflicts.title",
+    descKey: "practices.bad.conflicts.desc",
   },
 ];
 
@@ -786,33 +793,35 @@ function MemberDashboard({
   // le membre est rattaché (cf. ProjectController@index) ; on ne filtre donc
   // plus sur les tâches assignées : appartenir au projet suffit à le voir ici,
   // même sans aucune tâche assignée.
+  const t = useTranslations("Dashboard");
+  const tStatus = useTranslations("ProjectStatuses");
   const myProjects = agencyProjects.filter((p) => p.status !== "archive");
 
-  const projectStatusInfo: Record<string, { label: string; color: string; bg: string }> = {
-    a_venir: { label: "À venir", color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
-    en_cours: { label: "En cours", color: "#056cf2", bg: "rgba(5,108,242,0.12)" },
-    en_retard: { label: "En retard", color: "#D85A30", bg: "rgba(216,90,48,0.14)" },
-    termine: { label: "Terminé", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
+  const projectStatusInfo: Record<string, { labelKey: string; color: string; bg: string }> = {
+    a_venir: { labelKey: "a_venir", color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+    en_cours: { labelKey: "en_cours", color: "#056cf2", bg: "rgba(5,108,242,0.12)" },
+    en_retard: { labelKey: "en_retard", color: "#D85A30", bg: "rgba(216,90,48,0.14)" },
+    termine: { labelKey: "termine", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
   };
 
   return (
     <motion.div variants={container} initial={false} animate="show" className="space-y-6">
-      <Breadcrumb title="Tableau de bord" agencyName={agencyName} />
+      <Breadcrumb title={t("breadcrumb")} agencyName={agencyName} />
 
       <WelcomeBanner
         name={userName}
-        subtitle="Découvrez les bonnes pratiques pour exceller dans votre travail."
+        subtitle={t("welcomeMember")}
       />
 
       {/* Bonnes pratiques / Erreurs à éviter */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <motion.div variants={item} className="space-y-3">
           <h4 className="font-bold flex items-center gap-2" style={{ color: "var(--color-success)" }}>
-            ✅ Bonnes pratiques
+            ✅ {t("practices.goodTitle")}
           </h4>
           <img
             src="/bonnes_pratiques.png"
-            alt="Bonnes pratiques"
+            alt={t("practices.goodTitle")}
             width={558}
             height={447}
             loading="lazy"
@@ -828,7 +837,7 @@ function MemberDashboard({
           >
             {goodPractices.map((p) => (
               <motion.div
-                key={p.title}
+                key={p.titleKey}
                 variants={{ hidden: { opacity: 0, x: -14 }, show: { opacity: 1, x: 0, transition: { duration: 0.4 } } }}
                 whileHover={{ x: 4, scale: 1.01 }}
                 className="glass rounded-2xl p-5 flex items-start gap-4"
@@ -842,8 +851,8 @@ function MemberDashboard({
                   <p.icon className="w-8 h-8" style={{ color: "var(--color-success)" }} />
                 </motion.div>
                 <div>
-                  <h5 className="font-bold" style={{ color: "var(--text-primary)" }}>{p.title}</h5>
-                  <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>{p.desc}</p>
+                  <h5 className="font-bold" style={{ color: "var(--text-primary)" }}>{t(p.titleKey)}</h5>
+                  <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>{t(p.descKey)}</p>
                 </div>
               </motion.div>
             ))}
@@ -852,11 +861,11 @@ function MemberDashboard({
 
         <motion.div variants={item} className="space-y-3">
           <h4 className="font-bold flex items-center gap-2" style={{ color: "var(--color-error)" }}>
-            ❌ Erreurs à éviter
+            ❌ {t("practices.badTitle")}
           </h4>
           <img
             src="/mauvaises_pratiques.png"
-            alt="Erreurs à éviter"
+            alt={t("practices.badTitle")}
             width={360}
             height={288}
             loading="lazy"
@@ -872,7 +881,7 @@ function MemberDashboard({
           >
             {badPractices.map((p) => (
               <motion.div
-                key={p.title}
+                key={p.titleKey}
                 variants={{ hidden: { opacity: 0, x: 14 }, show: { opacity: 1, x: 0, transition: { duration: 0.4 } } }}
                 whileHover={{ x: -4, scale: 1.01 }}
                 className="glass rounded-2xl p-5 flex items-start gap-4"
@@ -886,8 +895,8 @@ function MemberDashboard({
                   <p.icon className="w-8 h-8" style={{ color: "var(--color-error)" }} />
                 </motion.div>
                 <div>
-                  <h5 className="font-bold" style={{ color: "var(--text-primary)" }}>{p.title}</h5>
-                  <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>{p.desc}</p>
+                  <h5 className="font-bold" style={{ color: "var(--text-primary)" }}>{t(p.titleKey)}</h5>
+                  <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>{t(p.descKey)}</p>
                 </div>
               </motion.div>
             ))}
@@ -901,21 +910,20 @@ function MemberDashboard({
             <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(var(--blue-rgb),0.12)" }}>
               <FolderKanban size={16} style={{ color: "var(--blue)" }} />
             </div>
-            <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Vos projets</h2>
+            <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>{t("projects.title")}</h2>
           </div>
           <Link
             href={`/agences/${agencyId}/projets`}
             className="inline-flex items-center gap-1.5 text-xs font-semibold transition-transform hover:scale-105"
             style={{ color: "var(--accent-text)" }}
           >
-            Voir tous <ArrowRight size={13} />
+            {t("projects.seeAll")} <ArrowRight size={13} />
           </Link>
         </div>
 
         {myProjects.length === 0 ? (
           <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            Vous ne participez à aucun projet pour le moment. Les projets auxquels
-            vous serez rattaché apparaîtront ici.
+            {t("projects.empty")}
           </div>
         ) : (
           <div className="space-y-3">
@@ -938,7 +946,7 @@ function MemberDashboard({
                       className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full"
                       style={{ background: info.bg, color: info.color }}
                     >
-                      <FolderKanban size={10} /> {info.label}
+                      <FolderKanban size={10} /> {tStatus(info.labelKey)}
                     </span>
                   </div>
                   <div className="mt-2.5 flex items-center gap-2">
@@ -964,7 +972,7 @@ function MemberDashboard({
                 className="block text-center text-xs font-semibold pt-1 transition-colors hover:opacity-80"
                 style={{ color: "var(--accent-text)" }}
               >
-                +{myProjects.length - 4} autre{myProjects.length - 4 > 1 ? "s" : ""} projet{myProjects.length - 4 > 1 ? "s" : ""}…
+                {t("projects.others", { count: myProjects.length - 4 })}
               </Link>
             )}
           </div>

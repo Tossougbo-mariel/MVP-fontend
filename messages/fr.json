@@ -3,7 +3,14 @@
     "title": "MVP Studio — Gestion de tâches",
     "description": "Plateforme de gestion et de suivi des tâches pour équipes, freelances et agences."
   },
-  "Common": {},
+  "Common": {
+    "loading": "Chargement...",
+    "seeMore": "Voir plus",
+    "seeLess": "Voir moins",
+    "seeAll": "Voir tous",
+    "backToMyAgencies": "Retour à mes agences",
+    "project": "projet"
+  },
   "Navigation": {
     "home": "Accueil",
     "features": "Fonctionnalités",
@@ -12,8 +19,29 @@
     "signUp": "S'inscrire",
     "login": "Se connecter",
     "openMenu": "Ouvrir le menu",
-    "language": "Langue"
-
+    "language": "Langue",
+    "app": {
+      "myAgencies": "Mes agences",
+      "myAgenciesShort": "Agence",
+      "createAgency": "Créer une agence",
+      "notifications": "Notifications",
+      "myProfile": "Mon profil",
+      "profileShort": "Profil",
+      "settings": "Réglages",
+      "aiAssistant": "Assistant IA",
+      "aiAssistantShort": "Assistant",
+      "logout": "Se déconnecter",
+      "logoutShort": "Déconnexion",
+      "closeMenu": "Fermer le menu",
+      "noAgency": "Aucune agence",
+      "createFirstAgency": "Créez votre première agence ou acceptez une invitation pour gérer vos projets.",
+      "dashboard": "Tableau de bord",
+      "projects": "Projets",
+      "myTasks": "Mes tâches",
+      "team": "Équipe",
+      "agencySettings": "Paramètres",
+      "agency": "Agence"
+    }
   },
   "Auth": {
     "signup": {
@@ -213,7 +241,7 @@
     "generic": "Une erreur est survenue. Réessayez."
   },
   "Landing": {
-    "hero":{
+    "hero": {
       "titleStart": "Pilotez vos",
       "titleHighlight": "agences et vos équipes",
       "titleEnd": "avec précision",
@@ -297,6 +325,36 @@
         }
       }
     },
+    "testimonials": {
+      "badge": "Témoignages",
+      "title": "Ils utilisent MVP Studio au quotidien",
+      "subtitle": "Nos clients gèrent leurs agences, projets et équipes avec succès.",
+      "quoted": "« {quote} »",
+      "items": {
+        "amina": {
+          "quote": "MVP Studio a transformé notre façon de travailler. Toutes nos agences et projets sont enfin centralisés au même endroit.",
+          "role": "Directrice · Agence Créative"
+        },
+        "karim": {
+          "quote": "Le suivi des tâches est limpide. Chaque membre de l'équipe sait exactement quoi faire et où en est chaque projet.",
+          "role": "Chef de projet · Studio Digital"
+        },
+        "leila": {
+          "quote": "Simple, rapide et efficace. Gain de temps énorme.",
+          "role": "Fondatrice · Web Studio"
+        },
+        "youssef": {
+          "quote": "La vision d'ensemble qu'on a enfin sur tous nos projets. Le dashboard est clair, les notifications sont pertinentes.",
+          "role": "Directeur technique · Agence Web"
+        }
+      }
+    },
+    "finalCta": {
+      "title": "Prêt à passer à la <highlight>vitesse supérieure</highlight> ?",
+      "description": "Rejoignez des centaines d'équipes qui organisent leurs agences, leurs projets et leurs tâches avec MVP Studio. C'est gratuit pour commencer.",
+      "primaryCta": "Créer mon compte gratuit",
+      "secondaryCta": "J'ai déjà un compte"
+    },
     "footer": {
       "description": "La plateforme tout-en-un pour gérer vos agences, vos projets et vos équipes, simplement et efficacement.",
       "productTitle": "Produit",
@@ -304,58 +362,204 @@
       "createAccount": "Créer un compte",
       "forgotPassword": "Mot de passe oublié",
       "copyright": "© {year} MVP Studio. Tous droits réservés."
-    },
-      "testimonials": {
-        "badge": "Témoignages",
-        "title": "Ils utilisent MVP Studio au quotidien",
-        "subtitle": "Nos clients gèrent leurs agences, projets et équipes avec succès.",
-        "quoted": "« {quote} »",
-        "items": {
-          "amina": {
-            "quote": "MVP Studio a transformé notre façon de travailler. Toutes nos agences et projets sont enfin centralisés au même endroit.",
-            "role": "Directrice · Agence Créative"
-          },
-          "karim": {
-            "quote": "Le suivi des tâches est limpide. Chaque membre de l'équipe sait exactement quoi faire et où en est chaque projet.",
-            "role": "Chef de projet · Studio Digital"
-          },
-          "leila": {
-            "quote": "Simple, rapide et efficace. Gain de temps énorme.",
-            "role": "Fondatrice · Web Studio"
-          },
-          "youssef": {
-            "quote": "La vision d'ensemble qu'on a enfin sur tous nos projets. Le dashboard est clair, les notifications sont pertinentes.",
-            "role": "Directeur technique · Agence Web"
-          }
-        }
-      },
-    "finalCta": {
-      "title": "Prêt à passer à la <highlight>vitesse supérieure</highlight> ?",
-      "description": "Rejoignez des centaines d'équipes qui organisent leurs agences, leurs projets et leurs tâches avec MVP Studio. C'est gratuit pour commencer.",
-      "primaryCta": "Créer mon compte gratuit",
-      "secondaryCta": "J'ai déjà un compte"
     }
   },
-  "Dashboard": {},
-  "Agencies": {},
+  "Dashboard": {
+    "loading": "Chargement...",
+    "notFound": "Agence introuvable",
+    "notMember": "Vous n'êtes pas membre de cette agence.",
+    "backToAgencies": "Retour à Mes agences",
+    "breadcrumb": "Tableau de bord",
+    "breadcrumbRoot": "Mes agences",
+    "breadcrumbCurrent": "Dashboard",
+    "welcome": "Bienvenue, {name} ! 👋",
+    "welcomeOwner": "En tant que propriétaire, prenez des décisions éclairées et libérez le potentiel de votre équipe.",
+    "welcomeAdmin": "En tant qu'administrateur, organisez, suivez et motivez votre équipe.",
+    "welcomeMember": "Découvrez les bonnes pratiques pour exceller dans votre travail.",
+    "export": {
+      "button": "Exporter le rapport",
+      "preparing": "Préparation..."
+    },
+    "kpi": {
+      "totalProjects": "Total projets",
+      "totalTasks": "Total tâches",
+      "members": "Membres",
+      "overdueTasks": "Tâches en retard",
+      "overdueProjects": "Projets en retard"
+    },
+    "statuses": {
+      "overdue": "En retard"
+    },
+    "tasksByStatus": {
+      "title": "Tâches par statut",
+      "subtitle": "Vue d'ensemble de l'avancement"
+    },
+    "weekly": {
+      "title": "Rapport hebdomadaire",
+      "subtitle": "Tâches terminées par jour",
+      "legendDone": "Tâches terminées",
+      "legendAverage": "Moyenne journalière",
+      "completed": "{count, plural, one {# tâche terminée} other {# tâches terminées}}",
+      "delta": "{value}% cette semaine"
+    },
+    "team": {
+      "title": "Statut de l'équipe",
+      "active": "Membres actifs",
+      "inactive": "Membres inactifs",
+      "cumulative": "Tâches cumulées"
+    },
+    "activity": {
+      "title": "Activité récente",
+      "loading": "Chargement de l'activité...",
+      "empty": "Aucune activité récente.",
+      "seeMore": "Voir plus ({count})",
+      "seeLess": "Voir moins"
+    },
+    "rights": {
+      "owner": "Vue propriétaire — accès complet",
+      "admin": "Vue administrateur — accès élargi mais limité",
+      "ownerDesc": "Vous gérez tout : équipe, projets, tâches et réglages.",
+      "adminDesc": "Vous gérez l'équipe et les projets, sans les réglages."
+    },
+    "practices": {
+      "goodTitle": "Bonnes pratiques",
+      "badTitle": "Erreurs à éviter",
+      "good": {
+        "deadlines": {
+          "title": "Respectez les délais",
+          "desc": "Livrez chaque tâche à temps pour garder la confiance de l'équipe."
+        },
+        "rigor": {
+          "title": "Travaillez avec rigueur",
+          "desc": "La qualité de vos livrables reflète votre professionnalisme."
+        },
+        "teamwork": {
+          "title": "Collaborez avec l'équipe",
+          "desc": "Une bonne communication améliore la productivité du projet."
+        }
+      },
+      "bad": {
+        "late": {
+          "title": "Ne soyez pas en retard",
+          "desc": "Les retards ralentissent toute l'équipe et nuisent au planning."
+        },
+        "details": {
+          "title": "Ne négligez pas les détails",
+          "desc": "Des livrables incomplets bloquent l'avancement du projet."
+        },
+        "conflicts": {
+          "title": "Évitez les conflits",
+          "desc": "Un climat sain favorise la réussite collective."
+        }
+      }
+    },
+    "projects": {
+      "title": "Vos projets",
+      "seeAll": "Voir tous",
+      "empty": "Vous ne participez à aucun projet pour le moment. Les projets auxquels vous serez rattaché apparaîtront ici.",
+      "others": "{count, plural, one {# autre projet} other {# autres projets}}..."
+    }
+  },
+  "Agencies": {
+    "title": "Mes agences",
+    "subtitle": "Les espaces de travail auxquels vous appartenez.",
+    "sectionTitle": "Vos agences",
+    "workspacesCount": "{count, plural, one {# espace de travail} other {# espaces de travail}}",
+    "createButton": "Créer une agence",
+    "emptyTitle": "Vous n'avez aucune agence pour le moment.",
+    "emptySubtitle": "Créez votre première agence pour commencer à collaborer.",
+    "noMember": "Aucun membre",
+    "roleOwner": "Propriétaire",
+    "roleAdmin": "Administrateur",
+    "roleMember": "Membre",
+    "projectsCount": "{count, plural, one {# projet} other {# projets}}",
+    "runningCount": "{count} en cours",
+    "tasksCount": "{count, plural, one {# tâche} other {# tâches}}",
+    "createdAt": "Créée le {date}",
+    "createTitle": "Créer une agence",
+    "createSubtitle": "Créez votre espace de travail pour gérer projets, tâches et équipe.",
+    "createBack": "Retour à mes agences",
+    "createNameLabel": "Nom de l'agence *",
+    "createNamePlaceholder": "Ex : MVP Studio",
+    "createDescriptionLabel": "Description (optionnel)",
+    "createDescriptionPlaceholder": "Décrivez l'activité de votre agence...",
+    "createSubmit": "Créer l'agence",
+    "createSubmitting": "Création en cours...",
+    "createNameRequired": "Le nom de l'agence est obligatoire.",
+    "myAgenciesTitle": "Mes agences",
+    "notMemberOfAny": "Vous n'êtes membre d'aucune agence.",
+    "projectsTitle": "Projets",
+    "planningOf": "Planning de {project}",
+    "planning": "Planning",
+    "othersCount": "{count, plural, one {+# autre projet} other {+# autres projets}}"
+  },
   "Projects": {},
-  "Tasks": {},
+  "Tasks": {
+    "activity": {
+      "actions": {
+        "creation": "Création",
+        "status_changed": "Changement de statut",
+        "task_completed": "Tâche terminée",
+        "reopened": "Réouverture",
+        "assignee_changed": "Changement de responsable",
+        "priority_changed": "Changement de priorité",
+        "due_date_changed": "Changement d'échéance",
+        "comment_added": "Commentaire",
+        "project_created": "Création de projet",
+        "member_added": "Membre ajouté"
+      },
+      "sentence": "{actor} {action}{project}",
+      "onProject": " sur le projet « {project} »",
+      "somebody": "Quelqu'un",
+      "someAction": "a effectué une action"
+    }
+  },
   "Team": {},
   "Planning": {},
   "Notifications": {},
-  "Deadlines": {},
+  "Deadlines": {
+    "overdue": "En retard",
+    "dueSoon": "Échéance proche",
+    "titleOverdue": "Tâche en retard",
+    "titleDueSoon": "Échéance proche",
+    "messageOverdue": "La tâche « {task} » est en retard. Son échéance était le {date}. Elle n'est pas encore terminée.",
+    "messageDueSoon": "Attention. La tâche « {task} » doit être terminée {day}, le {date}. Pensez à la faire sans attendre.",
+    "labelOverdue": "En retard",
+    "labelDue": "Échéance {day}",
+    "menuTitle": "Alertes d'échéance",
+    "menuTitleWithCount": "Alertes d'échéance ({count})",
+    "menuShort": "Alertes",
+    "seeAll": "Voir toutes les alertes",
+    "empty": "Aucune alerte d'échéance.",
+    "lateCount": "{count} en retard",
+    "all": "Toutes",
+    "loading": "Chargement des alertes...",
+    "watchCount": "{count, plural, one {# tâche à surveiller} other {# tâches à surveiller}}",
+    "dueOn": "Échéance : {date}",
+    "viewTask": "Voir la tâche",
+    "emptyTitle": "Aucune alerte d'échéance.",
+    "emptyFilterTitle": "Aucune tâche dans cette catégorie.",
+    "emptyText": "Aucune tâche n'est en retard ni proche de son échéance.",
+    "emptyFilterText": "Choisissez un autre filtre."
+  },
   "Profile": {},
   "Settings": {
     "theme": {
       "label": "Thème de l'interface",
-      "description": "Choisis entre l'apparence claire et sombre.",
+      "description": "Choisissez entre l'apparence claire et sombre.",
       "light": "Clair",
       "dark": "Sombre"
     }
   },
   "Statuses": {},
   "Priorities": {},
-  "ProjectStatuses": {},
+  "ProjectStatuses": {
+    "a_venir": "À venir",
+    "en_cours": "En cours",
+    "en_retard": "En retard",
+    "termine": "Terminé",
+    "archive": "Archivé"
+  },
   "DeadlineStatuses": {},
   "NotificationTypes": {},
   "Colors": {},

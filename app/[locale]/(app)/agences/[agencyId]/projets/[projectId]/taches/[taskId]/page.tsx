@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
 import { Link } from "@/i18n/navigation";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { motion, type Variants } from "framer-motion";
 import DatePickerField from "@/app/[locale]/(app)/components/DatePickerField";
 import CustomSelectField from "@/app/[locale]/(app)/components/CustomSelectField";
@@ -125,14 +125,15 @@ const formatDate = (date: string | null, locale: string = "fr") => {
   return formatDateLong(d, locale);
 };
 
-const historyConfig: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  creation: { label: ACTIVITY_LABELS["creation"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CalendarPlus },
-  changement_statut: { label: ACTIVITY_LABELS["changement_statut"], color: "var(--blue)", bg: "var(--accent-soft)", icon: Flag },
-  tache_terminee: { label: ACTIVITY_LABELS["tache_terminee"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CheckCircle2 },
-  changement_responsable: { label: ACTIVITY_LABELS["changement_responsable"], color: "#7c3aed", bg: "rgba(139,92,246,0.12)", icon: UserRound },
-  changement_priorite: { label: ACTIVITY_LABELS["changement_priorite"], color: "#d97706", bg: "rgba(245,158,11,0.15)", icon: Flag },
-  changement_echeance: { label: ACTIVITY_LABELS["changement_echeance"], color: "#db2777", bg: "rgba(219,39,119,0.12)", icon: CalendarClock },
-  commentaire: { label: ACTIVITY_LABELS["commentaire"], color: "var(--accent-text)", bg: "var(--accent-soft)", icon: MessageSquare },
+// Libellés = clés (namespace « Tasks »), traduites au rendu.
+const historyConfig: Record<string, { labelKey: string; color: string; bg: string; icon: React.ElementType }> = {
+  creation: { labelKey: ACTIVITY_LABELS["creation"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CalendarPlus },
+  changement_statut: { labelKey: ACTIVITY_LABELS["changement_statut"], color: "var(--blue)", bg: "var(--accent-soft)", icon: Flag },
+  tache_terminee: { labelKey: ACTIVITY_LABELS["tache_terminee"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CheckCircle2 },
+  changement_responsable: { labelKey: ACTIVITY_LABELS["changement_responsable"], color: "#7c3aed", bg: "rgba(139,92,246,0.12)", icon: UserRound },
+  changement_priorite: { labelKey: ACTIVITY_LABELS["changement_priorite"], color: "#d97706", bg: "rgba(245,158,11,0.15)", icon: Flag },
+  changement_echeance: { labelKey: ACTIVITY_LABELS["changement_echeance"], color: "#db2777", bg: "rgba(219,39,119,0.12)", icon: CalendarClock },
+  commentaire: { labelKey: ACTIVITY_LABELS["commentaire"], color: "var(--accent-text)", bg: "var(--accent-soft)", icon: MessageSquare },
 };
 
 const formatDateTime = (iso: string, locale: string = "fr") => formatDateTimeShort(new Date(iso), locale);
@@ -181,6 +182,7 @@ const renderWithMentions = (content: string, names: string[]): React.ReactNode =
 export default function TaskDetailPage() {
   const { agencyId, projectId, taskId } = useParams<{ agencyId: string; projectId: string; taskId: string }>();
   const locale = useLocale();
+  const tTasks = useTranslations("Tasks");
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const { reload, agencyById, getProject, tasksByProject, data } = useAppData();
@@ -852,7 +854,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
           <div className="flex flex-col">
             {historyVisible.map((h, idx) => {
               const cfg = historyConfig[h.action] ?? {
-                label: h.action,
+                labelKey: null,
                 color: "var(--text-secondary)",
                 bg: "var(--hover-soft)",
                 icon: History,
@@ -879,13 +881,14 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                         {formatActivitySentence(
                           h,
                           actor ? `${actor.user.firstName} ${actor.user.lastName}` : null,
+                          tTasks,
                         )}
                       </span>
                       <span
                         className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                         style={{ color: cfg.color, background: cfg.bg }}
                       >
-                        {cfg.label}
+                        {cfg.labelKey ? tTasks(cfg.labelKey) : h.action}
                       </span>
                     </div>
                     <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>

@@ -1,14 +1,17 @@
+// Clés de libellé d'action d'activité, relatives au namespace « Tasks » :
+// elles sont résolues au rendu (useTranslations("Tasks")), jamais affichées
+// telles quelles.
 export const ACTIVITY_ACTION_KEYS: Record<string, string> = {
-  creation: "Tasks.activity.actions.creation",
-  changement_statut: "Tasks.activity.actions.status_changed",
-  tache_terminee: "Tasks.activity.actions.task_completed",
-  reouverture: "Tasks.activity.actions.reopened",
-  changement_responsable: "Tasks.activity.actions.assignee_changed",
-  changement_priorite: "Tasks.activity.actions.priority_changed",
-  changement_echeance: "Tasks.activity.actions.due_date_changed",
-  commentaire: "Tasks.activity.actions.comment_added",
-  creation_projet: "Tasks.activity.actions.project_created",
-  membre_ajoute: "Tasks.activity.actions.member_added",
+  creation: "activity.actions.creation",
+  changement_statut: "activity.actions.status_changed",
+  tache_terminee: "activity.actions.task_completed",
+  reouverture: "activity.actions.reopened",
+  changement_responsable: "activity.actions.assignee_changed",
+  changement_priorite: "activity.actions.priority_changed",
+  changement_echeance: "activity.actions.due_date_changed",
+  commentaire: "activity.actions.comment_added",
+  creation_projet: "activity.actions.project_created",
+  membre_ajoute: "activity.actions.member_added",
 };
 export const ACTIVITY_LABELS = ACTIVITY_ACTION_KEYS;
 // ============================================================
@@ -615,21 +618,32 @@ export type ActivityParts = {
   projectName: string | null;
   actionKey?: string | null;
 };
+/** Fonction de traduction (next-intl) réduite à ce dont l'activité a besoin. */
+export type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
 export const formatActivityParts = (
   entry: Pick<ActivityEntry, "actorName" | "actorEmail" | "action" | "description" | "projectName">,
   actorName?: string | null,
 ): ActivityParts => {
-  const actor = actorName?.trim() || entry.actorName?.trim() || entry.actorEmail?.trim() || "Quelqu'un";
-  const actionFragment = entry.description?.trim() || "a effectu� une action";
+  // Chaînes vides quand la donnée manque : le libellé de repli est traduit
+  // par l'appelant (Tasks.activity.somebody / someAction).
+  const actor = actorName?.trim() || entry.actorName?.trim() || entry.actorEmail?.trim() || "";
+  const actionFragment = entry.description?.trim() || "";
   const projectName = entry.projectName && entry.action !== "creation_projet" ? entry.projectName : null;
   return { actor, actionFragment, projectName, actionKey: entry.action };
 };
 export const formatActivitySentence = (
   entry: Pick<ActivityEntry, "actorName" | "actorEmail" | "action" | "description" | "projectName">,
-  actorName?: string | null,
+  actorName: string | null | undefined,
+  t: TranslateFn,
 ): string => {
   const p = formatActivityParts(entry, actorName);
-  return `${p.actor} ${p.actionFragment}${p.projectName ? ` sur le projet � ${p.projectName} �` : ""}`;
+  // L'acteur et l'action viennent de l'API (données serveur, non traduites) ;
+  // seule la colle de la phrase est traduite.
+  return t("activity.sentence", {
+    actor: p.actor || t("activity.somebody"),
+    action: p.actionFragment || t("activity.someAction"),
+    project: p.projectName ? t("activity.onProject", { project: p.projectName }) : "",
+  });
 };
 /**
  * Tâche close, vu depuis un écran qui mélange plusieurs agences.
