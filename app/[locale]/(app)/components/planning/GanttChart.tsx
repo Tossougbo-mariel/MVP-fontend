@@ -1,6 +1,7 @@
 "use client";
 
 import { Link } from "@/i18n/navigation";
+import { taskHref } from "@/lib/projectHref";
 import { useLocale } from "next-intl";
 import { Ban, Clock, TriangleAlert, GitBranch } from "lucide-react";
 import {
@@ -112,7 +113,7 @@ export default function GanttChart({
                   style={{ background: colorOf(row.task.status) }}
                 />
                 <Link
-                  href={`/agences/${agencyId}/projets/${projectId}/taches/${row.task.id}`}
+                  href={taskHref(agencyId, projectId, row.task.id)}
                   className="text-xs truncate hover:underline"
                   style={{
                     color: isTerminal(row.task.status) ? "var(--text-muted)" : "var(--text-primary)",

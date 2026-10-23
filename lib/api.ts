@@ -64,7 +64,15 @@ type ApiErrorShape = {
   };
 };
 
-export const getApiErrorMessage = (error: unknown): string => {
+type ApiErrorFallbacks = {
+  generic?: string;
+  server?: string;
+};
+
+export const getApiErrorMessage = (
+  error: unknown,
+  fallbacks: ApiErrorFallbacks = {},
+): string => {
   const data = (error as ApiErrorShape)?.response?.data;
   if (data?.errors) {
     const first = Object.values(data.errors)[0];
@@ -75,9 +83,9 @@ export const getApiErrorMessage = (error: unknown): string => {
   if (data?.error) return data.error;
   const status = (error as ApiErrorShape)?.response?.status;
   if (typeof status === "number" && status >= 500) {
-    return "Le serveur ne répond pas. Réessayez plus tard.";
+    return fallbacks.server ?? "Le serveur ne répond pas. Réessayez plus tard.";
   }
-  return "Errors.generic";
+  return fallbacks.generic ?? "Errors.generic";
 };
 
 export default api;

@@ -15,6 +15,7 @@ import {
   type DisplayMember,
 } from "@/lib/types";
 import { agencyGradientOf, agencyDarkGradientOf } from "@/app/lib/agencyDecor";
+import { agencyDashboardHref } from "@/lib/agencyHref";
 import { useIsDarkMode } from "@/app/lib/useIsDarkMode";
 
 const container: Variants = {
@@ -238,7 +239,7 @@ export default function MesAgencesPage() {
                 return (
                   <MotionLink
                     key={a.id}
-                    href={`/agences/${a.id}/dashboard`}
+                    href={agencyDashboardHref(a.id)}
                     variants={item}
                     whileHover={{ y: -6 }}
                     transition={{ duration: 0.25, ease: "easeOut" }}

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { fr, enUS } from "react-day-picker/locale";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { formatDateShort } from "@/lib/dates";
 
 type DatePickerProps = {
@@ -29,6 +29,8 @@ type Position = "up" | "down";
 
 export default function DatePicker({ value, onChange, min, max, placeholder, className, style }: DatePickerProps) {
   const locale = useLocale();
+  const t = useTranslations("Common");
+  const resolvedPlaceholder = placeholder ?? t("chooseDate");
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<Position>("down");
   const [maxHeight, setMaxHeight] = useState<number | undefined>(undefined);
@@ -94,7 +96,7 @@ export default function DatePicker({ value, onChange, min, max, placeholder, cla
       >
         <CalendarDays size={15} className="shrink-0" style={{ color: "var(--text-secondary)" }} />
         <span className="truncate" style={{ color: selected ? "var(--text-primary)" : "var(--text-muted)" }}>
-          {selected ? formatDisplay(selected) : placeholder ?? "Sélectionner une date"}
+          {selected ? formatDisplay(selected) : resolvedPlaceholder}
         </span>
       </button>
 

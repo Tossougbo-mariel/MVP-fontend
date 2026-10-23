@@ -10,6 +10,7 @@
 // ============================================================
 import { useState } from "react";
 import { Check, CircleDot, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   createTaskStatus,
   deleteTaskStatus,
@@ -23,6 +24,7 @@ import type { TaskStatusMeta } from "@/lib/types";
 const DEFAULT_COLOR = "#056cf2";
 
 export default function TaskStatusSettings({ agencyId }: { agencyId: string }) {
+  const t = useTranslations("Statuses");
   const { statuses, usesDefaults, loading, error, refresh } = useTaskStatuses();
 
   const [adding, setAdding] = useState(false);
@@ -81,9 +83,10 @@ export default function TaskStatusSettings({ agencyId }: { agencyId: string }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          Ces colonnes apparaissent dans le Kanban, le planning et la fiche tâche.
-          Une colonne marquée{" "}
-          <strong style={{ color: "var(--text-primary)" }}>clôt</strong> considère la tâche comme terminée.
+          {t("explain.appearsIn")}{" "}
+          {t.rich("explain.terminal", {
+            strong: (chunks) => <strong style={{ color: "var(--text-primary)" }}>{chunks}</strong>,
+          })}
         </p>
         {!adding && (
           <button
@@ -92,7 +95,7 @@ export default function TaskStatusSettings({ agencyId }: { agencyId: string }) {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white transition-transform hover:scale-[1.03]"
             style={{ background: "var(--gradient-button)" }}
           >
-            <Plus size={15} /> Ajouter une colonne
+            <Plus size={15} /> {t("actions.add")}
           </button>
         )}
       </div>
@@ -102,8 +105,7 @@ export default function TaskStatusSettings({ agencyId }: { agencyId: string }) {
           className="text-xs px-3 py-2 rounded-xl"
           style={{ background: "var(--hover-soft)", color: "var(--text-muted)" }}
         >
-          Aucune personnalisation pour l&apos;instant : les quatre colonnes par défaut
-          s&apos;appliquent. Les ajouter ci-dessous les complète sans les remplacer.
+          {t("empty.hint")}
         </p>
       )}
 
@@ -126,12 +128,12 @@ export default function TaskStatusSettings({ agencyId }: { agencyId: string }) {
         >
           <div className="flex-1 min-w-[180px]">
             <label className="text-xs font-semibold block mb-1.5" style={{ color: "var(--text-secondary)" }}>
-              Nom de la colonne
+              {t("form.name")}
             </label>
             <input
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
-              placeholder="Ex. En attente client"
+              placeholder={t("form.placeholder")}
               maxLength={80}
               className="w-full px-3 py-2 rounded-xl text-sm"
               style={{
@@ -143,7 +145,7 @@ export default function TaskStatusSettings({ agencyId }: { agencyId: string }) {
           </div>
           <div>
             <label className="text-xs font-semibold block mb-1.5" style={{ color: "var(--text-secondary)" }}>
-              Couleur
+              {t("form.color")}
             </label>
             <input
               type="color"
@@ -162,7 +164,7 @@ export default function TaskStatusSettings({ agencyId }: { agencyId: string }) {
               style={{ background: "var(--gradient-button)" }}
             >
               {busy === "add" ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-              Créer
+              {t("actions.create")}
             </button>
             <button
               type="button"
@@ -172,7 +174,7 @@ export default function TaskStatusSettings({ agencyId }: { agencyId: string }) {
               }}
               className="p-2 rounded-xl"
               style={{ background: "var(--hover-soft)", color: "var(--text-secondary)" }}
-              aria-label="Annuler"
+              aria-label={t("actions.cancel")}
             >
               <X size={15} />
             </button>
@@ -219,7 +221,7 @@ export default function TaskStatusSettings({ agencyId }: { agencyId: string }) {
                   disabled={busy === `edit-${s.id}`}
                   className="p-2 rounded-xl"
                   style={{ background: "var(--hover-soft)", color: "var(--text-primary)" }}
-                  aria-label="Enregistrer"
+                  aria-label={t("actions.save")}
                 >
                   {busy === `edit-${s.id}` ? (
                     <Loader2 size={15} className="animate-spin" />
@@ -232,7 +234,7 @@ export default function TaskStatusSettings({ agencyId }: { agencyId: string }) {
                   onClick={() => setEditingId(null)}
                   className="p-2 rounded-xl"
                   style={{ background: "var(--hover-soft)", color: "var(--text-secondary)" }}
-                  aria-label="Annuler"
+                  aria-label={t("actions.cancel")}
                 >
                   <X size={15} />
                 </button>
@@ -245,7 +247,7 @@ export default function TaskStatusSettings({ agencyId }: { agencyId: string }) {
                   </div>
                   <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>
                     {s.key}
-                    {!s.id && " · colonne par défaut"}
+                    {!s.id && t("defaultSuffix")}
                   </div>
                 </div>
 
@@ -257,7 +259,7 @@ export default function TaskStatusSettings({ agencyId }: { agencyId: string }) {
                       disabled={busy === `term-${s.key}` || (s.is_terminal && lastTerminal)}
                       title={
                         s.is_terminal && lastTerminal
-                          ? "Une agence doit garder au moins un statut qui clôt une tâche."
+                          ? t("validation.mustKeepTerminal")
                           : undefined
                       }
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -272,7 +274,7 @@ export default function TaskStatusSettings({ agencyId }: { agencyId: string }) {
                       ) : (
                         <CircleDot size={13} />
                       )}
-                      {s.is_terminal ? "Clôt" : "Ouverte"}
+                      {s.is_terminal ? t("badge.terminal") : t("badge.open")}
                     </button>
 
                     <button
@@ -284,7 +286,7 @@ export default function TaskStatusSettings({ agencyId }: { agencyId: string }) {
                       }}
                       className="p-2 rounded-xl"
                       style={{ background: "var(--hover-soft)", color: "var(--text-secondary)" }}
-                      aria-label={`Renommer ${s.label}`}
+                      aria-label={t("actions.rename", { name: s.label })}
                     >
                       <Pencil size={15} />
                     </button>
@@ -298,7 +300,7 @@ export default function TaskStatusSettings({ agencyId }: { agencyId: string }) {
                       }}
                       className="p-2 rounded-xl"
                       style={{ background: "var(--hover-soft)", color: "var(--color-error)" }}
-                      aria-label={`Supprimer ${s.label}`}
+                      aria-label={t("actions.delete", { name: s.label })}
                     >
                       <Trash2 size={15} />
                     </button>
@@ -309,14 +311,14 @@ export default function TaskStatusSettings({ agencyId }: { agencyId: string }) {
                     onClick={() => {
                       setFormError(null);
                       setAdding(true);
-                      setNewLabel(`${s.label} (copie)`);
+                      setNewLabel(`${s.label}${t("copySuffix")}`);
                       setNewColor(s.color);
                     }}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold"
                     style={{ background: "var(--hover-soft)", color: "var(--text-secondary)" }}
-                    title="Créer une colonne personnalisée à partir de celle-ci"
+                    title={t("customizeFrom")}
                   >
-                    <Plus size={13} /> Personnaliser
+                    <Plus size={13} /> {t("actions.customize")}
                   </button>
                 )}
               </>
@@ -333,18 +335,17 @@ export default function TaskStatusSettings({ agencyId }: { agencyId: string }) {
         >
           <div className="flex-1 min-w-[220px]">
             <div className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-              Supprimer « {removing.status.label} »
+              {t("delete.title", { name: removing.status.label })}
             </div>
             <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-              Si des tâches utilisent encore cette colonne, déplacez-les d&apos;abord :
-              sinon la suppression sera refusée.
+              {t("delete.warning")}
             </p>
           </div>
 
           {otherStatuses.length > 0 && (
             <div>
               <label className="text-xs font-semibold block mb-1.5" style={{ color: "var(--text-secondary)" }}>
-                Déplacer les tâches vers
+                {t("delete.moveTo")}
               </label>
               <select
                 value={reassignTo}
@@ -387,7 +388,7 @@ export default function TaskStatusSettings({ agencyId }: { agencyId: string }) {
                 ) : (
                   <Check size={14} />
                 )}
-                Déplacer et supprimer
+                {t("delete.moveAndDelete")}
               </button>
             )}
             <button
@@ -395,7 +396,7 @@ export default function TaskStatusSettings({ agencyId }: { agencyId: string }) {
               onClick={() => setRemoving(null)}
               className="p-2 rounded-xl"
               style={{ background: "var(--hover-soft)", color: "var(--text-secondary)" }}
-              aria-label="Annuler"
+              aria-label={t("actions.cancel")}
             >
               <X size={15} />
             </button>

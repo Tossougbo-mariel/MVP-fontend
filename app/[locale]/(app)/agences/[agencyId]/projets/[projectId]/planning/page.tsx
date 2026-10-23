@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
+import { kanbanHref, projectsHref } from "@/lib/projectHref";
+import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import {
@@ -24,6 +26,9 @@ type Tab = "calendrier" | "gantt";
 
 export default function ProjectPlanningPage() {
   const { agencyId, projectId } = useParams<{ agencyId: string; projectId: string }>();
+  const te = useTranslations("Errors");
+  const tc = useTranslations("Common");
+  const tErrors = useTranslations("Projects.errors");
   const user = useAuthStore((s) => s.user);
   const { agencyById, getProject, tasksByProject, data } = useAppData();
   const [tab, setTab] = useState<Tab>("calendrier");
@@ -39,7 +44,7 @@ export default function ProjectPlanningPage() {
   if (data.loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>{tc("loading")}</p>
       </div>
     );
   }
@@ -48,14 +53,14 @@ export default function ProjectPlanningPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          {agency ? "Vous n'êtes pas membre de cette agence." : "Agence introuvable"}
+          {agency ? te("notAgencyMember") : te("agencyNotFound")}
         </p>
         <Link
           href="/mes-agences"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Retour
+          <ArrowLeft size={16} /> {tc("backToMyAgencies")}
         </Link>
       </div>
     );
@@ -67,14 +72,14 @@ export default function ProjectPlanningPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Projet introuvable
+          {tErrors("projectNotFound")}
         </p>
         <Link
-          href={`/agences/${agencyId}/projets`}
+          href={projectsHref(agencyId)}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Retour aux projets
+          <ArrowLeft size={16} /> {tErrors("backToProjects")}
         </Link>
       </div>
     );
@@ -93,7 +98,7 @@ export default function ProjectPlanningPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <Link
-            href={`/agences/${agencyId}/projets/${projectId}/kanban`}
+            href={kanbanHref(agencyId, projectId)}
             aria-label="Retour au Kanban"
             className="p-2 rounded-lg transition-colors hover:bg-[var(--hover-soft)] shrink-0"
             style={{ color: "var(--text-secondary)" }}
@@ -121,7 +126,7 @@ export default function ProjectPlanningPage() {
             </span>
           )}
           <Link
-            href={`/agences/${agencyId}/projets/${projectId}/kanban`}
+            href={kanbanHref(agencyId, projectId)}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors"
             style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
           >

@@ -2,7 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Link } from "@/i18n/navigation";
-import { useLocale } from "next-intl";
+import { taskHref } from "@/lib/projectHref";
+import { useLocale, useTranslations } from "next-intl";
 import { motion, type Variants } from "framer-motion";
 import dynamic from "next/dynamic";
 import {
@@ -48,31 +49,26 @@ type InfosPersonnelles = {
 };
 type CropperArea = { x: number; y: number; width: number; height: number };
 
-type TacheStatus = "Assignée" | "Terminée" | "En retard";
-
-const ROLE_LABEL: Record<"owner" | "admin" | "membre", string> = {
-  owner: "Propriétaire",
-  admin: "Administrateur",
-  membre: "Membre",
-};
+// Clés internes (non affichées) : le libellé vient des messages « Profile.status.* ».
+type TacheStatus = "assigned" | "done" | "late";
 
 const STATUS_STYLE: Record<TacheStatus, React.CSSProperties> = {
-  "Assignée": { background: "rgba(var(--blue-rgb),0.15)", color: "var(--accent-text)" },
-  "Terminée": { background: "rgba(16,185,129,0.12)", color: "var(--color-success)" },
-  "En retard": { background: "rgba(239,68,68,0.12)", color: "var(--color-error)" },
+  assigned: { background: "rgba(var(--blue-rgb),0.15)", color: "var(--accent-text)" },
+  done: { background: "rgba(16,185,129,0.12)", color: "var(--color-success)" },
+  late: { background: "rgba(239,68,68,0.12)", color: "var(--color-error)" },
 };
 
 const statusIcon = (status: TacheStatus) => {
-  if (status === "Terminée") return <CheckCircle2 size={13} />;
-  if (status === "En retard") return <AlertTriangle size={13} />;
+  if (status === "done") return <CheckCircle2 size={13} />;
+  if (status === "late") return <AlertTriangle size={13} />;
   return <CheckSquare size={13} />;
 };
 
 const displayStatus = (t: MyTask): TacheStatus => {
-  if (isTaskDone(t)) return "Terminée";
+  if (isTaskDone(t)) return "done";
   const today = new Date().toISOString().slice(0, 10);
-  if (t.deadline && t.deadline < today) return "En retard";
-  return "Assignée";
+  if (t.deadline && t.deadline < today) return "late";
+  return "assigned";
 };
 
 const formatEcheance = (d: string | null, locale: string = "fr"): string => {
@@ -91,6 +87,8 @@ function blobToDataURL(blob: Blob): Promise<string> {
   });
 }
 
+// Les erreurs lancées ici sont des CODES (« imageLoad », « canvas », « export ») :
+// le composant les traduit via « Profile.errors.* » au moment de l'affichage.
 async function getCroppedImg(
   imageSrc: string,
   croppedAreaPixels: CropperArea,
@@ -100,7 +98,7 @@ async function getCroppedImg(
   const image = await new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Impossible de charger l'image"));
+    img.onerror = () => reject(new Error("imageLoad"));
     img.src = imageSrc;
   });
 
@@ -108,7 +106,7 @@ async function getCroppedImg(
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas non supporté");
+  if (!ctx) throw new Error("canvas");
 
   ctx.drawImage(
     image,
@@ -125,10 +123,12 @@ async function getCroppedImg(
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (blob) resolve(blob);
-      else reject(new Error("Échec de l'export de l'image"));
+      else reject(new Error("export"));
     }, "image/png");
   });
 }
+
+const CROP_ERROR_CODES = ["imageLoad", "canvas", "export"] as const;
 
 function Champ({
   label, value, onChange, editing, type = "text",
@@ -157,6 +157,8 @@ function Champ({
 }
 
 export default function ProfilPage() {
+  const t = useTranslations("Profile");
+  const tc = useTranslations("Common");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
@@ -187,9 +189,9 @@ export default function ProfilPage() {
   const taches = (contextAgencyId && contextRole
     ? myTasksInAgency(contextAgencyId)
     : myTasks()
-  ).map((t) => ({
-    ...t,
-    agencyName: agencyById(t.agencyId)?.name ?? "—",
+  ).map((task) => ({
+    ...task,
+    agencyName: agencyById(task.agencyId)?.name ?? "—",
   }));
 
   const [photo, setPhoto] = useState<string | null>(null);
@@ -228,6 +230,19 @@ export default function ProfilPage() {
 
   // Un compte créé via Google n'a pas de mot de passe à confirmer.
   const hasPassword = user?.hasPassword ?? true;
+
+  // Transforme une erreur en message affichable :
+  // - code interne du recadrage → message traduit ;
+  // - autre Error (API / store) → son message tel quel ;
+  // - sinon → message de secours traduit.
+  const errorText = (err: unknown, fallback: "saveFailed" | "photoFailed"): string => {
+    if (err instanceof Error) {
+      const code = CROP_ERROR_CODES.find((c) => c === err.message);
+      if (code) return t(`errors.${code}`);
+      return err.message;
+    }
+    return t(`errors.${fallback}`);
+  };
 
   useEffect(() => {
     let active = true;
@@ -291,7 +306,7 @@ export default function ProfilPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Impossible d'enregistrer les modifications.");
+      setSaveError(errorText(err, "saveFailed"));
     }
   };
 
@@ -322,7 +337,7 @@ export default function ProfilPage() {
       setLastRaw(selectedImage);
       setSelectedImage(null);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Impossible d'enregistrer la photo.");
+      setSaveError(errorText(err, "photoFailed"));
     } finally {
       setCropping(false);
     }
@@ -342,6 +357,29 @@ export default function ProfilPage() {
 
   const avatarUrl = photo ?? user?.avatar ?? null;
 
+  const stats = [
+    {
+      key: "assigned" as const,
+      count: taches.filter((task) => displayStatus(task) === "assigned").length,
+      icon: CheckSquare,
+      color: "var(--accent-text)",
+    },
+    {
+      key: "done" as const,
+      count: taches.filter((task) => displayStatus(task) === "done").length,
+      icon: CheckCircle2,
+      color: "var(--color-success)",
+    },
+    {
+      key: "late" as const,
+      count: taches.filter((task) => displayStatus(task) === "late").length,
+      icon: AlertTriangle,
+      color: "var(--color-error)",
+    },
+  ];
+
+  const taskColumns = ["task", "project", "agency", "due", "status"] as const;
+
   return (
     <>
       <motion.div variants={container} initial={false} animate="show" className="space-y-6">
@@ -352,7 +390,7 @@ export default function ProfilPage() {
             className="flex items-center gap-2 text-sm px-4 py-3 rounded-xl"
             style={{ background: "var(--surface)", border: "1px solid rgba(16,185,129,0.3)", color: "var(--color-success)" }}
           >
-            <CheckCircle2 size={16} /> Profil mis à jour
+            <CheckCircle2 size={16} /> {t("saved")}
           </motion.div>
         )}
 
@@ -375,7 +413,7 @@ export default function ProfilPage() {
                   style={{ background: "var(--gradient-primary)", boxShadow: "0 8px 20px -8px rgba(var(--blue-rgb),0.4)" }}
                   onClick={avatarUrl ? () => setViewerOpen(true) : undefined}
                   role={avatarUrl ? "button" : undefined}
-                  title={avatarUrl ? "Voir la photo de profil" : undefined}
+                  title={avatarUrl ? t("avatar.view") : undefined}
                 >
                   {avatarUrl ? (
                     <div
@@ -388,7 +426,7 @@ export default function ProfilPage() {
                 </div>
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  aria-label="Changer la photo"
+                  aria-label={t("avatar.change")}
                   className="absolute -bottom-1 -right-1 w-9 h-9 rounded-full flex items-center justify-center text-white"
                   style={{ background: "var(--gradient-button)", boxShadow: "0 4px 10px -4px rgba(var(--blue-rgb),0.4)" }}
                 >
@@ -412,7 +450,7 @@ export default function ProfilPage() {
                     style={{ background: "var(--gradient-button)", boxShadow: "0 4px 10px -4px rgba(var(--blue-rgb),0.4)" }}
                   >
                     <ShieldCheck size={13} />{" "}
-                    {ROLE_LABEL[displayRole]}
+                    {t(`roles.${displayRole}`)}
                   </span>
                 )}
               </div>
@@ -423,7 +461,7 @@ export default function ProfilPage() {
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold shrink-0"
                   style={{ background: "var(--surface)", border: "1px solid var(--chrome-border)", color: "var(--chrome-text-secondary)" }}
                 >
-                  <Eye size={16} /> Voir
+                  <Eye size={16} /> {t("avatar.viewShort")}
                 </button>
               )}
             </div>
@@ -432,7 +470,7 @@ export default function ProfilPage() {
         <motion.div variants={item} className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-              <Mail size={18} /> Informations personnelles
+              <Mail size={18} /> {t("personal.title")}
             </h2>
             {editing !== "personnel" && (
               <button
@@ -440,21 +478,21 @@ export default function ProfilPage() {
                 className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg text-white"
                 style={{ background: "var(--gradient-button)", boxShadow: "0 4px 12px -4px rgba(var(--blue-rgb),0.35)" }}
               >
-                <Pencil size={14} /> Modifier
+                <Pencil size={14} /> {tc("edit")}
               </button>
             )}
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
-            <Champ label="Prénom" value={draft.firstName} onChange={set("firstName")} editing={editing === "personnel"} />
-            <Champ label="Nom" value={draft.lastName} onChange={set("lastName")} editing={editing === "personnel"} />
+            <Champ label={t("fields.firstName")} value={draft.firstName} onChange={set("firstName")} editing={editing === "personnel"} />
+            <Champ label={t("fields.lastName")} value={draft.lastName} onChange={set("lastName")} editing={editing === "personnel"} />
             <div className="md:col-span-2">
-              <Champ label="Email" value={draft.email} onChange={set("email")} editing={editing === "personnel"} type="email" />
+              <Champ label={t("fields.email")} value={draft.email} onChange={set("email")} editing={editing === "personnel"} type="email" />
             </div>
-            <Champ label="Téléphone" value={draft.phone} onChange={set("phone")} editing={editing === "personnel"} />
-            <Champ label="Ville / Pays" value={draft.city} onChange={set("city")} editing={editing === "personnel"} />
-            <Champ label="Bio" value={draft.bio} onChange={set("bio")} editing={editing === "personnel"} />
-            <Champ label="JobTitle" value={draft.jobTitle} onChange={set("jobTitle")} editing={editing === "personnel"} />
+            <Champ label={t("fields.phone")} value={draft.phone} onChange={set("phone")} editing={editing === "personnel"} />
+            <Champ label={t("fields.city")} value={draft.city} onChange={set("city")} editing={editing === "personnel"} />
+            <Champ label={t("fields.bio")} value={draft.bio} onChange={set("bio")} editing={editing === "personnel"} />
+            <Champ label={t("fields.jobTitle")} value={draft.jobTitle} onChange={set("jobTitle")} editing={editing === "personnel"} />
           </div>
 
           {editing === "personnel" && (
@@ -465,7 +503,7 @@ export default function ProfilPage() {
               className="mt-5 inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium text-white"
               style={{ background: "var(--gradient-button)", boxShadow: "0 6px 16px -6px rgba(var(--blue-rgb),0.4)" }}
             >
-              <Save size={16} /> Enregistrer
+              <Save size={16} /> {tc("save")}
             </motion.button>
           )}
         </motion.div>
@@ -473,29 +511,32 @@ export default function ProfilPage() {
         <motion.div variants={item} className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-              <Briefcase size={18} /> Informations professionnelles
+              <Briefcase size={18} /> {t("professional.title")}
             </h2>
             <span className="text-xs inline-flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
-              <Calendar size={13} /> Inscrit depuis {user?.createdAt ? formatEcheance(user.createdAt, locale) : "peu"}
+              <Calendar size={13} />{" "}
+              {user?.createdAt
+                ? t("memberSince", { date: formatEcheance(user.createdAt, locale) })
+                : t("memberSinceRecent")}
             </span>
           </div>
 
           <div className="space-y-4">
-            <div className="font-semibold text-sm" style={{ color: "var(--text-secondary)" }}>Mes agences</div>
+            <div className="font-semibold text-sm" style={{ color: "var(--text-secondary)" }}>{t("agencies.title")}</div>
             {myAgencies.length === 0 && (
               <div
                 className="flex flex-col items-start gap-3 px-4 py-3 rounded-xl"
                 style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
               >
                 <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                  {"Vous n'êtes dans aucune agence pour le moment."}
+                  {t("agencies.empty")}
                 </p>
                 <Link
                   href="/agences/nouvelle"
                   className="inline-flex items-center gap-1.5 text-sm font-semibold"
                   style={{ color: "var(--blue)" }}
                 >
-                  <Plus size={15} /> Créer une agence
+                  <Plus size={15} /> {t("agencies.create")}
                 </Link>
               </div>
             )}
@@ -522,7 +563,7 @@ export default function ProfilPage() {
                           : { background: "var(--gradient-button)", color: "#fff" }
                       }
                     >
-                      {role === "owner" ? "Propriétaire" : role === "admin" ? "Admin" : "Membre"}
+                      {t(`roleShort.${role}`)}
                     </span>
                   );
                 })()}
@@ -536,28 +577,24 @@ export default function ProfilPage() {
         <motion.div variants={item} className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
           <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
             <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-              <ClipboardList size={18} /> Mes tâches
+              <ClipboardList size={18} /> {t("tasks.title")}
             </h2>
             <span className="text-xs inline-flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
-              <Calendar size={13} /> {taches.length} tâche(s) assignée(s)
+              <Calendar size={13} /> {t("tasks.assignedCount", { count: taches.length })}
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            {[
-              { label: "Tâches assignées", count: taches.filter((t) => displayStatus(t) === "Assignée").length, icon: CheckSquare, color: "var(--accent-text)" },
-              { label: "Tâches terminées", count: taches.filter((t) => displayStatus(t) === "Terminée").length, icon: CheckCircle2, color: "var(--color-success)" },
-              { label: "Tâches en retard", count: taches.filter((t) => displayStatus(t) === "En retard").length, icon: AlertTriangle, color: "var(--color-error)" },
-            ].map((s) => (
+            {stats.map((s) => (
               <div
-                key={s.label}
+                key={s.key}
                 className="flex items-center gap-3 px-4 py-3 rounded-xl"
                 style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
               >
                 <s.icon className="w-5 h-5" style={{ color: s.color }} />
                 <div>
                   <div className="text-xl font-black" style={{ color: "var(--text-primary)" }}>{s.count}</div>
-                  <div className="text-xs" style={{ color: "var(--text-secondary)" }}>{s.label}</div>
+                  <div className="text-xs" style={{ color: "var(--text-secondary)" }}>{t(`stats.${s.key}`)}</div>
                 </div>
               </div>
             ))}
@@ -567,46 +604,46 @@ export default function ProfilPage() {
             <table className="w-full text-sm min-w-[560px]">
               <thead>
                 <tr className="text-left">
-                  {["Tâche", "Projet", "Agence", "Échéance", "Statut"].map((h) => (
+                  {taskColumns.map((h) => (
                     <th
                       key={h}
                       className="text-xs uppercase tracking-wide font-semibold px-4 py-2.5"
                       style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border-subtle)" }}
                     >
-                      {h}
+                      {t(`table.columns.${h}`)}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {taches.map((t) => {
-                  const status = displayStatus(t);
+                {taches.map((task) => {
+                  const status = displayStatus(task);
                   return (
-                    <tr key={t.id} className="transition-colors hover:bg-[var(--hover-soft)]">
+                    <tr key={task.id} className="transition-colors hover:bg-[var(--hover-soft)]">
                       <td className="px-4 py-3 font-medium" style={{ color: "var(--text-primary)", borderBottom: "1px solid var(--border-subtle)" }}>
                         <Link
-                          href={`/agences/${t.agencyId}/projets/${t.projectId}/taches/${t.id}`}
+                          href={taskHref(task.agencyId, task.projectId, task.id)}
                           className="hover:underline"
                           style={{ color: "inherit" }}
                         >
-                          {t.title}
+                          {task.title}
                         </Link>
                       </td>
                       <td className="px-4 py-3" style={{ color: "var(--text-secondary)", borderBottom: "1px solid var(--border-subtle)" }}>
-                        {t.projectName || "—"}
+                        {task.projectName || "—"}
                       </td>
                       <td className="px-4 py-3" style={{ color: "var(--text-secondary)", borderBottom: "1px solid var(--border-subtle)" }}>
-                        {t.agencyName}
+                        {task.agencyName}
                       </td>
                       <td className="px-4 py-3" style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border-subtle)" }}>
-                        {formatEcheance(t.deadline, locale)}
+                        {formatEcheance(task.deadline, locale)}
                       </td>
                       <td className="px-4 py-3" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
                         <span
                           className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
                           style={STATUS_STYLE[status]}
                         >
-                          {statusIcon(status)} {status}
+                          {statusIcon(status)} {t(`status.${status}`)}
                         </span>
                       </td>
                     </tr>
@@ -619,7 +656,7 @@ export default function ProfilPage() {
                       className="px-4 py-8 text-center"
                       style={{ color: "var(--text-secondary)" }}
                     >
-                      Aucune tâche ne vous est assignée pour le moment.
+                      {t("tasks.empty")}
                     </td>
                   </tr>
                 )}
@@ -632,7 +669,7 @@ export default function ProfilPage() {
         <motion.div variants={item} className="grid lg:grid-cols-2 gap-6">
           <div className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
             <h2 className="text-lg font-bold flex items-center gap-2 mb-4" style={{ color: "var(--text-primary)" }}>
-              <ShieldCheck size={18} /> Sécurité
+              <ShieldCheck size={18} /> {t("security.title")}
             </h2>
             <div
               className="flex items-center gap-3 px-4 py-3 rounded-xl"
@@ -647,31 +684,31 @@ export default function ProfilPage() {
               style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)" }}
             >
               <Pencil size={15} style={{ color: "var(--text-secondary)" }} />
-              Changer mon mot de passe
+              {t("security.changePassword")}
             </Link>
           </div>
 
           <div className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
             <h2 className="text-lg font-bold flex items-center gap-2 mb-4" style={{ color: "var(--text-primary)" }}>
-              <ShieldCheck size={18} /> Sécurité
+              <ShieldCheck size={18} /> {t("security.title")}
             </h2>
             <div className="space-y-4">
               {/* ---------- Sécurité : double authentification ---------- */}
               <div className="space-y-2">
                 <span className="text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-                  <ShieldCheck size={15} style={{ color: "var(--text-secondary)" }} /> Sécurité
+                  <ShieldCheck size={15} style={{ color: "var(--text-secondary)" }} /> {t("security.title")}
                 </span>
 
                 <div className="rounded-xl px-4 py-3 space-y-3" style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}>
                   <div className="flex items-center justify-between gap-4">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                        Double authentification
+                        {t("twoFactor.title")}
                       </p>
                       <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
                         {twoFactor
-                          ? "Un code est envoyé par email après votre mot de passe."
-                          : "Ajoutez un code par email pour sécuriser votre connexion."}
+                          ? t("twoFactor.enabledHint")
+                          : t("twoFactor.disabledHint")}
                       </p>
                     </div>
                     <button
@@ -690,7 +727,7 @@ export default function ProfilPage() {
 
                   {twoFactor && (
                     <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      La connexion par code email reste disponible et n&apos;est pas concernée.
+                      {t("twoFactor.emailStillAvailable")}
                     </p>
                   )}
 
@@ -703,7 +740,7 @@ export default function ProfilPage() {
                         onKeyDown={(e) => {
                           if (e.key === "Enter") void handleTwoFactor();
                         }}
-                        placeholder="Votre mot de passe"
+                        placeholder={t("twoFactor.passwordPlaceholder")}
                         className="flex-1 rounded-lg px-3 py-2 text-sm focus:outline-none"
                         style={{
                           background: "var(--input-bg)",
@@ -717,7 +754,7 @@ export default function ProfilPage() {
                         className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50"
                         style={{ background: "var(--gradient-button)", color: "#fff" }}
                       >
-                        {twoFactorBusy ? "Activation..." : "Confirmer"}
+                        {twoFactorBusy ? t("twoFactor.activating") : tc("confirm")}
                       </button>
                     </div>
                   )}
@@ -741,8 +778,8 @@ export default function ProfilPage() {
             style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)", boxShadow: "var(--shadow-card)" }}
           >
             <div className="flex items-center justify-between px-5 py-4">
-              <h3 className="font-bold" style={{ color: "var(--text-primary)" }}>Ajuster la photo</h3>
-              <button onClick={() => setSelectedImage(null)} aria-label="Fermer">
+              <h3 className="font-bold" style={{ color: "var(--text-primary)" }}>{t("crop.title")}</h3>
+              <button onClick={() => setSelectedImage(null)} aria-label={tc("close")}>
                 <X className="w-5 h-5" style={{ color: "var(--text-secondary)" }} />
               </button>
             </div>
@@ -778,7 +815,7 @@ export default function ProfilPage() {
                   className="px-4 py-2 rounded-xl text-sm font-medium"
                   style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
                 >
-                  Annuler
+                  {tc("cancel")}
                 </button>
                 <button
                   onClick={handleApplyCrop}
@@ -786,7 +823,7 @@ export default function ProfilPage() {
                   className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-60"
                   style={{ background: "var(--gradient-button)", boxShadow: "0 5px 14px -5px rgba(var(--blue-rgb),0.4)" }}
                 >
-                  <CheckCircle2 size={15} /> {cropping ? "Traitement..." : "Valider"}
+                  <CheckCircle2 size={15} /> {cropping ? t("crop.processing") : t("crop.apply")}
                 </button>
               </div>
             </div>

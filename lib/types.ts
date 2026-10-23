@@ -620,6 +620,12 @@ export type ActivityParts = {
 };
 /** Fonction de traduction (next-intl) réduite à ce dont l'activité a besoin. */
 export type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
+/** Libellés localisés fournis par les écrans qui affichent l'activité. */
+export type ActivityFormatOptions = {
+  statuses?: TaskStatusMeta[];
+  statusLabel?: (key: string, fallback: string) => string;
+  priorityLabel?: (key: string, fallback: string) => string;
+};
 export const formatActivityParts = (
   entry: Pick<ActivityEntry, "actorName" | "actorEmail" | "action" | "description" | "projectName">,
   actorName?: string | null,
@@ -631,18 +637,137 @@ export const formatActivityParts = (
   const projectName = entry.projectName && entry.action !== "creation_projet" ? entry.projectName : null;
   return { actor, actionFragment, projectName, actionKey: entry.action };
 };
+
+const firstQuotedSegment = (value: string | null | undefined): string => {
+  const match = /«\s*([^»]+?)\s*»/.exec(value ?? "");
+  return match?.[1]?.trim() ?? "";
+};
+
+const quotedSegments = (value: string | null | undefined): string[] =>
+  [...(value ?? "").matchAll(/«\s*([^»]+?)\s*»/g)].map((m) => m[1].trim());
+
+/** Valeur après le dernier « … » en … (statut cible ou priorité cible). */
+const suffixAfterQuotedTitle = (value: string | null | undefined): string => {
+  const match = /»\s+en\s+([\s\S]+)$/.exec(value ?? "");
+  return match?.[1]?.trim() ?? "";
+};
+
+const activityTaskTitle = (
+  entry: Pick<ActivityEntry, "taskTitle" | "description">,
+): string => entry.taskTitle?.trim() || firstQuotedSegment(entry.description);
+
+const activityProjectName = (
+  entry: Pick<ActivityEntry, "action" | "projectName" | "description">,
+): string =>
+  entry.projectName?.trim() ||
+  (entry.action === "creation_projet" ? firstQuotedSegment(entry.description) : "");
+
+const localizeActivityStatus = (
+  raw: string,
+  { statuses, statusLabel }: ActivityFormatOptions,
+): string => {
+  if (!raw) return "";
+  const normalized = raw.trim().toLocaleLowerCase();
+  const list = statuses?.length ? statuses : DEFAULT_TASK_STATUSES;
+  const match = list.find((s) => s.label.trim().toLocaleLowerCase() === normalized);
+  if (!match) return statusLabel ? statusLabel(raw, raw) : raw;
+  const defaultMeta = DEFAULT_TASK_STATUSES.find((s) => s.key === match.key);
+  // Un libellé d'agence personnalisé est une donnée : on ne le remplace pas
+  // par la traduction générique de la clé.
+  if (
+    !defaultMeta ||
+    defaultMeta.label.trim().toLocaleLowerCase() !== match.label.trim().toLocaleLowerCase()
+  ) {
+    return match.label;
+  }
+  return statusLabel ? statusLabel(match.key, match.label) : match.label;
+};
+
+const localizeActivityPriority = (
+  raw: string,
+  { priorityLabel }: ActivityFormatOptions,
+): string => {
+  if (!raw) return "";
+  return priorityLabel ? priorityLabel(raw, raw) : raw;
+};
+
+const formatActivityAction = (
+  entry: Pick<ActivityEntry, "action" | "description" | "projectName" | "taskTitle">,
+  t: TranslateFn,
+  options: ActivityFormatOptions,
+): string => {
+  const task = activityTaskTitle(entry);
+  const project = activityProjectName(entry);
+
+  switch (entry.action) {
+    case "creation":
+      return task ? t("activity.fragments.creation", { task }) : "";
+    case "changement_statut": {
+      if (!task) return "";
+      const status = localizeActivityStatus(suffixAfterQuotedTitle(entry.description), options);
+      return status
+        ? t("activity.fragments.status_changed", { task, status })
+        : t("activity.fragments.status_changed_no_status", { task });
+    }
+    case "tache_terminee":
+      return task ? t("activity.fragments.task_completed", { task }) : "";
+    case "reouverture": {
+      if (!task) return "";
+      const prerequisite = quotedSegments(entry.description)[1] ?? "";
+      return prerequisite
+        ? t("activity.fragments.reopened", { task, prerequisite })
+        : t("activity.fragments.reopened_no_prerequisite", { task });
+    }
+    case "changement_responsable":
+      return task ? t("activity.fragments.assignee_changed", { task }) : "";
+    case "changement_priorite": {
+      if (!task) return "";
+      const priority = localizeActivityPriority(
+        suffixAfterQuotedTitle(entry.description),
+        options,
+      );
+      return priority
+        ? t("activity.fragments.priority_changed", { task, priority })
+        : t("activity.fragments.priority_changed_no_priority", { task });
+    }
+    case "changement_echeance":
+      return task ? t("activity.fragments.due_date_changed", { task }) : "";
+    case "commentaire":
+      return task ? t("activity.fragments.comment_added", { task }) : "";
+    case "creation_projet":
+      return project ? t("activity.fragments.project_created", { project }) : "";
+    case "membre_ajoute": {
+      const email = /[^\s«»]+@[^\s«»]+/.exec(entry.description ?? "")?.[0] ?? "";
+      return email
+        ? t("activity.fragments.member_added", { email })
+        : t("activity.fragments.member_added_no_email");
+    }
+    default:
+      return entry.description?.trim() || "";
+  }
+};
+
 export const formatActivitySentence = (
-  entry: Pick<ActivityEntry, "actorName" | "actorEmail" | "action" | "description" | "projectName">,
+  entry: Pick<
+    ActivityEntry,
+    "actorName" | "actorEmail" | "action" | "description" | "projectName" | "taskTitle"
+  >,
   actorName: string | null | undefined,
   t: TranslateFn,
+  options: ActivityFormatOptions = {},
 ): string => {
-  const p = formatActivityParts(entry, actorName);
-  // L'acteur et l'action viennent de l'API (données serveur, non traduites) ;
-  // seule la colle de la phrase est traduite.
+  const actor =
+    actorName?.trim() || entry.actorName?.trim() || entry.actorEmail?.trim() || "";
+  const projectName =
+    entry.projectName && entry.action !== "creation_projet" ? entry.projectName : null;
+  // La description brute ne sert qu'à récupérer les valeurs historiques
+  // (statut, priorité, prérequis) et aux actions inconnues : le fragment est
+  // reconstruit avec les clés traduites.
+  const action = formatActivityAction(entry, t, options);
   return t("activity.sentence", {
-    actor: p.actor || t("activity.somebody"),
-    action: p.actionFragment || t("activity.someAction"),
-    project: p.projectName ? t("activity.onProject", { project: p.projectName }) : "",
+    actor: actor || t("activity.somebody"),
+    action: action || t("activity.someAction"),
+    project: projectName ? t("activity.onProject", { project: projectName }) : "",
   });
 };
 /**

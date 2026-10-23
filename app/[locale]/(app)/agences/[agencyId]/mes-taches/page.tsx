@@ -4,7 +4,8 @@ import { useCallback, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
 import { Link } from "@/i18n/navigation";
-import { useLocale } from "next-intl";
+import { taskHref } from "@/lib/projectHref";
+import { useLocale, useTranslations } from "next-intl";
 import { motion, type Variants } from "framer-motion";
 import {
   AlertTriangle,
@@ -27,6 +28,7 @@ import {
 } from "@/lib/types";
 import { buildStatusStyleIndex, statusStyleOf } from "@/lib/taskStatusStyle";
 import { useTaskStatuses } from "@/lib/useTaskStatuses";
+import { useLabels } from "@/lib/useLabels";
 import { formatDateShort } from "@/lib/dates";
 
 const container: Variants = {
@@ -45,10 +47,15 @@ type StatusFilter = "toutes" | "en_retard" | TaskStatus;
  * « En retard ». La liste est donc aussi dynamique que le Kanban — une colonne
  * personnalisée apparaît ici automatiquement.
  */
-const buildWorkflow = (statuses: TaskStatusMeta[]): { key: StatusFilter; label: string; color?: string }[] => [
-  { key: "toutes", label: "Toutes" },
-  ...statuses.map((s) => ({ key: s.key as StatusFilter, label: s.label, color: s.color })),
-  { key: "en_retard", label: "En retard", color: "var(--color-error)" },
+const buildWorkflow = (
+  statuses: TaskStatusMeta[],
+  allLabel: string,
+  statusLabel: (key: string, fallback: string) => string,
+  overdueLabel: string,
+): { key: StatusFilter; label: string; color?: string }[] => [
+  { key: "toutes", label: allLabel },
+  ...statuses.map((s) => ({ key: s.key as StatusFilter, label: statusLabel(s.key, s.label), color: s.color })),
+  { key: "en_retard", label: overdueLabel, color: "var(--color-error)" },
 ];
 
 const priorityConfig: Record<TaskPriority, { label: string; color: string; bg: string; border?: string }> = {
@@ -58,7 +65,7 @@ const priorityConfig: Record<TaskPriority, { label: string; color: string; bg: s
   urgente: { label: "Urgente", color: "#FF6B6B", bg: "rgba(255,107,107,0.16)" },
 };
 
-const formatDate = (date: string | null, locale: string = "fr") => {
+const formatDate = (date: string | null, locale: string) => {
   if (!date) return "—";
   const d = new Date(date + "T00:00:00");
   if (Number.isNaN(d.getTime())) return date;
@@ -81,14 +88,24 @@ type RowTask = {
 export default function MesTachesPage() {
   const { agencyId } = useParams<{ agencyId: string }>();
   const locale = useLocale();
+  const te = useTranslations("Errors");
+  const tc = useTranslations("Common");
+  const tn = useTranslations("Navigation.app");
+  const t = useTranslations("Tasks.list");
+  const tp = useTranslations("Priorities");
+  const tForm = useTranslations("Tasks.form");
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const { agencyById, myTasksInAgency, tasksByAgency, projectsByAgency, data } = useAppData();
 
   const agency = agencyById(agencyId);
   const { statuses, isTerminal, labelOf } = useTaskStatuses();
+  const { status: statusLabel, priority: priorityLabel, deadline: deadlineLabel } = useLabels();
   const statusConfig = useMemo(() => buildStatusStyleIndex(statuses), [statuses]);
-  const WORKFLOW = useMemo(() => buildWorkflow(statuses), [statuses]);
+  const WORKFLOW = useMemo(
+    () => buildWorkflow(statuses, t("allFilter"), statusLabel, deadlineLabel("en_retard", "")),
+    [statuses, t, statusLabel, deadlineLabel],
+  );
 
   const [filter, setFilter] = useState<StatusFilter>("toutes");
   const [scope, setScope] = useState<"mine" | "all">("mine");
@@ -172,7 +189,7 @@ export default function MesTachesPage() {
   if (data.loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>{tc("loading")}</p>
       </div>
     );
   }
@@ -181,14 +198,14 @@ export default function MesTachesPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Agence introuvable
+          {te("agencyNotFound")}
         </p>
         <Link
           href="/mes-agences"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Mes agences
+          <ArrowLeft size={16} /> {tn("myAgencies")}
         </Link>
       </div>
     );
@@ -198,14 +215,14 @@ export default function MesTachesPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Vous n&apos;êtes pas membre de cette agence.
+          {te("notAgencyMember")}
         </p>
         <Link
           href="/mes-agences"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Retour à Mes agences
+          <ArrowLeft size={16} /> {tc("backToMyAgencies")}
         </Link>
       </div>
     );
@@ -216,7 +233,7 @@ export default function MesTachesPage() {
     agency.members.find((m) => m.user.email.toLowerCase() === (email ?? "").toLowerCase());
 
   const openTaskDetail = (task: { id: number; projectId: number }) =>
-    router.push(`/agences/${agencyId}/projets/${task.projectId}/taches/${task.id}`);
+    router.push(taskHref(agencyId, task.projectId, task.id));
 
   const toggleFilter = (key: StatusFilter) =>
     setFilter((prev) => (prev === key ? "toutes" : key));
@@ -245,13 +262,13 @@ export default function MesTachesPage() {
           </div>
           <div>
             <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
-              Mes tâches
+              {tn("myTasks")}
             </h1>
             <p className="mt-0.5 text-sm flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--blue)" }} />
               {scope === "all"
-                ? `Toutes les tâches de ${agency.name}`
-                : `Vos tâches assignées dans ${agency.name}`}
+                ? t("subtitleAll", { agency: agency.name })
+                : t("subtitleMine", { agency: agency.name })}
             </p>
           </div>
         </div>
@@ -270,7 +287,7 @@ export default function MesTachesPage() {
                   : { color: "var(--text-secondary)" }
               }
             >
-              <CheckSquare size={14} /> Mes tâches
+              <CheckSquare size={14} /> {tn("myTasks")}
             </button>
             <button
               onClick={() => setScope("all")}
@@ -281,7 +298,7 @@ export default function MesTachesPage() {
                   : { color: "var(--text-secondary)" }
               }
             >
-              <ListTodo size={14} /> Toutes les tâches
+              <ListTodo size={14} /> {t("allTasks")}
             </button>
           </div>
         )}
@@ -293,11 +310,11 @@ export default function MesTachesPage() {
           <div className="flex items-center gap-2">
             <span className="h-5 w-1 rounded-full" style={{ background: "var(--text-secondary)" }} />
             <h2 className="text-sm font-bold uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
-              Vue par statut
+              {t("statusView")}
             </h2>
           </div>
           <span className="text-[11px] hidden sm:inline-flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
-            <ListTodo className="w-3.5 h-3.5" /> Cliquez sur un statut pour filtrer
+            <ListTodo className="w-3.5 h-3.5" /> {t("statusFilterHint")}
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -309,7 +326,7 @@ export default function MesTachesPage() {
               <button
                 key={f.key}
                 onClick={() => toggleFilter(f.key)}
-                title={hasTasks ? `Filtrer : ${f.label}` : "Aucune tâche pour ce statut"}
+                title={hasTasks ? t("filterBy", { label: f.label }) : t("filterEmptyStatus")}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all hover:scale-105 active:scale-95"
                 style={
                   active
@@ -348,17 +365,17 @@ export default function MesTachesPage() {
           </div>
           <p className="font-bold" style={{ color: "var(--text-primary)" }}>
             {filter === "en_retard"
-              ? "Aucune tâche en retard"
+              ? t("emptyOverdueTitle")
               : scope === "all"
-                ? "Aucune tâche dans cette agence"
-                : "Aucune tâche assignée"}
+                ? t("emptyAllTitle")
+                : t("emptyMineTitle")}
           </p>
           <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
             {filter === "en_retard"
-              ? "Bonne nouvelle : rien n'est en retard !"
+              ? t("emptyOverdueText")
               : scope === "all"
-                ? "Créez des tâches depuis le Kanban d'un projet."
-                : "Les tâches qui vous sont assignées dans cette agence apparaîtront ici."}
+                ? t("emptyAllText")
+                : t("emptyMineText")}
           </p>
         </motion.div>
       )}
@@ -370,7 +387,7 @@ export default function MesTachesPage() {
             <table className="w-full min-w-[760px] text-left">
               <thead>
                 <tr className="border-b" style={{ borderColor: "var(--border-subtle)" }}>
-                  {["Tâche", "Statut", "Priorité", "Échéance", "Projet", "Assignée à"].map((h) => (
+                  {[t("colTask"), t("colStatus"), tp("label"), t("colDueDate"), t("colProject"), tForm("assigneeLabel")].map((h) => (
                     <th
                       key={h}
                       className="px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider whitespace-nowrap"
@@ -384,12 +401,14 @@ export default function MesTachesPage() {
               <tbody className="text-sm">
                 {sortedTasks.map((task) => {
                   const status = statusStyleOf(task.status, statusConfig, labelOf(task.status));
+                  const statusText = statusLabel(task.status, status.label);
                   const prio = priorityConfig[task.priority];
                   const late = isLate(task);
-                  const deadlineBadge =
+                  const deadlineKey =
                     task.deadlineStatus && task.deadlineStatus !== "a_venir"
-                      ? DEADLINE_META[task.deadlineStatus]
+                      ? task.deadlineStatus
                       : null;
+                  const deadlineBadge = deadlineKey ? DEADLINE_META[deadlineKey] : null;
                   const assignee = memberOf(task.assigneeEmail);
 
                   return (
@@ -431,7 +450,7 @@ export default function MesTachesPage() {
                           style={{ color: status.color, background: status.bg, border: status.border }}
                         >
                           {late && <AlertTriangle className="w-3 h-3" />}
-                          {status.label}
+                          {statusText}
                         </span>
                       </td>
 
@@ -441,7 +460,7 @@ export default function MesTachesPage() {
                           className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap"
                           style={{ color: prio.color, background: prio.bg, border: prio.border }}
                         >
-                          {prio.label}
+                          {priorityLabel(task.priority, prio.label)}
                         </span>
                       </td>
 
@@ -452,14 +471,14 @@ export default function MesTachesPage() {
                             <span
                               className="inline-flex items-center gap-1.5 text-xs font-semibold"
                               style={{ color: late ? "var(--color-error)" : "var(--text-secondary)" }}
-                              title={late ? "En retard" : undefined}
+                              title={late ? deadlineLabel("en_retard", "") : undefined}
                             >
                               <CalendarClock className="w-3.5 h-3.5" />
                               {formatDate(task.dueDate, locale)}
                             </span>
                           ) : (
                             <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                              Sans échéance
+                              {t("noDueDate")}
                             </span>
                           )}
                           {deadlineBadge && (
@@ -467,7 +486,7 @@ export default function MesTachesPage() {
                               className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full"
                               style={{ color: deadlineBadge.color, background: deadlineBadge.bg }}
                             >
-                              {deadlineBadge.label}
+                              {deadlineLabel(deadlineKey ?? "", deadlineBadge.label)}
                             </span>
                           )}
                         </span>
@@ -506,7 +525,7 @@ export default function MesTachesPage() {
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
-                              <UserRound className="w-3.5 h-3.5" /> Non assignée
+                              <UserRound className="w-3.5 h-3.5" /> {tc("unassigned")}
                             </span>
                           )
                         ) : (
@@ -520,7 +539,7 @@ export default function MesTachesPage() {
                               </span>
                             </span>
                             <span className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
-                              Moi
+                              {t("me")}
                             </span>
                           </span>
                         )}

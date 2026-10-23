@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "@/i18n/navigation";
+import { Link, type Href } from "@/i18n/navigation";
+import { taskHref } from "@/lib/projectHref";
 import { useLocale, useTranslations } from "next-intl";
 import { motion, type Variants } from "framer-motion";
 import { AlertTriangle, CalendarClock, BellRing, CheckSquare } from "lucide-react";
@@ -85,10 +86,10 @@ export default function DeadlineAlertsView({ agencyId = null, subtitle }: Deadli
     { key: "bientot", label: t("dueSoon") },
   ];
 
-  const hrefFor = (alert: DeadlineAlert): string | null => {
+  const hrefFor = (alert: DeadlineAlert): Href | null => {
     const project = getProject(alert.projectId);
     if (!project) return null;
-    return `/agences/${project.agencyId}/projets/${project.id}/taches/${alert.taskId}`;
+    return taskHref(project.agencyId, project.id, alert.taskId);
   };
 
   return (

@@ -16,5 +16,38 @@ export const routing = defineRouting({
     "/accepter-invitation": { fr: "/accepter-invitation", en: "/accept-invitation" },
     "/agences/nouvelle": { fr: "/agences/nouvelle", en: "/agency/new" },
     "/mes-agences": { fr: "/mes-agences", en: "/my-agencies" },
+    "/agences/[agencyId]/dashboard": {
+      fr: "/agences/[agencyId]/dashboard",
+      en: "/agencies/[agencyId]/dashboard",
+    },
+    "/agences/[agencyId]/projets/nouveauProjet": {
+      fr: "/agences/[agencyId]/projets/nouveauProjet",
+      en: "/agences/[agencyId]/projects/new-project",
+    },
+    "/agences/[agencyId]/projets": {
+      fr: "/agences/[agencyId]/projets",
+      en: "/agences/[agencyId]/projects",
+    },
+    "/agences/[agencyId]/projets/[projectId]": {
+      fr: "/agences/[agencyId]/projets/[projectId]",
+      en: "/agences/[agencyId]/projects/[projectId]",
+    },
+    "/agences/[agencyId]/projets/[projectId]/kanban": {
+      fr: "/agences/[agencyId]/projets/[projectId]/kanban",
+      en: "/agences/[agencyId]/projects/[projectId]/kanban",
+    },
+    "/agences/[agencyId]/projets/[projectId]/planning": {
+      fr: "/agences/[agencyId]/projets/[projectId]/planning",
+      en: "/agences/[agencyId]/projects/[projectId]/schedule",
+    },
+    "/agences/[agencyId]/projets/[projectId]/taches/[taskId]": {
+      fr: "/agences/[agencyId]/projets/[projectId]/taches/[taskId]",
+      en: "/agences/[agencyId]/projects/[projectId]/tasks/[taskId]",
+    },
+      "/agences/[agencyId]/equipe": {
+    fr: "/agences/[agencyId]/equipe",
+    en: "/agencies/[agencyId]/team",
+  },
+  "/profil": { fr: "/profil", en: "/profile" },
   },
 });

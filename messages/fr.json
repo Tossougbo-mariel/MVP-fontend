@@ -5,11 +5,36 @@
   },
   "Common": {
     "loading": "Chargement...",
+    "retry": "Réessayer",
     "seeMore": "Voir plus",
     "seeLess": "Voir moins",
     "seeAll": "Voir tous",
     "backToMyAgencies": "Retour à mes agences",
-    "project": "projet"
+    "project": "projet",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "save": "Enregistrer",
+    "noDescription": "Aucune description.",
+    "confirm": "Confirmer",
+    "close": "Fermer",
+    "edit": "Modifier",
+    "archive": "Archiver",
+    "restore": "Restaurer",
+    "add": "Ajouter",
+    "create": "Créer",
+    "send": "Envoyer",
+    "blocked": "Bloquée",
+    "deletePermanently": "Supprimer définitivement",
+    "gotIt": "Compris",
+    "unassigned": "Non assignée",
+    "today": "Aujourd'hui",
+    "clear": "Effacer",
+    "chooseDate": "Choisir une date",
+    "previousMonth": "Mois précédent",
+    "nextMonth": "Mois suivant",
+    "selectPlaceholder": "Sélectionner…",
+    "noOption": "Aucune option",
+    "seeMoreCount": "Voir plus ({count})"
   },
   "Navigation": {
     "home": "Accueil",
@@ -236,9 +261,26 @@
       "connectedAs": "Connecté en tant que {firstName} {lastName} ({email})"
     }
   },
-  "Validation": {},
+  "Validation": {
+    "invalidField": "Champ invalide.",
+    "projectNameRequired": "Le nom du projet est obligatoire.",
+    "startDateRequired": "La date de début est obligatoire.",
+    "startDateNotPast": "La date de début ne peut pas être antérieure à aujourd'hui.",
+    "dueDateRequired": "La date d'échéance est obligatoire.",
+    "dueDateBeforeStart": "La date d'échéance doit être postérieure ou égale à la date de début.",
+    "dueDateBeforeExisting": "La date d'échéance ne peut pas être antérieure à l'échéance déjà définie.",
+    "taskTitleRequired": "Le titre de la tâche est obligatoire.",
+    "startDateAfterProject": "Doit être postérieure ou égale au début du projet ({date}).",
+    "dueDateBeforeProject": "Doit être antérieure ou égale à l'échéance du projet ({date}).",
+    "commentRequired": "Le commentaire ne peut pas être vide.",
+    "subtaskTitleRequired": "Le titre de la sous-tâche est obligatoire."
+  },
   "Errors": {
-    "generic": "Une erreur est survenue. Réessayez."
+    "generic": "Une erreur est survenue. Réessayez.",
+    "agencyNotFound": "Agence introuvable",
+    "agencyNotFoundDetail": "Cette agence n'existe pas ou vous n'en faites pas partie.",
+    "notAgencyMember": "Vous n'êtes pas membre de cette agence.",
+    "accessDenied": "Accès refusé"
   },
   "Landing": {
     "hero": {
@@ -493,7 +535,7 @@
     "planning": "Planning",
     "othersCount": "{count, plural, one {+# autre projet} other {+# autres projets}}"
   },
-   "Bienvenue": {
+  "Bienvenue": {
     "greeting": "Bienvenue, {name}",
     "subtitle": "Pilotez vos agences, vos projets et vos tâches depuis un seul espace.",
     "cta": "Voir mes agences",
@@ -506,16 +548,16 @@
   },
 
   "Sidebar": {
-    "Mes agences": "Mes agences",
-    "Créer une agence": "Créer une agence",
-    "Notifications": "Notifications",
-    "Mon profil": "Mon profil",
-    "Réglages": "Réglages",
-    "Tableau de bord": "Tableau de bord",
-    "Projets": "Projets",
-    "Mes tâches": "Mes tâches",
-    "Équipe": "Équipe",
-    "Paramètres": "Paramètres",
+    "myAgencies": "Mes agences",
+    "createAgency": "Créer une agence",
+    "notifications": "Notifications",
+    "myProfile": "Mon profil",
+    "settings": "Réglages",
+    "dashboard": "Tableau de bord",
+    "projects": "Projets",
+    "myTasks": "Mes tâches",
+    "team": "Équipe",
+    "agencySettings": "Paramètres",
     "assistantFull": "Assistant IA",
     "assistantShort": "Assistant",
     "profilShort": "Profil",
@@ -524,7 +566,8 @@
     "closeMenu": "Fermer le menu",
     "agencyFallback": "Agence",
     "empty": "Aucune agence",
-    "emptyHint": "Créez votre première agence ou acceptez une invitation pour gérer vos projets."
+    "emptyHint": "Créez votre première agence ou acceptez une invitation pour gérer vos projets.",
+    "openMenuAria": "MVP Studio"
   },
 
   "DeadlineAlerts": {
@@ -577,7 +620,136 @@
     "noResults": "Aucun résultat pour « {query} »."
   },
 
-  "Projects": {},
+  "Projects": {
+    "list": {
+      "loading": "Chargement des projets…",
+      "title": "Projets",
+      "subtitle": "{count, plural, one {# projet dans {agency}} other {# projets dans {agency}}}",
+      "showAll": "Tous les projets",
+      "archived": "Archivés ({count})",
+      "newProject": "Nouveau projet",
+      "createFirst": "Créer votre premier projet",
+      "emptyArchivedTitle": "Aucun projet archivé",
+      "emptyArchivedText": "Les projets archivés apparaîtront ici pour être restaurés.",
+      "emptyTitle": "Aucun projet pour le moment",
+      "emptyAdminText": "Créez votre premier projet pour commencer à structurer le travail.",
+      "emptyMemberText": "Les projets auxquels vous êtes assigné apparaîtront ici.",
+      "progress": "Progression",
+      "taskCount": "{count, plural, one {# tâche} other {# tâches}}",
+      "unknownOwner": "Responsable inconnu",
+      "ownerUser": "Utilisateur #{id}",
+      "restore": "Restaurer",
+      "deleteTitle": "Supprimer définitivement",
+      "manageTitle": "Gérer le projet (admin)",
+      "viewProject": "Voir le projet {name}",
+      "deleteDialogTitle": "Supprimer définitivement ?",
+      "deleteDialogText": "Ce projet et toutes ses tâches, sous-tâches, fichiers et commentaires seront définitivement supprimés. Cette action est irréversible."
+    },
+    "detail": {
+      "edit": "Modifier",
+      "restore": "Restaurer",
+      "archive": "Archiver",
+      "exportPdf": "Exporter PDF",
+      "exportingPdf": "Préparation…",
+      "kanban": "Kanban",
+      "planning": "Planning",
+      "membersTitle": "Membres du projet",
+      "addMember": "Ajouter un membre",
+      "close": "Fermer",
+      "chooseMembers": "Choisissez les membres de l'agence à ajouter :",
+      "add": "Ajouter ({count})",
+      "adding": "Ajout…",
+      "allMembersPresent": "Tous les membres de l'agence sont déjà dans ce projet.",
+      "owner": "Responsable",
+      "unknownMember": "ce membre",
+      "removeMemberTitle": "Retirer ce membre du projet",
+      "editTitle": "Modifier le projet",
+      "nameLabel": "Nom du projet",
+      "descriptionLabel": "Description",
+      "statusLabel": "Statut",
+      "startDateLabel": "Date de début",
+      "dueDateLabel": "Date d'échéance",
+      "wallpaperLabel": "Fond d'écran du Kanban",
+      "optional": "(optionnel)",
+      "defaultWallpaper": "Par défaut",
+      "saving": "Enregistrement…",
+      "archiveDialogTitle": "Archiver le projet ?",
+      "archiveDialogText": "« {name} » sera archivé avec ses tâches. Vous pourrez toujours le restaurer depuis cette page.",
+      "deleteDialogTitle": "Supprimer définitivement ?",
+      "deleteDialogText": "« {name} » et ses {count, plural, one {# tâche} other {# tâches}}, sous-tâches, fichiers et commentaires seront définitivement supprimés. Cette action est irréversible.",
+      "removeMemberDialogTitle": "Retirer ce membre ?",
+      "removeMemberDialogText": "Ce membre a des tâches en cours sur ce projet.",
+      "forceRemove": "Retirer quand même",
+      "removing": "Retrait…",
+      "deleting": "Suppression…",
+      "archiving": "Archivage…"
+    },
+    "new": {
+      "title": "Nouveau projet",
+      "subtitle": "Créer un projet dans {agency}. Le statut démarre à « {status} ».",
+      "successTitle": "Projet créé avec succès.",
+      "membersAdded": "{count, plural, one {# membre ajouté} other {# membres ajoutés}}.",
+      "membersFailed": "{count, plural, one {# non ajouté : {emails}} other {# non ajoutés : {emails}}}",
+      "redirecting": "Redirection vers le projet…",
+      "nameLabel": "Nom du projet",
+      "namePlaceholder": "Ex : Site vitrine 2026",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Décrivez l'objectif du projet…",
+      "startDateLabel": "Date de début",
+      "dueDateLabel": "Date d'échéance",
+      "membersLabel": "Membres assignés",
+      "membersHint": "Les membres sélectionnés seront ajoutés au projet après sa création.",
+      "wallpaperLabel": "Fond d'écran du Kanban",
+      "optional": "(optionnel)",
+      "defaultWallpaper": "Par défaut",
+      "submit": "Créer le projet",
+      "submitting": "Création…"
+    },
+    "kanban": {
+      "taskCount": "{count, plural, one {# tâche} other {# tâches}}",
+      "newTask": "Nouvelle tâche",
+      "select": "Sélectionner",
+      "emptyColumn": "Aucune tâche",
+      "filtersTitle": "Filtrer",
+      "archiveHide": "Masquer l'archive",
+      "archiveShow": "{count, plural, one {Tâche archivée (#)} other {Tâches archivées (#)}}",
+      "archiveDescription": "Retirées du tableau, elles restent restaurables à tout moment.",
+      "overdueTitle": "Projet arrivé à échéance",
+      "overdueMessage": "L'échéance de ce projet est dépassée. Il n'est plus possible d'ajouter une tâche à des dates passées : modifiez d'abord la date d'échéance du projet pour continuer.",
+      "overdueMessageWithDate": "L'échéance de ce projet est dépassée ({date}). Il n'est plus possible d'ajouter une tâche à des dates passées : modifiez d'abord la date d'échéance du projet pour continuer.",
+      "viewProject": "Voir le projet",
+      "bulkSelected": "{count, plural, one {# sélectionnée} other {# sélectionnées}}",
+      "bulkStatus": "Statut…",
+      "bulkPriority": "Priorité…",
+      "bulkAssignee": "Responsable…",
+      "bulkTag": "+ Étiquette…",
+      "createSubmitting": "Création…",
+      "createSubmit": "Créer la tâche",
+      "tooltipSelect": "Cliquer pour sélectionner",
+      "tooltipDrag": "Cliquer pour les détails — glisser pour changer de colonne",
+      "tooltipRestricted": "Déplacement réservé à l'assigné ou à l'admin — cliquer pour les détails",
+      "tooltipFollow": "Vous suivez simplement l'évolution de cette tâche — utilisable uniquement par l'assigné ou l'admin",
+      "blockedTitle": "Tâche bloquée par une dépendance",
+      "blockedMessage": "« {title} » ne peut pas être déplacée vers un statut terminal car elle dépend d'une autre tâche non terminée. Vous devez d'abord terminer ses prérequis.",
+      "forceTitle": "Terminer malgré tout ?",
+      "forceTaskMessage": "Cette tâche a des sous-tâches non cochées.",
+      "forceBulkMessage": "Certaines tâches ont des sous-tâches non cochées.",
+      "forceConfirm": "Terminer quand même",
+      "cascadeTitle": "Rouvrir des tâches dépendantes ?",
+      "cascadeMessage": "En rouvrant cette tâche, {count, plural, one {# tâche déjà terminée qui en dépend sera aussi rouverte} other {# tâches déjà terminées qui en dépendent seront aussi rouvertes}} :",
+      "cascadeConfirm": "Rouvrir les dépendants",
+      "deleteTitle": "Supprimer définitivement ?",
+      "deleteMessage": "« {title} » et toutes ses données (sous-tâches, fichiers, commentaires) seront définitivement supprimées. Cette action est irréversible.",
+      "subtasksNotChecked": "Impossible de terminer : des sous-tâches ne sont pas cochées.",
+      "cascadeBulk": "Certaines tâches ont des dépendants déjà terminés : rouvrez-les carte par carte."
+    },
+    "errors": {
+      "projectNotFound": "Projet introuvable",
+      "accessDeniedProjectDetail": "Seul l'admin de l'agence peut consulter le détail d'un projet.",
+      "accessDeniedCreate": "Cette page est réservée au propriétaire et aux admins de l'agence. Seuls eux peuvent créer un projet.",
+      "backToProjects": "Retour aux projets"
+    }
+  },
   "Tasks": {
     "activity": {
       "actions": {
@@ -592,13 +764,250 @@
         "project_created": "Création de projet",
         "member_added": "Membre ajouté"
       },
+      "fragments": {
+        "creation": "a créé la tâche « {task} »",
+        "status_changed": "a changé le statut de « {task} » en {status}",
+        "status_changed_no_status": "a changé le statut de « {task} »",
+        "task_completed": "a marqué la tâche « {task} » comme terminée",
+        "reopened": "a rouvert la tâche « {task} » : son prérequis « {prerequisite} » n'est plus terminé",
+        "reopened_no_prerequisite": "a rouvert la tâche « {task} »",
+        "assignee_changed": "a changé le responsable de « {task} »",
+        "priority_changed": "a changé la priorité de « {task} » en {priority}",
+        "priority_changed_no_priority": "a changé la priorité de « {task} »",
+        "due_date_changed": "a changé l'échéance de « {task} »",
+        "comment_added": "a commenté la tâche « {task} »",
+        "project_created": "a créé le projet « {project} »",
+        "member_added": "a invité « {email} » à rejoindre l'agence",
+        "member_added_no_email": "a ajouté un membre à l'agence"
+      },
       "sentence": "{actor} {action}{project}",
       "onProject": " sur le projet « {project} »",
       "somebody": "Quelqu'un",
       "someAction": "a effectué une action"
+    },
+    "detail": {
+      "accessDeniedDetail": "Seuls les membres du projet peuvent ouvrir la fiche d'une tâche.",
+      "taskNotFound": "Tâche introuvable",
+      "backToKanban": "Retour au Kanban",
+      "documentTitle": "{title} — Détail de la tâche",
+      "documentTitleFallback": "Détail de la tâche",
+      "kanban": "Kanban",
+      "historyTitle": "Historique",
+      "historyLoading": "Chargement de l'historique…",
+      "historyEmpty": "Aucune action aujourd'hui.",
+      "progressTitle": "Avancement de la tâche",
+      "archivedTitle": "Tâche archivée",
+      "archivedMessage": "Archivée le {date}. Elle est retirée du Kanban.",
+      "tagsTitle": "Étiquettes",
+      "tagsNone": "Aucune",
+      "tagsManage": "Gérer",
+      "tagsEmpty": "Aucune étiquette dans ce projet. Créez-en une ci-dessous.",
+      "tagsDeleteTitle": "Supprimer l'étiquette « {name} »",
+      "tagsNewPlaceholder": "Nouvelle étiquette…",
+      "assigneeLabel": "Responsable assigné",
+      "creatorLabel": "Créée par",
+      "subtasksTitle": "Sous-tâches",
+      "subtasksLoading": "Chargement des sous-tâches…",
+      "subtasksEmpty": "Aucune sous-tâche pour le moment.",
+      "subtasksMarkDone": "Marquer comme terminée",
+      "subtasksMarkUndone": "Marquer comme non terminée",
+      "subtasksImposedAria": "Sous-tâche imposée par un administrateur : suppression réservée à un admin",
+      "subtasksDeleteTitle": "Supprimer cette sous-tâche",
+      "subtasksPlaceholder": "Ajouter une sous-tâche…",
+      "dependenciesTitle": "Dépendances",
+      "dependenciesLoading": "Chargement des dépendances…",
+      "dependenciesDependsOn": "Dépend de",
+      "dependenciesNone": "Aucun prérequis.",
+      "dependenciesRemoveTitle": "Retirer cette dépendance",
+      "dependenciesRequiredBy": "Requise par",
+      "dependenciesNoneDependents": "Aucune tâche ne dépend de celle-ci.",
+      "dependenciesLockedAria": "Ce lien se retire depuis la tâche prérequis",
+      "dependenciesPlaceholder": "Ajouter un prérequis…",
+      "attachmentsTitle": "Pièces jointes",
+      "attachmentsAdd": "Ajouter un fichier",
+      "attachmentsUploading": "Envoi…",
+      "attachmentsLoading": "Chargement des pièces jointes…",
+      "attachmentsEmpty": "Aucun fichier joint à cette tâche.",
+      "attachmentsDownload": "Télécharger",
+      "commentsTitle": "Commentaires",
+      "commentsLoading": "Chargement des commentaires…",
+      "commentsEmpty": "Aucun commentaire pour cette tâche.",
+      "commentsDeleteTitle": "Supprimer ce commentaire",
+      "commentsExpand": "Voir le commentaire",
+      "commentsReduce": "Réduire",
+      "commentsPlaceholder": "Écrire un commentaire… Tapez @ pour mentionner quelqu'un",
+      "commentsSend": "Envoyer",
+      "commentsAdd": "Envoyer un commentaire",
+      "commentsPreviewTitle": "Aperçu du commentaire",
+      "editTitle": "Modifier la tâche",
+      "editSaving": "Enregistrement…",
+      "archiveDialogTitle": "Archiver la tâche ?",
+      "archiveDialogMessage": "« {name} » sera archivée et retirée du Kanban. Vous pourrez toujours la restaurer à tout moment.",
+      "archiveDialogConfirm": "Archiver",
+      "archiveDialogBusy": "Archivage…",
+      "deleteDialogTitle": "Supprimer définitivement ?",
+      "deleteDialogMessage": "« {name} » et toutes ses données (sous-tâches, fichiers, commentaires) seront définitivement supprimées. Cette action est irréversible.",
+      "deleteDialogBusy": "Suppression…",
+      "dependencyWarningTitle": "Échéance du prérequis incohérente",
+      "dependencyWarningMessage": "La tâche « {candidateTitle} » que vous avez choisie est à échéance le {candidateDue}. L'échéance de votre tâche actuelle est le {taskDue}. Ajouter ce prérequis contraindra la tâche à rester bloquée jusqu'à son achèvement.",
+      "dependencyWarningConfirm": "Ajouter quand même"
+    },
+    "form": {
+      "titleLabel": "Titre *",
+      "titlePlaceholder": "Intitulé de la tâche",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Détails de la tâche (optionnel)",
+      "startDateLabel": "Date de début *",
+      "dueDateLabel": "Date d'échéance *",
+      "assigneeLabel": "Assignée à"
+    },
+    "list": {
+      "subtitleAll": "Toutes les tâches de {agency}",
+      "subtitleMine": "Vos tâches assignées dans {agency}",
+      "allTasks": "Toutes les tâches",
+      "statusView": "Vue par statut",
+      "statusFilterHint": "Cliquez sur un statut pour filtrer",
+      "filterBy": "Filtrer : {label}",
+      "filterEmptyStatus": "Aucune tâche pour ce statut",
+      "allFilter": "Toutes",
+      "emptyOverdueTitle": "Aucune tâche en retard",
+      "emptyAllTitle": "Aucune tâche dans cette agence",
+      "emptyMineTitle": "Aucune tâche assignée",
+      "emptyOverdueText": "Bonne nouvelle : rien n'est en retard !",
+      "emptyAllText": "Créez des tâches depuis le Kanban d'un projet.",
+      "emptyMineText": "Les tâches qui vous sont assignées dans cette agence apparaîtront ici.",
+      "colTask": "Tâche",
+      "colStatus": "Statut",
+      "colDueDate": "Échéance",
+      "colProject": "Projet",
+      "noDueDate": "Sans échéance",
+      "me": "Moi"
     }
   },
-  "Team": {},
+  "Team": {
+    "title": "Équipe",
+    "subtitle": "<num>{count}</num> {count, plural, one {membre} other {membres}} dans <agency>{name}</agency>",
+    "tagline": "Gérez les membres de votre équipe et accompagnez chaque projet efficacement.",
+    "loadingInvitations": "Chargement des invitations...",
+    "alone": {
+      "title": "Vous êtes le seul agent pour le moment",
+      "text": "Invitez des membres de l'équipe pour commencer à collaborer."
+    },
+    "filters": {
+      "all": "Tous",
+      "admin": "Administrateur",
+      "membre": "Membre"
+    },
+    "search": {
+      "label": "Rechercher un membre par nom ou e-mail",
+      "placeholder": "Rechercher par nom, e-mail..."
+    },
+    "table": {
+      "caption": "Membres de l'agence : poste, rôle, tâches assignées et statut.",
+      "columns": {
+        "member": "Membre",
+        "jobTitle": "Poste",
+        "role": "Rôle",
+        "tasks": "Tâches",
+        "status": "Statut",
+        "actions": "Actions"
+      },
+      "noResults": "Aucun membre ne correspond à votre recherche.",
+      "resetFilters": "Réinitialiser les filtres",
+      "viewPhoto": "Voir la photo de {name}",
+      "since": "Depuis le {date}"
+    },
+    "roles": {
+      "proprietaire": "Propriétaire",
+      "admin": "Administrateur",
+      "membre": "Membre"
+    },
+    "roleShort": {
+      "admin": "Admin",
+      "membre": "Membre"
+    },
+    "status": {
+      "actif": "Actif",
+      "en_attente": "En attente",
+      "inactif": "Inactif"
+    },
+    "menu": {
+      "actions": "Actions de gestion",
+      "promote": "Promouvoir en Admin",
+      "demote": "Rétrograder en Membre",
+      "reactivate": "Réactiver le compte",
+      "deactivate": "Désactiver le compte"
+    },
+    "invitations": {
+      "pending": "Invitations en attente",
+      "expired": "Expirée",
+      "expiresOn": "Expire le {date}",
+      "resend": "Relancer"
+    },
+    "invite": {
+      "badge": "Inviter un agent",
+      "emailPlaceholder": "Email de l'agent à inviter",
+      "submit": "Inviter",
+      "sent": "Invitation envoyée à {email}.",
+      "sentDetail": "Un e-mail lui a été envoyé pour rejoindre {agency}."
+    },
+    "modals": {
+      "inviteConfirm": {
+        "title": "Confirmer l'invitation",
+        "text": "Envoyer une invitation à rejoindre <strong>{agency}</strong> à l'adresse :"
+      },
+      "promote": {
+        "title": "Promouvoir ce membre",
+        "description": "Confirmer la promotion de <strong>{name}</strong> en tant qu'Admin ?",
+        "confirm": "Promouvoir"
+      },
+      "demote": {
+        "title": "Rétrograder ce membre",
+        "description": "Confirmer la rétrogradation de <strong>{name}</strong> en tant que Membre ? Il perdra ses droits d'administration.",
+        "confirm": "Rétrograder"
+      },
+      "deactivate": {
+        "title": "Désactiver ce compte",
+        "description": "Désactiver le compte de <strong>{name}</strong> ? Ce membre ne pourra plus recevoir de nouvelles tâches.",
+        "confirm": "Désactiver"
+      },
+      "reactivate": {
+        "title": "Réactiver ce compte",
+        "description": "Réactiver le compte de <strong>{name}</strong> ? Il pourra de nouveau recevoir des tâches.",
+        "confirm": "Réactiver"
+      },
+      "remove": {
+        "title": "Supprimer ce membre",
+        "description": "Supprimer <strong>{name}</strong> de l'agence ? Cette action est <strong>irréversible</strong>."
+      },
+      "forced": {
+        "title": "Retirer ce membre\u00a0?",
+        "warning": "Si vous continuez, ce membre sera supprimé de l'agence et de <danger>tous les projets</danger> auxquels il appartient.",
+        "confirm": "Retirer quand même"
+      },
+      "cancelInvitation": {
+        "title": "Annuler l'invitation",
+        "description": "Annuler l'invitation envoyée à <strong>{email}</strong> ? {email} ne pourra plus confirmer son adresse et l'invitation sera définitivement supprimée.",
+        "confirm": "Annuler l'invitation"
+      }
+    },
+    "success": {
+      "roleChanged": "« {name} » est désormais {role}.",
+      "accountReactivated": "Le compte de « {name} » a été réactivé.",
+      "accountDeactivated": "Le compte de « {name} » a été désactivé.",
+      "memberRemoved": "« {name} » a été supprimé(e) de l'agence.",
+      "reminderSent": "Rappel envoyé à {email}.",
+      "invitationCancelled": "Invitation de {email} annulée."
+    },
+    "errors": {
+      "cannotChangeOwnRole": "Vous ne pouvez pas modifier votre propre rôle.",
+      "cannotChangeOwnStatus": "Vous ne pouvez pas modifier votre propre statut.",
+      "cannotRemoveSelf": "Vous ne pouvez pas supprimer votre propre compte.",
+      "cannotInviteSelf": "Vous ne pouvez pas vous inviter vous-même.",
+      "alreadyExists": "Une invitation ou un membre existe déjà pour {email}.",
+      "forcedDefault": "Ce membre a des tâches en cours dans les projets de l'agence."
+    }
+  },
   "Planning": {},
   "Notifications": {
     "typeInvitation": "Invitation",
@@ -692,17 +1101,259 @@
     "emptyText": "Aucune tâche n'est en retard ni proche de son échéance.",
     "emptyFilterText": "Choisissez un autre filtre."
   },
-  "Profile": {},
+  "Profile": {
+  "saved": "Profil mis à jour",
+  "avatar": {
+    "view": "Voir la photo de profil",
+    "change": "Changer la photo",
+    "viewShort": "Voir"
+  },
+  "roles": {
+    "owner": "Propriétaire",
+    "admin": "Administrateur",
+    "membre": "Membre"
+  },
+  "roleShort": {
+    "owner": "Propriétaire",
+    "admin": "Admin",
+    "membre": "Membre"
+  },
+  "personal": {
+    "title": "Informations personnelles"
+  },
+  "fields": {
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "email": "Email",
+    "phone": "Téléphone",
+    "city": "Ville / Pays",
+    "bio": "Bio",
+    "jobTitle": "Poste"
+  },
+  "professional": {
+    "title": "Informations professionnelles"
+  },
+  "memberSince": "Inscrit depuis {date}",
+  "memberSinceRecent": "Inscrit depuis peu",
+  "agencies": {
+    "title": "Mes agences",
+    "empty": "Vous n'êtes dans aucune agence pour le moment.",
+    "create": "Créer une agence"
+  },
+  "tasks": {
+    "title": "Mes tâches",
+    "assignedCount": "{count, plural, =0 {Aucune tâche assignée} one {# tâche assignée} other {# tâches assignées}}",
+    "empty": "Aucune tâche ne vous est assignée pour le moment."
+  },
+  "stats": {
+    "assigned": "Tâches assignées",
+    "done": "Tâches terminées",
+    "late": "Tâches en retard"
+  },
+  "table": {
+    "columns": {
+      "task": "Tâche",
+      "project": "Projet",
+      "agency": "Agence",
+      "due": "Échéance",
+      "status": "Statut"
+    }
+  },
+  "status": {
+    "assigned": "Assignée",
+    "done": "Terminée",
+    "late": "En retard"
+  },
+  "security": {
+    "title": "Sécurité",
+    "changePassword": "Changer mon mot de passe"
+  },
+  "twoFactor": {
+    "title": "Double authentification",
+    "enabledHint": "Un code est envoyé par email après votre mot de passe.",
+    "disabledHint": "Ajoutez un code par email pour sécuriser votre connexion.",
+    "emailStillAvailable": "La connexion par code email reste disponible et n'est pas concernée.",
+    "passwordPlaceholder": "Votre mot de passe",
+    "activating": "Activation..."
+  },
+  "crop": {
+    "title": "Ajuster la photo",
+    "apply": "Valider",
+    "processing": "Traitement..."
+  },
+  "errors": {
+    "saveFailed": "Impossible d'enregistrer les modifications.",
+    "photoFailed": "Impossible d'enregistrer la photo.",
+    "imageLoad": "Impossible de charger l'image.",
+    "canvas": "Canvas non supporté.",
+    "export": "Échec de l'export de l'image."
+  }
+},
   "Settings": {
     "theme": {
       "label": "Thème de l'interface",
       "description": "Choisissez entre l'apparence claire et sombre.",
       "light": "Clair",
       "dark": "Sombre"
+    },
+    "agency": {
+      "title": "Paramètres",
+      "ownerBadge": "Propriétaire de {agency} — accès complet",
+      "viewTeam": "Voir l'équipe",
+      "saved": "Paramètres enregistrés",
+      "ownerOnlyTitle": "Seul le propriétaire peut gérer les paramètres",
+      "ownerOnlyDescription": "Vous devez être propriétaire de {agency} pour modifier ces réglages.",
+      "backToDashboard": "Retour au tableau de bord",
+      "info": {
+        "title": "Informations de l'agence",
+        "nameLabel": "Nom de l'agence",
+        "descriptionLabel": "Description",
+        "saving": "Enregistrement..."
+      },
+      "permissions": {
+        "owner": "Propriétaire uniquement",
+        "admin": "Propriétaire et Admins",
+        "all": "Tous les membres"
+      },
+      "invitations": {
+        "title": "Invitations",
+        "description": "Définissez qui peut inviter de nouveaux membres dans cette agence.",
+        "options": {
+          "owner": {
+            "label": "Propriétaire uniquement",
+            "description": "Seul le créateur de l'agence peut envoyer des invitations"
+          },
+          "admin": {
+            "label": "Propriétaire et Admins",
+            "description": "Les admins promus peuvent aussi inviter"
+          },
+          "all": {
+            "label": "Tous les membres",
+            "description": "N'importe quel membre peut inviter"
+          }
+        },
+        "defaultRole": {
+          "label": "Rôle accordé aux nouveaux membres",
+          "options": {
+            "membre": {
+              "label": "Membre",
+              "description": "Aucun droit d'administration"
+            },
+            "admin": {
+              "label": "Admin",
+              "description": "Peut gérer utilisateurs, projets et tâches"
+            }
+          },
+          "hint": "S'applique à chaque membre qui accepte une invitation."
+        }
+      },
+      "pending": {
+        "title": "Invitations en attente",
+        "description": "Invitations envoyées qui n'ont pas encore été acceptées ni refusées. Vous pouvez les annuler à tout moment.",
+        "empty": "Aucune invitation en attente pour le moment.",
+        "roleAdmin": "Admin",
+        "roleMember": "Membre",
+        "expired": "Expirée",
+        "expiresOn": "Expire le {date}",
+        "resend": "Relancer",
+        "cancelling": "Annulation...",
+        "cancelConfirm": "Annuler l'invitation envoyée à {email} ?"
+      },
+      "projects": {
+        "title": "Projets",
+        "description": "Contrôlez qui peut créer des projets.",
+        "whoCanCreate": "Qui peut créer des projets"
+      },
+      "danger": {
+        "title": "Zone de danger",
+        "description": "La suppression de l'agence est <strong>irréversible</strong>. Tous les membres, projets, tâches et données associées seront définitivement perdus.",
+        "delete": "Supprimer cette agence",
+        "deleting": "Suppression...",
+        "modalTitle": "Supprimer l'agence ?",
+        "modalDescription": "Vous êtes sur le point de supprimer définitivement <strong>{agency}</strong>. Cette action ne peut pas être annulée."
+      }
+    },
+    "personal": {
+      "title": "Réglages",
+      "subtitle": "Les préférences qui s'appliquent à toutes vos agences.",
+      "preferences": {
+        "title": "Préférences",
+        "description": "Le thème (couleurs), la langue et les notifications, sur toutes vos agences."
+      },
+      "language": {
+        "label": "Langue",
+        "french": "Français",
+        "english": "English"
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Affectations, commentaires, mentions et rappels d'échéance.",
+        "loadError": "Impossible de charger vos préférences de notifications."
+      },
+      "theme": {
+        "title": "Thème",
+        "default": "Défaut ({hex})",
+        "customColor": "Couleur personnalisée",
+        "accentAria": "Couleur d'accent {label}",
+        "saveError": "Impossible d'enregistrer la couleur d'accent."
+      },
+      "appearance": {
+        "title": "Apparence",
+        "description": "Votre apparence est enregistrée sur votre compte : elle vous suit sur tous vos appareils.",
+        "saveError": "Impossible d'enregistrer le thème."
+      }
     }
   },
-  "Statuses": {},
-  "Priorities": {},
+  "Statuses": {
+    "a_faire": "À faire",
+    "en_cours": "En cours",
+    "en_revision": "En révision",
+    "terminee": "Terminée",
+    "explain": {
+      "appearsIn": "Ces colonnes apparaissent dans le Kanban, le planning et la fiche tâche.",
+      "terminal": "Une colonne marquée <strong>clôt</strong> considère la tâche comme terminée."
+    },
+    "empty": {
+      "hint": "Aucune personnalisation pour l'instant : les quatre colonnes par défaut s'appliquent. Les ajouter ci-dessous les complète sans les remplacer."
+    },
+    "form": {
+      "name": "Nom de la colonne",
+      "color": "Couleur",
+      "placeholder": "Ex. En attente client"
+    },
+    "actions": {
+      "add": "Ajouter une colonne",
+      "create": "Créer",
+      "customize": "Personnaliser",
+      "rename": "Renommer {name}",
+      "delete": "Supprimer {name}",
+      "cancel": "Annuler",
+      "save": "Enregistrer"
+    },
+    "badge": {
+      "terminal": "Clôt",
+      "open": "Ouverte"
+    },
+    "validation": {
+      "mustKeepTerminal": "Une agence doit garder au moins un statut qui clôt une tâche."
+    },
+    "defaultSuffix": " · colonne par défaut",
+    "copySuffix": " (copie)",
+    "customizeFrom": "Créer une colonne personnalisée à partir de celle-ci",
+    "delete": {
+      "title": "Supprimer « {name} »",
+      "warning": "Si des tâches utilisent encore cette colonne, déplacez-les d'abord : sinon la suppression sera refusée.",
+      "moveTo": "Déplacer les tâches vers",
+      "moveAndDelete": "Déplacer et supprimer"
+    }
+  },
+  "Priorities": {
+    "label": "Priorité",
+    "basse": "Basse",
+    "moyenne": "Moyenne",
+    "haute": "Haute",
+    "urgente": "Urgente"
+  },
   "ProjectStatuses": {
     "a_venir": "À venir",
     "en_cours": "En cours",
@@ -710,8 +1361,50 @@
     "termine": "Terminé",
     "archive": "Archivé"
   },
-  "DeadlineStatuses": {},
+  "DeadlineStatuses": {
+    "a_echeance": "À échéance",
+    "en_retard": "En retard"
+  },
   "NotificationTypes": {},
-  "Colors": {},
+  "Colors": {
+    "default": "Défaut",
+    "blue": "Bleu",
+    "sky": "Bleu ciel",
+    "cyan": "Cyan",
+    "turquoise": "Turquoise",
+    "menthe": "Menthe",
+    "emerald": "Vert émeraude",
+    "green": "Vert",
+    "forest": "Vert forêt",
+    "lime": "Lime",
+    "olive": "Olive",
+    "yellow": "Jaune",
+    "amber": "Ambre",
+    "mustard": "Moutarde",
+    "orange": "Orange",
+    "burnt-orange": "Orange brûlée",
+    "red": "Rouge",
+    "raspberry": "Rouge framboise",
+    "coral": "Corail",
+    "burgundy": "Bordeaux",
+    "pink": "Rose",
+    "salmon": "Saumon",
+    "fuchsia": "Fuchsia",
+    "magenta": "Magenta",
+    "violet": "Violet",
+    "indigo": "Indigo",
+    "royal-blue": "Bleu roi",
+    "dark-blue": "Bleu foncé",
+    "navy": "Marine",
+    "teal": "Teal",
+    "aqua": "Aqua",
+    "slate": "Gris ardoise",
+    "gray": "Gris",
+    "light-gray": "Gris clair",
+    "black": "Noir",
+    "brown": "Brun",
+    "chocolate": "Brun chocolat",
+    "gold": "Or"
+  },
   "Dates": {}
 }

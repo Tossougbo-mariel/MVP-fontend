@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "@/i18n/navigation";
+import { useRouter, type Href } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
+import { kanbanHref, taskHref } from "@/lib/projectHref";
 import { Building2, CheckSquare, CornerDownLeft, FolderKanban, Search } from "lucide-react";
 import { useAppData } from "@/lib/appData";
 import { useAuthStore } from "@/app/store/authStore";
@@ -12,7 +13,7 @@ type Result = {
   id: string;
   label: string;
   sub: string;
-  href: string;
+  href: Href;
   kind: "task" | "project" | "agency";
 };
 
@@ -74,7 +75,7 @@ export default function GlobalSearch() {
         id: `project-${p.id}`,
         label: p.name,
         sub: agencyById(p.agencyId)?.name ?? t("subProject"),
-        href: `/agences/${p.agencyId}/projets/${p.id}/kanban`,
+        href: kanbanHref(p.agencyId, p.id),
         kind: "project",
       }));
 
@@ -84,16 +85,18 @@ export default function GlobalSearch() {
         return project && agencyIds.has(project.agencyId) && t.title.toLowerCase().includes(q);
       })
       .slice(0, 8)
-      .map((task) => {
+      .map((task): Result | null => {
         const project = projectById.get(task.projectId);
+        if (!project) return null;
         return {
           id: `task-${task.id}`,
           label: task.title,
-          sub: project?.name ?? t("subTask"),
-          href: `/agences/${project?.agencyId}/projets/${task.projectId}/taches/${task.id}`,
+          sub: project.name,
+          href: taskHref(project.agencyId, task.projectId, task.id),
           kind: "task" as const,
         };
-      });
+      })
+      .filter((result): result is Result => result !== null);
 
     return [...taskResults, ...projectResults, ...agencyResults];
   }, [query, data, user, agencyById, t]);
@@ -104,7 +107,7 @@ export default function GlobalSearch() {
   }, []);
 
   const go = useCallback(
-    (href: string) => {
+    (href: Href) => {
       close();
       setQuery("");
       router.push(href);

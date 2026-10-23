@@ -15,8 +15,9 @@ import {
   Eye,
 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
+import { kanbanHref, projectHref } from "@/lib/projectHref";
 import { useParams } from "next/navigation";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { useAppData } from "@/lib/appData";
 import { userRoleInAgency, getProjectStatusFromTasks, getProjectProgress, memberDisplayName, memberInitials, hasRight, type ProjectStatus, type Project } from "@/lib/types";
@@ -35,18 +36,16 @@ const item: Variants = {
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
 };
 
-const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: string; border?: string }> = {
+const statusConfig: Record<ProjectStatus, { color: string; bg: string; border?: string }> = {
   a_venir: {
-    label: "À venir",
     color: "var(--text-secondary)",
     bg: "transparent",
     border: "1px solid var(--border-subtle)",
   },
-  en_cours: { label: "En cours", color: "var(--blue)", bg: "var(--accent-soft)" },
-  en_retard: { label: "En retard", color: "#D85A30", bg: "rgba(216,90,48,0.14)" },
-  termine: { label: "Terminé", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
+  en_cours: { color: "var(--blue)", bg: "var(--accent-soft)" },
+  en_retard: { color: "#D85A30", bg: "rgba(216,90,48,0.14)" },
+  termine: { color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
   archive: {
-    label: "Archivé",
     color: "var(--text-muted)",
     bg: "transparent",
     border: "1px solid var(--border-subtle)",
@@ -65,6 +64,11 @@ export default function ProjetsPage() {
   const locale = useLocale();
   const user = useAuthStore((s) => s.user);
   const { data, reload, agencyById, projectsByAgency, tasksByProject } = useAppData();
+  const t = useTranslations("Projects.list");
+  const tStatus = useTranslations("ProjectStatuses");
+  const te = useTranslations("Errors");
+  const tc = useTranslations("Common");
+  const tn = useTranslations("Navigation.app");
 
   const agency = agencyById(agencyId);
 
@@ -74,8 +78,6 @@ export default function ProjetsPage() {
 
   // Cliquer sur un projet ouvre toujours son Kanban.
   // L'accès à la page de gestion reste disponible via le menu « Gérer le projet (admin) » de la carte.
-  const projectHref = (id: number) => `/agences/${agencyId}/projets/${id}/kanban`;
-
   const [showArchivedOnly, setShowArchivedOnly] = useState(false);
   const [projectBusyId, setProjectBusyId] = useState<number | null>(null);
   const [confirmDeleteProjectId, setConfirmDeleteProjectId] = useState<number | null>(null);
@@ -115,7 +117,7 @@ export default function ProjetsPage() {
   if (data.loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>{tc("loading")}</p>
       </div>
     );
   }
@@ -124,14 +126,14 @@ export default function ProjetsPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Agence introuvable
+          {te("agencyNotFound")}
         </p>
         <Link
           href="/mes-agences"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Mes agences
+          <ArrowLeft size={16} /> {tn("myAgencies")}
         </Link>
       </div>
     );
@@ -141,14 +143,14 @@ export default function ProjetsPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Vous n&apos;êtes pas membre de cette agence.
+          {te("notAgencyMember")}
         </p>
         <Link
           href="/mes-agences"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Retour à Mes agences
+          <ArrowLeft size={16} /> {tc("backToMyAgencies")}
         </Link>
       </div>
     );
@@ -157,7 +159,7 @@ export default function ProjetsPage() {
   if (data.loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Chargement des projets…</p>
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{t("loading")}</p>
       </div>
     );
   }
@@ -167,7 +169,7 @@ export default function ProjetsPage() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-sm font-semibold" style={{ color: "var(--color-error)" }}>{data.error}</p>
         <button onClick={() => reload()} className="text-sm font-semibold underline" style={{ color: "var(--text-secondary)" }}>
-          Réessayer
+          {tc("retry")}
         </button>
       </div>
     );
@@ -191,10 +193,10 @@ export default function ProjetsPage() {
           </div>
           <div>
             <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
-              Projets
+              {t("title")}
             </h1>
             <p className="mt-0.5 text-sm flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
-              {visibleProjects.length} projet{visibleProjects.length > 1 ? "s" : ""} dans {agency.name}
+              {t("subtitle", { count: visibleProjects.length, agency: agency.name })}
             </p>
             {archivedCount > 0 && (
               <button
@@ -208,7 +210,7 @@ export default function ProjetsPage() {
                 }
               >
                 <Archive size={13} />
-                {showArchivedOnly ? "Tous les projets" : `Archivés (${archivedCount})`}
+                {showArchivedOnly ? t("showAll") : t("archived", { count: archivedCount })}
               </button>
             )}
           </div>
@@ -217,11 +219,11 @@ export default function ProjetsPage() {
         {canCreateProjects && (
           <div className="flex items-center gap-2 self-start sm:self-auto">
             <Link
-              href={`/agences/${agencyId}/projets/nouveauProjet`}
+              href={{ pathname: "/agences/[agencyId]/projets/nouveauProjet", params: { agencyId } }}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
               style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
             >
-              <Plus size={16} /> Nouveau projet
+              <Plus size={16} /> {t("newProject")}
             </Link>
           </div>
         )}
@@ -237,22 +239,22 @@ export default function ProjetsPage() {
             <LayoutGrid className="w-7 h-7" style={{ color: "var(--accent-text)" }} />
           </div>
           <p className="font-bold" style={{ color: "var(--text-primary)" }}>
-            {showArchivedOnly ? "Aucun projet archivé" : "Aucun projet pour le moment"}
+            {showArchivedOnly ? t("emptyArchivedTitle") : t("emptyTitle")}
           </p>
           <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
             {showArchivedOnly
-              ? "Les projets archivés apparaîtront ici pour être restaurés."
+              ? t("emptyArchivedText")
               : isAdmin
-              ? "Créez votre premier projet pour commencer à structurer le travail."
-              : "Les projets auxquels vous êtes assigné apparaîtront ici."}
+              ? t("emptyAdminText")
+              : t("emptyMemberText")}
           </p>
           {isAdmin && (
             <Link
-              href={`/agences/${agencyId}/projets/nouveauProjet`}
+              href={{ pathname: "/agences/[agencyId]/projets/nouveauProjet", params: { agencyId } }}
               className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
               style={{ background: "var(--gradient-button)" }}
             >
-              <Plus size={16} /> Créer votre premier projet
+              <Plus size={16} /> {t("createFirst")}
             </Link>
           )}
         </motion.div>
@@ -282,9 +284,9 @@ export default function ProjetsPage() {
                 >
                   {/* Lien vers le Kanban du projet — cliquable pour tout le monde */}
                   <Link
-                    href={projectHref(p.id)}
+                    href={kanbanHref(agencyId, p.id)}
                     className="absolute inset-0 rounded-2xl"
-                    aria-label={`Voir le projet ${p.name}`}
+                    aria-label={t("viewProject", { name: p.name })}
                   />
 
                   {/* Fond de couverture : le wallpaper choisi s'affiche au-dessus de la progression,
@@ -305,14 +307,14 @@ export default function ProjetsPage() {
                           {p.name}
                         </div>
                         <p className="text-sm mt-1 line-clamp-3" style={{ color: wallpaperSrc ? "rgba(255,255,255,0.85)" : "var(--text-secondary)" }}>
-                          {p.description || "Aucune description."}
+                          {p.description || tc("noDescription")}
                         </p>
                       </div>
                       <span
                         className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap"
                         style={{ color: startBadge.color, background: startBadge.bg, border: startBadge.border }}
                       >
-                        {startBadge.label}
+                        {tStatus(projectStatus)}
                       </span>
                     </div>
                   </div>
@@ -320,7 +322,7 @@ export default function ProjetsPage() {
                   {/* Barre de progression */}
                   <div className="relative pointer-events-none">
                     <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span style={{ color: "var(--text-secondary)" }}>Progression</span>
+                      <span style={{ color: "var(--text-secondary)" }}>{t("progress")}</span>
                       <span className="font-semibold" style={{ color: "var(--text-primary)" }}>
                         {progress}%
                       </span>
@@ -345,7 +347,7 @@ export default function ProjetsPage() {
                   <div className="relative pointer-events-none flex items-center gap-4 text-xs">
                     <span className="flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
                       <ListTodo className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
-                      {totalTasks} tâche{totalTasks > 1 ? "s" : ""}
+                      {t("taskCount", { count: totalTasks })}
                     </span>
                     <span className="flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
                       <Calendar className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
@@ -363,7 +365,7 @@ export default function ProjetsPage() {
                         {owner ? memberInitials(owner) : <UserRound className="w-3.5 h-3.5" />}
                       </div>
                       <span className="text-xs font-medium truncate" style={{ color: "var(--text-secondary)" }}>
-                        {owner ? memberDisplayName(owner) : p.ownerId ? `Utilisateur #${p.ownerId}` : "Responsable inconnu"}
+                        {owner ? memberDisplayName(owner) : p.ownerId ? t("ownerUser", { id: p.ownerId }) : t("unknownOwner")}
                       </span>
                     </div>
                     {isAdmin && (
@@ -377,12 +379,12 @@ export default function ProjetsPage() {
                               style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}
                             >
                               <ArchiveRestore size={12} />
-                              {projectBusyId === p.id ? "…" : "Restaurer"}
+                              {projectBusyId === p.id ? "…" : t("restore")}
                             </button>
                             <button
                               onClick={() => setConfirmDeleteProjectId(p.id)}
                               disabled={projectBusyId === p.id}
-                              title="Supprimer définitivement"
+                              title={t("deleteTitle")}
                               className="p-1.5 rounded-lg transition-colors disabled:opacity-60"
                               style={{ background: "var(--color-danger-soft)", color: "var(--color-error)" }}
                             >
@@ -391,12 +393,12 @@ export default function ProjetsPage() {
                           </>
                         )}
                         <Link
-                          href={`/agences/${agencyId}/projets/${p.id}`}
-                          title="Gérer le projet (admin)"
+                          href={projectHref(agencyId, p.id)}
+                          title={t("manageTitle")}
                           className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105 shrink-0"
                           style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}
                         >
-                          <Eye size={13} /> Voir plus
+                          <Eye size={13} /> {tc("seeMore")}
                         </Link>
                       </div>
                     )}
@@ -409,13 +411,13 @@ export default function ProjetsPage() {
       )}
       <ConfirmDialog
         open={confirmDeleteProjectId !== null}
-        title="Supprimer définitivement ?"
+        title={t("deleteDialogTitle")}
         message={
           confirmDeleteProjectId !== null
-            ? `Ce projet et toutes ses tâches, sous-tâches, fichiers et commentaires seront définitivement supprimés. Cette action est irréversible.`
+            ? t("deleteDialogText")
             : ""
         }
-        confirmLabel="Supprimer"
+        confirmLabel={tc("delete")}
         tone="danger"
         onConfirm={handleDeleteProject}
         onCancel={() => setConfirmDeleteProjectId(null)}

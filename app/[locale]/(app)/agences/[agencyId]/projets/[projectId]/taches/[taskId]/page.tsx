@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
 import { Link } from "@/i18n/navigation";
+import { kanbanHref, projectsHref, taskHref } from "@/lib/projectHref";
 import { useLocale, useTranslations } from "next-intl";
 import { motion, type Variants } from "framer-motion";
 import DatePickerField from "@/app/[locale]/(app)/components/DatePickerField";
@@ -33,6 +34,7 @@ ChevronDown,
   Paperclip,
   Pencil,
   Plus,
+  RotateCcw,
   Save,
   Send,
   Tags,
@@ -65,6 +67,7 @@ import {
   type StatusStyle,
 } from "@/lib/taskStatusStyle";
 import { useTaskStatuses } from "@/lib/useTaskStatuses";
+import { useLabels } from "@/lib/useLabels";
 import { useAuthStore } from "@/app/store/authStore";
 import {
   fetchTask,
@@ -101,11 +104,11 @@ const item: Variants = {
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
 };
 
-const priorityConfig: Record<TaskPriority, { label: string; color: string; bg: string; border?: string }> = {
-  basse: { label: "Basse", color: "#e8edf5", bg: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.35)" },
-  moyenne: { label: "Moyenne", color: "var(--blue-mid)", bg: "rgba(var(--blue-mid-rgb),0.16)" },
-  haute: { label: "Haute", color: "#fbbf24", bg: "rgba(251,191,36,0.18)" },
-  urgente: { label: "Urgente", color: "#FF6B6B", bg: "rgba(255,107,107,0.16)" },
+const priorityConfig: Record<TaskPriority, { color: string; bg: string; border?: string }> = {
+  basse: { color: "#e8edf5", bg: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.35)" },
+  moyenne: { color: "var(--blue-mid)", bg: "rgba(var(--blue-mid-rgb),0.16)" },
+  haute: { color: "#fbbf24", bg: "rgba(251,191,36,0.18)" },
+  urgente: { color: "#FF6B6B", bg: "rgba(255,107,107,0.16)" },
 };
 
 // Assombrit une couleur trop claire pour rester lisible sur fond blanc
@@ -117,7 +120,7 @@ const readableOnWhite = (hex: string) => {
   return 0.299 * r + 0.587 * g + 0.114 * b > 200 ? "#64748b" : hex;
 };
 
-const formatDate = (date: string | null, locale: string = "fr") => {
+const formatDate = (date: string | null, locale: string) => {
   if (!date) return "—";
   const hasTime = date.includes("T") || date.includes(":");
   const d = hasTime ? new Date(date) : new Date(date + "T00:00:00");
@@ -130,13 +133,16 @@ const historyConfig: Record<string, { labelKey: string; color: string; bg: strin
   creation: { labelKey: ACTIVITY_LABELS["creation"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CalendarPlus },
   changement_statut: { labelKey: ACTIVITY_LABELS["changement_statut"], color: "var(--blue)", bg: "var(--accent-soft)", icon: Flag },
   tache_terminee: { labelKey: ACTIVITY_LABELS["tache_terminee"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CheckCircle2 },
+  reouverture: { labelKey: ACTIVITY_LABELS["reouverture"], color: "var(--blue)", bg: "var(--accent-soft)", icon: RotateCcw },
   changement_responsable: { labelKey: ACTIVITY_LABELS["changement_responsable"], color: "#7c3aed", bg: "rgba(139,92,246,0.12)", icon: UserRound },
   changement_priorite: { labelKey: ACTIVITY_LABELS["changement_priorite"], color: "#d97706", bg: "rgba(245,158,11,0.15)", icon: Flag },
   changement_echeance: { labelKey: ACTIVITY_LABELS["changement_echeance"], color: "#db2777", bg: "rgba(219,39,119,0.12)", icon: CalendarClock },
   commentaire: { labelKey: ACTIVITY_LABELS["commentaire"], color: "var(--accent-text)", bg: "var(--accent-soft)", icon: MessageSquare },
+  creation_projet: { labelKey: ACTIVITY_LABELS["creation_projet"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: FolderKanban },
+  membre_ajoute: { labelKey: ACTIVITY_LABELS["membre_ajoute"], color: "var(--accent-text)", bg: "var(--accent-soft)", icon: UserRound },
 };
 
-const formatDateTime = (iso: string, locale: string = "fr") => formatDateTimeShort(new Date(iso), locale);
+const formatDateTime = (iso: string, locale: string) => formatDateTimeShort(new Date(iso), locale);
 
 // La boîte Historique d'une tâche ne montre que les actions du jour
 const isToday = (iso: string): boolean => {
@@ -183,6 +189,12 @@ export default function TaskDetailPage() {
   const { agencyId, projectId, taskId } = useParams<{ agencyId: string; projectId: string; taskId: string }>();
   const locale = useLocale();
   const tTasks = useTranslations("Tasks");
+  const tDetail = useTranslations("Tasks.detail");
+  const tForm = useTranslations("Tasks.form");
+  const tCommon = useTranslations("Common");
+  const tErrors = useTranslations("Projects.errors");
+  const te = useTranslations("Errors");
+  const tValidation = useTranslations("Validation");
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const { reload, agencyById, getProject, tasksByProject, data } = useAppData();
@@ -194,9 +206,13 @@ export default function TaskDetailPage() {
   const isAdmin = role === "owner" || role === "admin";
 
   const { statuses, labelOf } = useTaskStatuses();
+  const { status: statusLabel, deadline: deadlineLabel, priority: priorityLabel } = useLabels();
+  const tPriority = useTranslations("Priorities");
   const statusConfig = useMemo(() => buildStatusStyleIndex(statuses), [statuses]);
   const statusStyleOf = (status: TaskStatus): StatusStyle =>
-    statusStyleOfStyle(status, statusConfig, labelOf(status));
+    statusStyleOfStyle(status, statusConfig, statusLabel(status, labelOf(status)));
+  const apiErrorMessage = (err: unknown) =>
+    getApiErrorMessage(err, { generic: te("generic"), server: te("generic") });
 
   // Données via API
   const taskResult = useAsync(() => fetchTask(taskId), [taskId], { cacheKey: `task-detail:${taskId}` });
@@ -276,8 +292,10 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
   useEffect(() => {
-    document.title = task ? `${task.title} — Détail de la tâche` : "Détail de la tâche";
-  }, [task]);
+    document.title = task
+      ? tDetail("documentTitle", { title: task.title })
+      : tDetail("documentTitleFallback");
+  }, [task, tDetail]);
 
   const openEdit = () => {
     if (!task) return;
@@ -308,18 +326,18 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
     if (!task || !project) return;
 
     const fe: Record<string, string> = {};
-    if (!editTitle.trim()) fe.title = "Le titre de la tâche est obligatoire.";
+    if (!editTitle.trim()) fe.title = tValidation("taskTitleRequired");
     if (!editStartDate) {
-      fe.startDate = "La date de début est obligatoire.";
+      fe.startDate = tValidation("startDateRequired");
     } else if (project.startDate && editStartDate < project.startDate) {
-      fe.startDate = `Doit être postérieure ou égale au début du projet (${project.startDate}).`;
+      fe.startDate = tValidation("startDateAfterProject", { date: project.startDate });
     }
     if (!editDueDate) {
-      fe.dueDate = "La date d'échéance est obligatoire.";
+      fe.dueDate = tValidation("dueDateRequired");
     } else if (editDueDate < editStartDate) {
-      fe.dueDate = "La date d'échéance doit être postérieure ou égale à la date de début.";
+      fe.dueDate = tValidation("dueDateBeforeStart");
     } else if (project.dueDate && editDueDate > project.dueDate) {
-      fe.dueDate = `Doit être antérieure ou égale à l'échéance du projet (${project.dueDate}).`;
+      fe.dueDate = tValidation("dueDateBeforeProject", { date: project.dueDate });
     }
     if (Object.keys(fe).length > 0) {
       setEditFieldErrors(fe);
@@ -341,7 +359,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
       void reload();
       setEditing(false);
     } catch (err) {
-      setEditApiError(getApiErrorMessage(err));
+      setEditApiError(apiErrorMessage(err));
     } finally {
       setActionLoading(false);
     }
@@ -357,7 +375,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
       taskResult.reload();
     } catch (err) {
       setConfirmingArchive(false);
-      alert(getApiErrorMessage(err));
+      alert(apiErrorMessage(err));
     } finally {
       setActionLoading(false);
     }
@@ -371,7 +389,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
       void reload();
       taskResult.reload();
     } catch (err) {
-      alert(getApiErrorMessage(err));
+      alert(apiErrorMessage(err));
     } finally {
       setActionLoading(false);
     }
@@ -384,10 +402,10 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
       const projectId = String(task.projectId);
       await apiDeleteTask(task.id);
       await reload();
-      router.push(`/agences/${agencyId}/projets/${projectId}/kanban`);
+      router.push(kanbanHref(agencyId, projectId));
     } catch (err) {
       setConfirmingDelete(false);
-      alert(getApiErrorMessage(err));
+      alert(apiErrorMessage(err));
     } finally {
       setActionLoading(false);
     }
@@ -398,7 +416,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
     setCommentError(null);
     if (!user || !task) return;
     if (!commentContent.trim()) {
-      setCommentError("Le commentaire ne peut pas être vide.");
+      setCommentError(tValidation("commentRequired"));
       return;
     }
     try {
@@ -409,7 +427,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
       setCommentOpen(false);
       taskResult.reload();
     } catch (err) {
-      setCommentError(getApiErrorMessage(err));
+      setCommentError(apiErrorMessage(err));
     }
   };
 
@@ -419,7 +437,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
       await apiDeleteComment(commentId);
       taskResult.reload();
     } catch (err) {
-      alert(getApiErrorMessage(err));
+      alert(apiErrorMessage(err));
     }
   };
 
@@ -461,7 +479,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
     setSubtaskError(null);
     if (!task) return;
     if (!newSubtask.trim()) {
-      setSubtaskError("Le titre de la sous-tâche est obligatoire.");
+      setSubtaskError(tValidation("subtaskTitleRequired"));
       return;
     }
     setSubtaskBusy(true);
@@ -470,7 +488,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
       setNewSubtask("");
       taskResult.reload();
     } catch (err) {
-      setSubtaskError(getApiErrorMessage(err));
+      setSubtaskError(apiErrorMessage(err));
     } finally {
       setSubtaskBusy(false);
     }
@@ -481,7 +499,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
       await apiUpdateSubtask(sub.id, { done: !sub.done });
       taskResult.reload();
     } catch (err) {
-      alert(getApiErrorMessage(err));
+      alert(apiErrorMessage(err));
     }
   };
 
@@ -490,7 +508,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
       await apiDeleteSubtask(sub.id);
       taskResult.reload();
     } catch (err) {
-      alert(getApiErrorMessage(err));
+      alert(apiErrorMessage(err));
     }
   };
 
@@ -517,7 +535,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
       taskResult.reload();
       void reload();
     } catch (err) {
-      setDepError(getApiErrorMessage(err));
+      setDepError(apiErrorMessage(err));
     } finally {
       setDepBusy(false);
     }
@@ -539,7 +557,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
       taskResult.reload();
       void reload();
     } catch (err) {
-      setDepError(getApiErrorMessage(err));
+      setDepError(apiErrorMessage(err));
     } finally {
       setDepBusy(false);
     }
@@ -559,7 +577,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
       taskResult.reload();
       void reload();
     } catch (err) {
-      setDepError(getApiErrorMessage(err));
+      setDepError(apiErrorMessage(err));
     } finally {
       setDepBusy(false);
     }
@@ -577,7 +595,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
       taskResult.reload();
       void reload();
     } catch (err) {
-      alert(getApiErrorMessage(err));
+      alert(apiErrorMessage(err));
     } finally {
       setTagsBusy(false);
     }
@@ -595,7 +613,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
       taskResult.reload();
       void reload();
     } catch (err) {
-      alert(getApiErrorMessage(err));
+      alert(apiErrorMessage(err));
     } finally {
       setTagsBusy(false);
     }
@@ -610,7 +628,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
       taskResult.reload();
       void reload();
     } catch (err) {
-      alert(getApiErrorMessage(err));
+      alert(apiErrorMessage(err));
     } finally {
       setTagsBusy(false);
     }
@@ -626,7 +644,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
       taskResult.reload();
       historyResult.reload();
     } catch (err) {
-      setAttachmentError(getApiErrorMessage(err));
+      setAttachmentError(apiErrorMessage(err));
     } finally {
       setUploadBusy(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -637,7 +655,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
     try {
       await apiDownloadAttachment(att);
     } catch (err) {
-      alert(getApiErrorMessage(err));
+      alert(apiErrorMessage(err));
     }
   };
 
@@ -646,14 +664,14 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
       await apiDeleteAttachment(att.id);
       taskResult.reload();
     } catch (err) {
-      alert(getApiErrorMessage(err));
+      alert(apiErrorMessage(err));
     }
   };
 
   if (data.loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>{tCommon("loading")}</p>
       </div>
     );
   }
@@ -663,14 +681,14 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Agence introuvable
+          {te("agencyNotFound")}
         </p>
         <Link
           href="/mes-agences"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Mes agences
+          <ArrowLeft size={16} /> {tCommon("backToMyAgencies")}
         </Link>
       </div>
     );
@@ -682,14 +700,14 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Vous n&apos;êtes pas membre de cette agence.
+          {te("notAgencyMember")}
         </p>
         <Link
           href="/mes-agences"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Retour à Mes agences
+          <ArrowLeft size={16} /> {tCommon("backToMyAgencies")}
         </Link>
       </div>
     );
@@ -700,14 +718,14 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Projet introuvable
+          {tErrors("projectNotFound")}
         </p>
         <Link
-          href={`/agences/${agencyId}/projets`}
+          href={projectsHref(agencyId)}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Retour aux projets
+          <ArrowLeft size={16} /> {tErrors("backToProjects")}
         </Link>
       </div>
     );
@@ -722,7 +740,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
   if (!hasProjectAccess && (membersResult.loading || taskResult.loading)) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>{tCommon("loading")}</p>
       </div>
     );
   }
@@ -731,17 +749,17 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Accès refusé
+          {te("accessDenied")}
         </p>
         <p className="max-w-sm" style={{ color: "var(--text-secondary)" }}>
-          Seuls les membres du projet peuvent ouvrir la fiche d&apos;une tâche.
+          {tTasks("detail.accessDeniedDetail")}
         </p>
         <Link
-          href={`/agences/${agencyId}/projets/${projectId}/kanban`}
+          href={kanbanHref(agencyId, projectId)}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Retour au Kanban
+          <ArrowLeft size={16} /> {tTasks("detail.backToKanban")}
         </Link>
       </div>
     );
@@ -752,21 +770,21 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
     if (taskResult.loading) {
       return (
         <div className="flex items-center justify-center min-h-[50vh]">
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>{tCommon("loading")}</p>
         </div>
       );
     }
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Tâche introuvable
+          {tTasks("detail.taskNotFound")}
         </p>
         <Link
-          href={`/agences/${agencyId}/projets/${projectId}/kanban`}
+          href={kanbanHref(agencyId, projectId)}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Retour au Kanban
+          <ArrowLeft size={16} /> {tTasks("detail.backToKanban")}
         </Link>
       </div>
     );
@@ -800,10 +818,11 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
 
   const statusBadge = statusStyleOf(task.status);
   const prio = priorityConfig[task.priority];
-  const deadlineMeta =
+  const deadlineKey =
     task.deadlineStatus && task.deadlineStatus !== "a_venir"
-      ? DEADLINE_META[task.deadlineStatus]
+      ? task.deadlineStatus
       : null;
+  const deadlineMeta = deadlineKey ? DEADLINE_META[deadlineKey] : null;
 
   // En-tête : teinte PLUS PROFONDE que le statut (couleur pure, opaque).
   // On garde des teintes choisies à la main pour les quatre statuts
@@ -830,7 +849,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
         >
           <History size={14} style={{ color: "#7c3aed" }} />
         </span>
-        Historique
+        {tDetail("historyTitle")}
         {history.length > 0 && (
           <span
             className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full"
@@ -843,11 +862,11 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
 
       {historyResult.loading ? (
         <p className="text-sm text-center py-3" style={{ color: "var(--text-muted)" }}>
-          Chargement de l&apos;historique…
+          {tDetail("historyLoading")}
         </p>
       ) : history.length === 0 ? (
         <p className="text-sm text-center py-3" style={{ color: "var(--text-muted)" }}>
-          Aucune action aujourd&apos;hui.
+          {tDetail("historyEmpty")}
         </p>
       ) : (
         <>
@@ -882,6 +901,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                           h,
                           actor ? `${actor.user.firstName} ${actor.user.lastName}` : null,
                           tTasks,
+                          { statuses, statusLabel, priorityLabel },
                         )}
                       </span>
                       <span
@@ -906,7 +926,9 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
               style={{ color: "var(--accent-text)", background: "var(--accent-soft)" }}
             >
               {historyExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              {historyExpanded ? "Voir moins" : `Voir plus (${history.length - HISTORY_VISIBLE})`}
+              {historyExpanded
+                ? tCommon("seeLess")
+                : tCommon("seeMoreCount", { count: history.length - HISTORY_VISIBLE })}
             </button>
           )}
         </>
@@ -919,14 +941,14 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
       {/* Lien retour */}
       <motion.div variants={item} className="flex items-center justify-between gap-3">
         <Link
-          href={`/agences/${agencyId}/projets/${projectId}/kanban`}
+          href={kanbanHref(agencyId, projectId)}
           className="inline-flex items-center gap-2 text-sm font-semibold hover:opacity-80"
           style={{ color: "var(--text-secondary)" }}
         >
-          <ArrowLeft size={16} /> Kanban
+          <ArrowLeft size={16} /> {tDetail("kanban")}
         </Link>
         <Link
-          href={`/agences/${agencyId}/projets`}
+          href={projectsHref(agencyId)}
           className="inline-flex items-center gap-2 text-sm font-semibold hover:opacity-80"
           style={{ color: "var(--text-secondary)" }}
         >
@@ -964,14 +986,14 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                     className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
                     style={{ color: readableOnWhite(prio.color), background: "#fff", border: `1px solid ${prio.color}` }}
                   >
-                    Priorité {prio.label.toLowerCase()}
+                    {tPriority("label")} {tPriority(task.priority).toLowerCase()}
                   </span>
 {isTaskBlocked(task, statuses) && (
                       <span
                         className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full"
                         style={{ color: "#fff", background: "rgba(0,0,0,0.28)", border: "1px solid rgba(255,255,255,0.4)" }}
                       >
-                        <Lock size={12} /> Bloquée
+                        <Lock size={12} /> {tCommon("blocked")}
                       </span>
                     )}
                   {deadlineMeta && (
@@ -979,7 +1001,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                       className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
                       style={{ color: readableOnWhite(deadlineMeta.color), background: "#fff", border: `1px solid ${deadlineMeta.color}` }}
                     >
-                      {deadlineMeta.label}
+                      {deadlineLabel(deadlineKey ?? "", deadlineMeta.label)}
                     </span>
                   )}
                 </div>
@@ -993,7 +1015,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5"
                     style={{ background: "#fff", color: "var(--accent-text)", boxShadow: "0 2px 6px -2px rgba(var(--blue-rgb),0.35)" }}
                   >
-                    <Pencil size={13} /> Modifier
+                    <Pencil size={13} /> {tCommon("edit")}
                   </button>
                   {task.archivedAt ? (
                     <button
@@ -1002,7 +1024,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5 disabled:opacity-60"
                       style={{ background: "#fff", color: "var(--color-success)", boxShadow: "0 2px 6px -2px rgba(16,185,129,0.35)" }}
                     >
-                      <ArchiveRestore size={13} /> Restaurer
+                      <ArchiveRestore size={13} /> {tCommon("restore")}
                     </button>
                   ) : (
                     <button
@@ -1010,12 +1032,12 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5"
                       style={{ background: "#fff", color: "var(--color-error)", boxShadow: "0 2px 6px -2px rgba(239,68,68,0.3)" }}
                     >
-                      <Archive size={13} /> Archiver
+                      <Archive size={13} /> {tCommon("archive")}
                     </button>
                   )}
                   <button
                     onClick={() => setConfirmingDelete(true)}
-                    title="Supprimer définitivement"
+                    title={tCommon("deletePermanently")}
                     className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-[13px] transition-all hover:scale-[1.03] hover:-translate-y-0.5"
                     style={{ background: "rgba(255,255,255,0.14)", color: "#fff", border: "1px solid rgba(255,255,255,0.25)" }}
                   >
@@ -1033,10 +1055,10 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
           {/* Description */}
           <div>
             <h2 className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: "rgba(255,255,255,0.92)" }}>
-              Description
+              {tForm("descriptionLabel")}
             </h2>
             <p className="text-sm whitespace-pre-wrap" style={{ color: "#fff" }}>
-              {task.description || "Aucune description."}
+              {task.description || tCommon("noDescription")}
             </p>
           </div>
 
@@ -1045,7 +1067,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
           {canChangeStatus && !task.archivedAt && (
             <div className="flex flex-col gap-2 pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.25)" }}>
               <span className="text-xs font-bold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.92)" }}>
-                Avancement de la tâche
+                {tDetail("progressTitle")}
               </span>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {statuses.map((s) => {
@@ -1087,11 +1109,13 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
             </div>
             <div>
               <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-                Tâche archivée
+                {tDetail("archivedTitle")}
               </p>
               <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
                 {task.archivedAt
-                  ? `Archivée le ${formatDateLong(new Date(task.archivedAt), locale)}. Elle est retirée du Kanban.`
+                  ? tDetail("archivedMessage", {
+                      date: formatDateLong(new Date(task.archivedAt), locale),
+                    })
                   : ""}
               </p>
             </div>
@@ -1103,7 +1127,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-transform hover:scale-105 disabled:opacity-60"
               style={{ background: "var(--gradient-button)", color: "#fff", boxShadow: "0 6px 14px -6px rgba(var(--blue-rgb),0.45)" }}
             >
-              <ArchiveRestore size={15} /> Restaurer
+              <ArchiveRestore size={15} /> {tCommon("restore")}
             </button>
           )}
         </motion.div>
@@ -1118,10 +1142,10 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-              <Tags size={14} /> Étiquettes
+              <Tags size={14} /> {tDetail("tagsTitle")}
             </span>
             {task.tags.length === 0 && (
-              <span className="text-sm" style={{ color: "var(--text-muted)" }}>Aucune</span>
+              <span className="text-sm" style={{ color: "var(--text-muted)" }}>{tDetail("tagsNone")}</span>
             )}
             {task.tags.map((tg) => (
               <span
@@ -1150,7 +1174,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
               style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
             >
               {tagsOpen ? <X size={13} /> : <Plus size={13} />}
-              {tagsOpen ? "Fermer" : "Gérer"}
+              {tagsOpen ? tCommon("close") : tDetail("tagsManage")}
             </button>
           )}
         </div>
@@ -1160,7 +1184,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
             <div className="flex flex-wrap gap-2">
               {projectTags.length === 0 ? (
                 <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                  Aucune étiquette dans ce projet. Créez-en une ci-dessous.
+                  {tDetail("tagsEmpty")}
                 </p>
               ) : (
                 projectTags.map((tg) => {
@@ -1185,7 +1209,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                         type="button"
                         disabled={tagsBusy}
                         onClick={() => handleDeleteTag(tg)}
-                        title={`Supprimer l'étiquette « ${tg.name} »`}
+                        title={tDetail("tagsDeleteTitle", { name: tg.name })}
                         className="shrink-0 p-1 rounded-full opacity-60 hover:opacity-100 transition-opacity disabled:opacity-30"
                         style={{ color: "var(--color-error)" }}
                       >
@@ -1201,7 +1225,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                 <input
                   value={newTagName}
                   onChange={(e) => setNewTagName(e.target.value)}
-                  placeholder="Nouvelle étiquette…"
+                  placeholder={tDetail("tagsNewPlaceholder")}
                   className="flex-1 px-3 py-2 rounded-xl text-sm outline-none"
                   style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                 />
@@ -1211,7 +1235,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                   className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
                   style={{ background: "var(--gradient-button)" }}
                 >
-                  <Plus size={14} /> Créer
+                  <Plus size={14} /> {tCommon("create")}
                 </button>
               </form>
             )}
@@ -1224,7 +1248,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
         {/* Assignée à */}
         <div className="glass rounded-2xl p-5" style={{ boxShadow: "var(--shadow-card)" }}>
           <h2 className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: "var(--text-muted)" }}>
-            Responsable assigné
+            {tDetail("assigneeLabel")}
           </h2>
           {assignee ? (
             <div className="flex items-center gap-3">
@@ -1249,7 +1273,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
             </div>
           ) : (
             <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-              <UserRound size={16} style={{ color: "var(--text-muted)" }} /> Non assignée
+              <UserRound size={16} style={{ color: "var(--text-muted)" }} /> {tCommon("unassigned")}
             </div>
           )}
         </div>
@@ -1257,7 +1281,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
         {/* Créée par */}
         <div className="glass rounded-2xl p-5" style={{ boxShadow: "var(--shadow-card)" }}>
           <h2 className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: "var(--text-muted)" }}>
-            Créée par
+            {tDetail("creatorLabel")}
           </h2>
           <div className="flex items-center gap-3">
             <div
@@ -1292,7 +1316,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
             >
               <ListChecks size={16} style={{ color: "var(--accent-text)" }} />
             </span>
-            Sous-tâches
+            {tDetail("subtasksTitle")}
             {subtasks.length > 0 && (
               <span
                 className="text-xs font-semibold px-2 py-0.5 rounded-full"
@@ -1315,11 +1339,11 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
 
         {taskResult.loading ? (
           <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
-            Chargement des sous-tâches…
+            {tDetail("subtasksLoading")}
           </p>
         ) : subtasks.length === 0 ? (
           <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
-            Aucune sous-tâche pour le moment.
+            {tDetail("subtasksEmpty")}
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -1338,7 +1362,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                     background: sub.done ? "var(--gradient-primary)" : "transparent",
                     border: sub.done ? "none" : "1.5px solid var(--input-border)",
                   }}
-                  title={sub.done ? "Marquer comme non terminée" : "Marquer comme terminée"}
+                  title={sub.done ? tDetail("subtasksMarkUndone") : tDetail("subtasksMarkDone")}
                 >
                   {sub.done && <Check size={13} color="#fff" />}
                 </button>
@@ -1357,7 +1381,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                       size={13}
                       className="shrink-0"
                       style={{ color: "var(--text-muted)" }}
-                      aria-label="Sous-tâche imposée par un administrateur : suppression réservée à un admin"
+                      aria-label={tDetail("subtasksImposedAria")}
                     />
                   )}
                 </span>
@@ -1367,7 +1391,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                     onClick={() => handleDeleteSubtask(sub)}
                     className="shrink-0 p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
                     style={{ color: "var(--color-error)" }}
-                    title="Supprimer cette sous-tâche"
+                    title={tDetail("subtasksDeleteTitle")}
                   >
                     <Trash2 size={13} />
                   </button>
@@ -1385,7 +1409,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                 setNewSubtask(e.target.value);
                 setSubtaskError(null);
               }}
-              placeholder="Ajouter une sous-tâche…"
+              placeholder={tDetail("subtasksPlaceholder")}
               className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none"
               style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
             />
@@ -1395,7 +1419,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
               className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
               style={{ background: "var(--gradient-button)" }}
             >
-              <Plus size={15} /> {subtaskBusy ? "…" : "Ajouter"}
+              <Plus size={15} /> {subtaskBusy ? "…" : tCommon("add")}
             </button>
           </form>
         )}
@@ -1416,31 +1440,31 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
             >
               <GitBranch size={16} style={{ color: "var(--accent-text)" }} />
             </span>
-            Dépendances
+            {tDetail("dependenciesTitle")}
           </h2>
           {isTaskBlocked(task, statuses) && (
             <span
               className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full"
               style={{ color: "var(--color-error)", background: "var(--hover-soft)" }}
             >
-              <Lock size={11} /> Bloquée
+              <Lock size={11} /> {tCommon("blocked")}
             </span>
           )}
         </div>
 
         {taskResult.loading ? (
           <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
-            Chargement des dépendances…
+            {tDetail("dependenciesLoading")}
           </p>
         ) : (
           <div className="space-y-4">
             {/* Dépend de (prérequis) */}
             <div>
               <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>
-                Dépend de
+                {tDetail("dependenciesDependsOn")}
               </p>
               {dependencies.length === 0 ? (
-                <p className="text-sm" style={{ color: "var(--text-muted)" }}>Aucun prérequis.</p>
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>{tDetail("dependenciesNone")}</p>
               ) : (
                 <ul className="flex flex-col gap-2">
                   {dependencies.map((dep) => (
@@ -1450,7 +1474,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                       style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
                     >
                       <Link
-                        href={`/agences/${agencyId}/projets/${projectId}/taches/${dep.id}`}
+                        href={taskHref(agencyId, projectId, dep.id)}
                         className="flex-1 min-w-0 text-sm truncate hover:underline"
                         style={{ color: "var(--text-primary)" }}
                       >
@@ -1460,7 +1484,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                         className="shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full"
                         style={{ background: "var(--hover-soft)", color: statusStyleOf(dep.status).color }}
                       >
-                        {labelOf(dep.status)}
+                        {statusLabel(dep.status, labelOf(dep.status))}
                       </span>
                       {dep.dueDate && (
                         <span className="shrink-0 text-[11px]" style={{ color: "var(--text-muted)" }}>
@@ -1472,7 +1496,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                           type="button"
                           disabled={depBusy}
                           onClick={() => handleRemoveDependency(dep.id)}
-                          title="Retirer cette dépendance"
+                          title={tDetail("dependenciesRemoveTitle")}
                           className="shrink-0 p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-30"
                           style={{ color: "var(--color-error)" }}
                         >
@@ -1488,10 +1512,10 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
             {/* Requise par (dépendants, lecture seule) */}
             <div>
               <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>
-                Requise par
+                {tDetail("dependenciesRequiredBy")}
               </p>
               {dependents.length === 0 ? (
-                <p className="text-sm" style={{ color: "var(--text-muted)" }}>Aucune tâche ne dépend de celle-ci.</p>
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>{tDetail("dependenciesNoneDependents")}</p>
               ) : (
                 <ul className="flex flex-col gap-2">
                   {dependents.map((dep) => (
@@ -1501,7 +1525,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                       style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
                     >
                       <Link
-                        href={`/agences/${agencyId}/projets/${projectId}/taches/${dep.id}`}
+                        href={taskHref(agencyId, projectId, dep.id)}
                         className="flex-1 min-w-0 text-sm truncate hover:underline"
                         style={{ color: "var(--text-primary)" }}
                       >
@@ -1511,7 +1535,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                         className="shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full"
                         style={{ background: "var(--hover-soft)", color: statusStyleOf(dep.status).color }}
                       >
-                        {labelOf(dep.status)}
+                        {statusLabel(dep.status, labelOf(dep.status))}
                       </span>
                       {dep.dueDate && (
                         <span className="shrink-0 text-[11px]" style={{ color: "var(--text-muted)" }}>
@@ -1522,7 +1546,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                         size={12}
                         className="shrink-0"
                         style={{ color: "var(--text-muted)" }}
-                        aria-label="Ce lien se retire depuis la tâche prérequis"
+                        aria-label={tDetail("dependenciesLockedAria")}
                       />
                     </li>
                   ))}
@@ -1543,7 +1567,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                     className="flex-1 px-3 py-2.5 rounded-xl text-sm outline-none"
                     style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                   >
-                    <option value="">Ajouter un prérequis…</option>
+                    <option value="">{tDetail("dependenciesPlaceholder")}</option>
                     {dependencyCandidates.map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.title}
@@ -1557,7 +1581,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                     className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
                     style={{ background: "var(--gradient-button)" }}
                   >
-                    <Plus size={15} /> {depBusy ? "…" : "Ajouter"}
+                    <Plus size={15} /> {depBusy ? "…" : tCommon("add")}
                   </button>
                 </div>
               </div>
@@ -1580,7 +1604,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
             >
               <Paperclip size={16} style={{ color: "var(--accent-text)" }} />
             </span>
-            Pièces jointes
+            {tDetail("attachmentsTitle")}
             {attachments.length > 0 && (
               <span
                 className="text-xs font-semibold px-2 py-0.5 rounded-full"
@@ -1600,7 +1624,8 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                 className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold text-white transition-all hover:scale-[1.03] disabled:opacity-60"
                 style={{ background: "var(--gradient-button)" }}
               >
-                <Upload size={14} /> {uploadBusy ? "Envoi…" : "Ajouter un fichier"}
+                <Upload size={14} />{" "}
+                {uploadBusy ? tDetail("attachmentsUploading") : tDetail("attachmentsAdd")}
               </button>
             </>
           )}
@@ -1608,11 +1633,11 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
 
         {taskResult.loading ? (
           <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
-            Chargement des pièces jointes…
+            {tDetail("attachmentsLoading")}
           </p>
         ) : attachments.length === 0 ? (
           <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
-            Aucun fichier joint à cette tâche.
+            {tDetail("attachmentsEmpty")}
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -1633,7 +1658,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                     {att.fileName}
                   </p>
                   <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                    {formatFileSize(att.fileSize)}
+                    {formatFileSize(att.fileSize, locale)}
                     {att.authorName ? ` · ${att.authorName}` : ""}
                   </p>
                 </div>
@@ -1642,7 +1667,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                   onClick={() => handleDownloadAttachment(att)}
                   className="shrink-0 p-1.5 rounded-lg transition-colors hover:opacity-70"
                   style={{ color: "var(--accent-text)" }}
-                  title="Télécharger"
+                  title={tDetail("attachmentsDownload")}
                 >
                   <Download size={15} />
                 </button>
@@ -1652,7 +1677,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                     onClick={() => handleDeleteAttachment(att)}
                     className="shrink-0 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
                     style={{ color: "var(--color-error)" }}
-                    title="Supprimer"
+                    title={tCommon("delete")}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -1678,7 +1703,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
             <MessageSquare size={16} style={{ color: "var(--accent-text)" }} />
           </span>
           <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>
-            Commentaires
+            {tDetail("commentsTitle")}
           </h2>
           {comments.length > COMMENTS_VISIBLE && (
             <button
@@ -1688,7 +1713,9 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
               style={{ color: "var(--accent-text)", background: "var(--accent-soft)" }}
             >
               {commentsExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              {commentsExpanded ? "Voir moins" : `Voir plus (${comments.length - COMMENTS_VISIBLE})`}
+              {commentsExpanded
+                ? tCommon("seeLess")
+                : tCommon("seeMoreCount", { count: comments.length - COMMENTS_VISIBLE })}
             </button>
           )}
         </div>
@@ -1696,11 +1723,11 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
           {/* Liste des commentaires */}
           {taskResult.loading ? (
             <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
-              Chargement des commentaires…
+              {tDetail("commentsLoading")}
             </p>
           ) : comments.length === 0 ? (
             <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>
-              Aucun commentaire pour cette tâche.
+              {tDetail("commentsEmpty")}
             </p>
           ) : (
             <>
@@ -1741,7 +1768,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                               onClick={() => handleCommentDelete(c.id)}
                               className="p-1 rounded-lg transition-colors hover:opacity-70"
                               style={{ color: "var(--color-error)" }}
-                              title="Supprimer ce commentaire"
+                              title={tDetail("commentsDeleteTitle")}
                             >
                               <Trash2 size={13} />
                             </button>
@@ -1772,7 +1799,8 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                           className="text-xs font-semibold mt-1 transition-opacity hover:opacity-70"
                           style={{ color: "var(--accent-text)" }}
                         >
-                          <Eye size={12} style={{ display: "inline", verticalAlign: "-1px" }} /> Voir le commentaire
+                          <Eye size={12} style={{ display: "inline", verticalAlign: "-1px" }} />{" "}
+                          {tDetail("commentsExpand")}
                         </button>
                       )}
                       {isExpanded && (
@@ -1788,7 +1816,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                           className="text-xs font-semibold mt-1 transition-opacity hover:opacity-70"
                           style={{ color: "var(--accent-text)" }}
                         >
-                          Réduire
+                          {tDetail("commentsReduce")}
                         </button>
                       )}
                     </div>
@@ -1814,7 +1842,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                       setDraftLong(el.scrollHeight > el.clientHeight + 1);
                     }}
                     rows={5}
-                    placeholder="Écrire un commentaire… Tapez @ pour mentionner quelqu'un"
+                    placeholder={tDetail("commentsPlaceholder")}
                     className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-y break-words max-h-52 overflow-y-auto transition-shadow"
                     style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                   />
@@ -1850,7 +1878,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                       className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold transition-opacity hover:opacity-70"
                       style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--accent-text)" }}
                     >
-                      <Eye size={14} /> Voir le commentaire
+                      <Eye size={14} /> {tDetail("commentsExpand")}
                     </button>
                   )}
                   <button
@@ -1865,14 +1893,14 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                     className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold"
                     style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
                   >
-                    Annuler
+                    {tCommon("cancel")}
                   </button>
                   <button
                     type="submit"
                     className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white transition-all hover:scale-105"
                     style={{ background: "var(--gradient-button)", boxShadow: "0 6px 14px -6px rgba(var(--blue-rgb),0.4)" }}
                   >
-                    <Send size={14} /> Envoyer
+                    <Send size={14} /> {tDetail("commentsSend")}
                   </button>
                 </div>
               </form>
@@ -1886,7 +1914,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-transform hover:scale-105"
                 style={{ background: "var(--gradient-button)", boxShadow: "0 6px 14px -6px rgba(var(--blue-rgb),0.4)" }}
               >
-                <MessageSquare size={13} /> Envoyer un commentaire
+                <MessageSquare size={13} /> {tDetail("commentsAdd")}
               </button>
             )}
           </div>
@@ -1917,16 +1945,16 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
           >
             <div className="flex items-center justify-between">
               <h2 className="font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-                <Pencil size={18} /> Modifier la tâche
+                <Pencil size={18} /> {tDetail("editTitle")}
               </h2>
-              <button type="button" onClick={() => setEditing(false)} aria-label="Fermer">
+              <button type="button" onClick={() => setEditing(false)} aria-label={tCommon("close")}>
                 <X className="w-5 h-5" style={{ color: "var(--text-secondary)" }} />
               </button>
             </div>
 
             <div>
               <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                Titre *
+                {tForm("titleLabel")}
               </label>
               <input
                 value={editTitle}
@@ -1934,7 +1962,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                   setEditTitle(e.target.value);
                   clearEditFieldError("title");
                 }}
-                placeholder="Intitulé de la tâche"
+                placeholder={tForm("titlePlaceholder")}
                 className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-shadow"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
               />
@@ -1947,13 +1975,13 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
 
             <div>
               <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                Description
+                {tForm("descriptionLabel")}
               </label>
               <textarea
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
                 rows={3}
-                placeholder="Détails de la tâche (optionnel)"
+                placeholder={tForm("descriptionPlaceholder")}
                 className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
               />
@@ -1962,7 +1990,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                  Date de début *
+                  {tForm("startDateLabel")}
                 </label>
 <DatePickerField
                   min={project.startDate || undefined}
@@ -1984,7 +2012,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                  Date d&apos;échéance *
+                  {tForm("dueDateLabel")}
                 </label>
 <DatePickerField
                   min={editStartDate || project.startDate || undefined}
@@ -2008,33 +2036,33 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                  Priorité
+                  {tPriority("label")}
                 </label>
 <CustomSelectField
                   value={editPriority}
                   onChange={(v) => setEditPriority(v as TaskPriority)}
-                  options={(Object.keys(priorityConfig) as TaskPriority[]).map((p) => ({ value: p, label: priorityConfig[p].label }))}
+                  options={(Object.keys(priorityConfig) as TaskPriority[]).map((p) => ({ value: p, label: tPriority(p) }))}
                   className="w-full"
-                  ariaLabel="Priorité"
+                  ariaLabel={tPriority("label")}
                 />
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                  Assignée à
+                  {tForm("assigneeLabel")}
                 </label>
 <CustomSelectField
                   value={editAssignee}
                   onChange={(v) => setEditAssignee(v)}
-                  placeholder="Non assignée"
+                  placeholder={tCommon("unassigned")}
                   options={[
-                    { value: "", label: "Non assignée" },
+                    { value: "", label: tCommon("unassigned") },
                     ...projectMembers.map((pm) => ({
                       value: String(pm.user.id),
                       label: `${pm.user.firstName} ${pm.user.lastName}`.trim() || pm.user.name,
                     })),
                   ]}
                   className="w-full"
-                  ariaLabel="Assignée à"
+                  ariaLabel={tForm("assigneeLabel")}
                 />
               </div>
             </div>
@@ -2052,7 +2080,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
               >
-                Annuler
+                {tCommon("cancel")}
               </button>
               <button
                 type="submit"
@@ -2060,7 +2088,8 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
                 style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
               >
-                <Save size={16} /> {actionLoading ? "Enregistrement…" : "Enregistrer"}
+                <Save size={16} />{" "}
+                {actionLoading ? tDetail("editSaving") : tCommon("save")}
               </button>
             </div>
           </motion.form>
@@ -2092,10 +2121,10 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
             </div>
             <div>
               <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-                Archiver la tâche&nbsp;?
+                {tDetail("archiveDialogTitle")}
               </h2>
               <p className="text-sm mt-1.5" style={{ color: "var(--text-secondary)" }}>
-                «&nbsp;{task.title}&nbsp;» sera archivée et retirée du Kanban. Vous pourrez toujours la restaurer à tout moment.
+                {tDetail("archiveDialogMessage", { name: task.title })}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-1">
@@ -2104,7 +2133,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
               >
-                Annuler
+                {tCommon("cancel")}
               </button>
               <button
                 onClick={handleArchive}
@@ -2112,7 +2141,8 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
                 style={{ background: "var(--accent-text)" }}
               >
-                <Archive size={15} /> {actionLoading ? "Archivage…" : "Archiver"}
+                <Archive size={15} />{" "}
+                {actionLoading ? tDetail("archiveDialogBusy") : tDetail("archiveDialogConfirm")}
               </button>
             </div>
           </motion.div>
@@ -2144,10 +2174,10 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
             </div>
             <div>
               <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-                Supprimer définitivement ?
+                {tDetail("deleteDialogTitle")}
               </h2>
               <p className="text-sm mt-1.5" style={{ color: "var(--text-secondary)" }}>
-                «&nbsp;{task.title}&nbsp;» et toutes ses données (sous-tâches, fichiers, commentaires) seront définitivement supprimées. Cette action est irréversible.
+                {tDetail("deleteDialogMessage", { name: task.title })}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-1">
@@ -2156,7 +2186,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
               >
-                Annuler
+                {tCommon("cancel")}
               </button>
               <button
                 onClick={handleDelete}
@@ -2164,7 +2194,8 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
                 style={{ background: "var(--color-error)" }}
               >
-                <Trash2 size={15} /> {actionLoading ? "Suppression…" : "Supprimer"}
+                <Trash2 size={15} />{" "}
+                {actionLoading ? tDetail("deleteDialogBusy") : tCommon("delete")}
               </button>
             </div>
           </motion.div>
@@ -2173,13 +2204,17 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
 
       <ConfirmDialog
         open={depWarning !== null}
-        title="Échéance du prérequis incohérente"
+        title={tDetail("dependencyWarningTitle")}
         message={
           depWarning
-            ? `La tâche « ${depWarning.candidateTitle} » que vous avez choisie est à échéance le ${formatDate(depWarning.candidateDue, locale)}. L'échéance de votre tâche actuelle est le ${formatDate(depWarning.taskDue, locale)}. Ajouter ce prérequis contraindra la tâche à rester bloquée jusqu'à son achèvement.`
+            ? tDetail("dependencyWarningMessage", {
+                candidateTitle: depWarning.candidateTitle,
+                candidateDue: formatDate(depWarning.candidateDue, locale),
+                taskDue: formatDate(depWarning.taskDue, locale),
+              })
             : ""
         }
-        confirmLabel="Ajouter quand même"
+        confirmLabel={tDetail("dependencyWarningConfirm")}
         onConfirm={confirmAddDependencyAnyway}
         onCancel={() => setDepWarning(null)}
       />
@@ -2203,9 +2238,9 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
           >
             <div className="flex items-center justify-between">
               <h2 className="font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-                <Eye size={18} /> Aperçu du commentaire
+                <Eye size={18} /> {tDetail("commentsPreviewTitle")}
               </h2>
-              <button type="button" onClick={() => setShowCommentPreview(false)} aria-label="Fermer">
+              <button type="button" onClick={() => setShowCommentPreview(false)} aria-label={tCommon("close")}>
                 <X className="w-5 h-5" style={{ color: "var(--text-secondary)" }} />
               </button>
             </div>
@@ -2222,7 +2257,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
               >
-                Fermer
+                {tCommon("close")}
               </button>
               <button
                 type="submit"
@@ -2231,7 +2266,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-white transition-all hover:scale-105"
                 style={{ background: "var(--gradient-button)", boxShadow: "0 6px 14px -6px rgba(var(--blue-rgb),0.4)" }}
               >
-                <Send size={14} /> Envoyer
+                <Send size={14} /> {tDetail("commentsSend")}
               </button>
             </div>
           </motion.div>

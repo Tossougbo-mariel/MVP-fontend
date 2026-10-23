@@ -1,7 +1,8 @@
 "use client";
 
 import { Link } from "@/i18n/navigation";
-import { usePathname } from "@/i18n/navigation";
+import { kanbanHref, planningHref, projectsHref } from "@/lib/projectHref";
+import { useNormalizedPathname } from "@/lib/useNormalizedPathname";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
@@ -51,7 +52,7 @@ const initials = (name: string) =>
  * --panel-*, volontairement distinctes du chrome --rail-*.
  */
 export default function AgencyPanel({ agencyId }: { agencyId: string }) {
-  const pathname = usePathname();
+  const pathname = useNormalizedPathname();
   const t = useTranslations("Navigation");
   const ta = useTranslations("Agencies");
   const user = useAuthStore((s) => s.user);
@@ -219,8 +220,13 @@ export default function AgencyPanel({ agencyId }: { agencyId: string }) {
       <nav className="flex-1 min-h-0 overflow-y-auto mt-3">
         <ul className="space-y-0.5">
           {items.map((item) => {
-            const href = `/agences/${agencyId}/${item.suffix}`;
-            const active = pathname === href || pathname.startsWith(`${href}/`);
+            const href =
+              item.suffix === "projets"
+                ? projectsHref(agencyId)
+                : `/agences/${agencyId}/${item.suffix}`;
+            const sectionPath = `/agences/${agencyId}/${item.suffix}`;
+            const active =
+              pathname === sectionPath || pathname.startsWith(`${sectionPath}/`);
             return (
               <li key={item.suffix}>
                 <Link
@@ -256,7 +262,7 @@ export default function AgencyPanel({ agencyId }: { agencyId: string }) {
                   <li key={project.id} className="pb-1">
                     <div className="flex items-center gap-1">
                       <Link
-                        href={`/agences/${agencyId}/projets/${project.id}/kanban`}
+                        href={kanbanHref(agencyId, project.id)}
                         className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm flex-1 min-w-0 transition-colors hover:bg-[var(--sidebar-hover)]"
                         style={linkStyle(active)}
                       >
@@ -267,7 +273,7 @@ export default function AgencyPanel({ agencyId }: { agencyId: string }) {
                         <span className="truncate font-medium">{project.name}</span>
                       </Link>
                       <Link
-                        href={`/agences/${agencyId}/projets/${project.id}/planning`}
+                        href={planningHref(agencyId, project.id)}
                         aria-label={ta("planningOf", { project: project.name })}
                         title={ta("planning")}
                         className="p-1.5 rounded-lg shrink-0 transition-colors hover:bg-[var(--sidebar-hover)]"

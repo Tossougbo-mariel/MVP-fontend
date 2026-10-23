@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Link } from "@/i18n/navigation";
+import { taskHref } from "@/lib/projectHref";
 import { useLocale } from "next-intl";
 import {
   ChevronLeft, ChevronRight, CalendarDays, Link2, Ban, Clock,
@@ -197,7 +198,7 @@ export default function CalendarView({
                     style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
                   >
                     <Link
-                      href={`/agences/${agencyId}/projets/${projectId}/taches/${t.id}`}
+                      href={taskHref(agencyId, projectId, t.id)}
                       className="text-sm font-semibold leading-snug hover:underline"
                       style={{ color: "var(--text-primary)" }}
                     >
@@ -256,7 +257,7 @@ export default function CalendarView({
                   <li key={t.id} className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
                     <Clock size={11} className="shrink-0" style={{ color: "var(--text-muted)" }} />
                     <Link
-                      href={`/agences/${agencyId}/projets/${projectId}/taches/${t.id}`}
+                      href={taskHref(agencyId, projectId, t.id)}
                       className="truncate hover:underline"
                     >
                       {t.title}

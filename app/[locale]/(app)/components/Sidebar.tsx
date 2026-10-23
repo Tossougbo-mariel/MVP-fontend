@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@/i18n/navigation";
-import { usePathname, useRouter } from "@/i18n/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import {
@@ -14,6 +14,8 @@ import {
   userAgencies, userRoleInAgency, type AgencyRole,
 } from "@/lib/types";
 import { useActiveAgencyId, profileHrefFor } from "@/lib/useActiveAgencyId";
+import { kanbanHref, projectsHref } from "@/lib/projectHref";
+import { useNormalizedPathname } from "@/lib/useNormalizedPathname";
 import DeadlineAlertsMenu from "./DeadlineAlertsMenu";
 
 /** Rail principal : 80px, sous le header. Doit rester égal à --rail-w (globals.css). */
@@ -22,18 +24,18 @@ export const MAIN_RAIL_WIDTH = 80;
 /** Navigation globale, hors agence : les mêmes accès depuis n'importe quel écran.
  *  « Mon profil » est résolu plus bas : son href dépend de l'agence courante. */
 const GLOBAL_ITEMS = [
-  { href: "/mes-agences", label: "Mes agences", icon: Building2 },
-  { href: "/agences/nouvelle", label: "Créer une agence", icon: Plus },
-  { href: "/notifications", label: "Notifications", icon: Bell },
-  { key: "profil", label: "Mon profil", icon: User },
-  { href: "/reglages", label: "Réglages", icon: Wrench },
+  { href: "/mes-agences", labelKey: "myAgencies", icon: Building2 },
+  { href: "/agences/nouvelle", labelKey: "createAgency", icon: Plus },
+  { href: "/notifications", labelKey: "notifications", icon: Bell },
+  { key: "profil", labelKey: "myProfile", icon: User },
+  { href: "/reglages", labelKey: "settings", icon: Wrench },
 ];
 
 const AGENCY_ITEMS = [
-  { suffix: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
-  { suffix: "projets", label: "Projets", icon: FolderKanban },
-  { suffix: "mes-taches", label: "Mes tâches", icon: CheckSquare },
-  { suffix: "equipe", label: "Équipe", icon: Users },
+  { suffix: "dashboard", labelKey: "dashboard", icon: LayoutDashboard },
+  { suffix: "projets", labelKey: "projects", icon: FolderKanban },
+  { suffix: "mes-taches", labelKey: "myTasks", icon: CheckSquare },
+  { suffix: "equipe", labelKey: "team", icon: Users },
 ];
 
 // Sur desktop, les réglages d'agence sont dans le second sidebar
@@ -41,13 +43,14 @@ const AGENCY_ITEMS = [
 // il conserve donc l'entrée pour que la page reste atteignable sur mobile.
 const OWNER_AGENCY_ITEMS = [
   ...AGENCY_ITEMS,
-  { suffix: "parametres", label: "Paramètres", icon: Settings },
+  { suffix: "parametres", labelKey: "agencySettings", icon: Settings },
 ];
 
 /* Le contexte d'agence n'est pas défini ici : useActiveAgencyId (lib/) est la
-   seule source de vérité, utilisée par le rail comme par AppShell. Le trait
-   final de sa regexp est ce qui empêche `/agences/nouvelle` — la page de
-   création — d'être lu comme un identifiant d'agence. */
+   seule source de vérité, utilisée par le rail comme par AppShell. Elle lit le
+   paramètre de route `agencyId` (valeur réelle), et non le pathname : avec
+   `pathnames`, usePathname renvoie le template (`[agencyId]`) des routes
+   dynamiques. */
 
 const initials = (name: string) =>
   name
@@ -68,14 +71,14 @@ export default function Sidebar({
   onOpenAi: () => void;
   collapsed?: boolean;
 }) {
-  const pathname = usePathname();
+  const pathname = useNormalizedPathname();
   const router = useRouter();
   const t = useTranslations("Sidebar");
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const { data, agencyById, projectsByAgency, unreadCount } = useAppData();
 
-  // ✅ Contexte d'agence : pathname (/agences/{id}/...) ou ?agency= sur /profil
+  // ✅ Contexte d'agence : paramètre de route agencyId ou ?agency= sur /profil
   const agencyId = useActiveAgencyId();
   const isInAgency = agencyId !== null;
   const currentAgency = agencyId ? agencyById(agencyId) : undefined;
@@ -179,7 +182,7 @@ export default function Sidebar({
   // la liste elle-même vit sur cette page, et le second sidebar offre le même
   // choix quand on est déjà dans une agence.
   const agencySwitcher = railItem({
-    label: t("Mes agences"),
+    label: t("myAgencies"),
     short: t("agencyFallback"),
     href: "/mes-agences",
     active: pathname === "/mes-agences" || pathname === "/agences/nouvelle",
@@ -218,15 +221,15 @@ export default function Sidebar({
             children: <Bot size={19} />,
           })}
           {railItem({
-            label: t("Notifications"),
-            short: t("Notifications"),
+            label: t("notifications"),
+            short: t("notifications"),
             href: "/notifications",
             active: pathname.startsWith("/notifications"),
             badge: unreadCount,
             children: <Bell size={18} />,
           })}
           {railItem({
-            label: t("Mon profil"),
+            label: t("myProfile"),
             short: t("profilShort"),
             href: profileHref,
             active: pathname.startsWith("/profil"),
@@ -236,8 +239,8 @@ export default function Sidebar({
               le rail. Les réglages d'agence, eux, vivent dans le second
               sidebar (cf. AgencyPanel) car ils dépendent de l'agence courante. */}
           {railItem({
-            label: t("Réglages"),
-            short: t("Réglages"),
+            label: t("settings"),
+            short: t("settings"),
             href: "/reglages",
             active: pathname.startsWith("/reglages"),
             children: <Wrench size={18} />,
@@ -264,7 +267,7 @@ export default function Sidebar({
         style={{ ...railStyle, boxShadow: "10px 0 40px -15px rgba(0, 0, 0, 0.6)" }}
       >
         <div className="flex items-center justify-between shrink-0">
-          <Link href="/mes-agences" onClick={onClose} className="flex items-center gap-2.5" aria-label="MVP Studio">
+          <Link href="/mes-agences" onClick={onClose} className="flex items-center gap-2.5" aria-label={t("openMenuAria")}>
             <span
               className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
               style={{ background: "var(--gradient-primary)" }}
@@ -303,8 +306,13 @@ export default function Sidebar({
               {currentAgency?.name ?? t("agencyFallback")}
             </p>
             {agencyItems.map((item) => {
-              const href = `/agences/${agencyId}/${item.suffix}`;
-              const active = pathname === href || pathname.startsWith(`${href}/`);
+              const href =
+                item.suffix === "projets"
+                  ? projectsHref(agencyId)
+                  : `/agences/${agencyId}/${item.suffix}`;
+              const sectionPath = `/agences/${agencyId}/${item.suffix}`;
+              const active =
+                pathname === sectionPath || pathname.startsWith(`${sectionPath}/`);
               return (
                 <Link
                   key={item.suffix}
@@ -318,7 +326,7 @@ export default function Sidebar({
                   }
                 >
                   <item.icon className="w-[18px] h-[18px]" />
-                  {t(item.label)}
+                  {t(item.labelKey)}
                 </Link>
               );
             })}
@@ -328,7 +336,7 @@ export default function Sidebar({
                 {agencyProjects.map((project) => (
                   <Link
                     key={project.id}
-                    href={`/agences/${agencyId}/projets/${project.id}/kanban`}
+                    href={kanbanHref(agencyId, project.id)}
                     onClick={onClose}
                     className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors"
                     style={{ color: "var(--rail-text-muted)" }}
@@ -353,7 +361,7 @@ export default function Sidebar({
                 }
               >
                 <Bell size={18} />
-                {t("Notifications")}
+                {t("notifications")}
               </Link>
             </div>
           </div>
@@ -386,7 +394,7 @@ export default function Sidebar({
               }
             >
               <item.icon className="w-[18px] h-[18px]" />
-              {t(item.label)}
+              {t(item.labelKey)}
             </Link>
           );
         })}

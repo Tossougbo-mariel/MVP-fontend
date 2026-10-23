@@ -1,11 +1,13 @@
 import { Suspense } from "react";
+import { getTranslations } from "next-intl/server";
 import { AppDataProvider } from "@/lib/appData";
 import AccentApplier from "./components/AccentApplier";
 import AppShell from "./components/AppShell";
 import RequireAuth from "./components/RequireAuth";
 import ThemeApplier from "./components/ThemeApplier";
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const t = await getTranslations("Common");
   return (
     // AccentApplier / ThemeApplier sont montés AVANT RequireAuth : le store
     // persisté (localStorage) contient déjà la préférence du compte au premier
@@ -20,7 +22,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Suspense
             fallback={
               <main className="flex items-center justify-center min-h-screen" style={{ color: "var(--text-secondary)" }}>
-                <span className="text-sm">Chargement…</span>
+                <span className="text-sm">{t("loading")}</span>
               </main>
             }
           >

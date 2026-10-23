@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Link } from "@/i18n/navigation";
+import { Link, type Href } from "@/i18n/navigation";
+import { taskHref } from "@/lib/projectHref";
 import { useLocale, useTranslations } from "next-intl";
 import { AlertTriangle, CalendarClock } from "lucide-react";
 import { useAppData } from "@/lib/appData";
@@ -55,10 +56,10 @@ export default function DeadlineAlertsMenu({ variant }: { variant: MenuVariant }
   // La tâche vit dans son agence : on la rejoint par le projet, seule source
   // du lien. Sans projet trouvable (donnée en cours de chargement), on retombe
   // sur la page des alertes plutôt que sur un lien cassé.
-  const hrefFor = (alert: DeadlineAlert): string => {
+  const hrefFor = (alert: DeadlineAlert): Href => {
     const project = getProject(alert.projectId);
     if (!project) return alertsHref;
-    return `/agences/${project.agencyId}/projets/${project.id}/taches/${alert.taskId}`;
+    return taskHref(project.agencyId, project.id, alert.taskId);
   };
 
   const projectName = (alert: DeadlineAlert): string =>

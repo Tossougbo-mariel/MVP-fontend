@@ -7,15 +7,18 @@ import {
   ShieldCheck, ListTodo, ArrowLeft, CalendarClock,
   Lightbulb, Award, AlarmClock, Ban, TrendingUp,
   History, CalendarPlus, Flag, UserRound, MessageSquare,
+  CheckCircle2, RotateCcw,
   ChevronDown, ChevronUp, ArrowRight, FileDown,
 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
+import { kanbanHref, projectsHref } from "@/lib/projectHref";
 import { useParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuthStore } from "@/app/store/authStore";
 import { fetchAgencyDashboard, fetchActivity, getApiErrorMessage, exportAgencyReportPdf } from "@/lib/services";
 import { userRoleInAgency, type Agency, type AgencyRole, type Project, type Task, ACTIVITY_LABELS, getProjectProgress, getProjectStatusFromTasks, formatActivitySentence } from "@/lib/types";
 import { useTaskStatuses } from "@/lib/useTaskStatuses";
+import { useLabels } from "@/lib/useLabels";
 import { useAsync } from "@/lib/appData";
 import { relativeTime, weekdayShort } from "@/lib/dates";
 
@@ -33,10 +36,14 @@ const item: Variants = {
 const activityConfig: Record<string, { labelKey: string; color: string; bg: string; icon: React.ElementType }> = {
   creation: { labelKey: ACTIVITY_LABELS["creation"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CalendarPlus },
   changement_statut: { labelKey: ACTIVITY_LABELS["changement_statut"], color: "var(--accent-text)", bg: "var(--accent-soft)", icon: Flag },
+  tache_terminee: { labelKey: ACTIVITY_LABELS["tache_terminee"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: CheckCircle2 },
+  reouverture: { labelKey: ACTIVITY_LABELS["reouverture"], color: "var(--accent-text)", bg: "var(--accent-soft)", icon: RotateCcw },
   changement_responsable: { labelKey: ACTIVITY_LABELS["changement_responsable"], color: "#7c3aed", bg: "rgba(139,92,246,0.12)", icon: UserRound },
   changement_priorite: { labelKey: ACTIVITY_LABELS["changement_priorite"], color: "#d97706", bg: "rgba(245,158,11,0.15)", icon: Flag },
   changement_echeance: { labelKey: ACTIVITY_LABELS["changement_echeance"], color: "#db2777", bg: "rgba(219,39,119,0.12)", icon: CalendarClock },
   commentaire: { labelKey: ACTIVITY_LABELS["commentaire"], color: "var(--accent-text)", bg: "var(--accent-soft)", icon: MessageSquare },
+  creation_projet: { labelKey: ACTIVITY_LABELS["creation_projet"], color: "var(--color-success)", bg: "rgba(16,185,129,0.12)", icon: FolderKanban },
+  membre_ajoute: { labelKey: ACTIVITY_LABELS["membre_ajoute"], color: "var(--accent-text)", bg: "var(--accent-soft)", icon: UserRound },
 };
 
 const smoothCurve = (pts: { x: number; y: number }[]) => {
@@ -230,6 +237,7 @@ function AdminDashboard({
 }) {
   const isOwner = role === "owner";
   const { statuses, isTerminal } = useTaskStatuses();
+  const { status: statusLabel, priority: priorityLabel } = useLabels();
   // La locale sert à dater l'activité (« il y a 5 min » / « 5 min ago »).
   const locale = useLocale();
   const t = useTranslations("Dashboard");
@@ -248,7 +256,7 @@ function AdminDashboard({
     if (!agency || exportingPdf) return;
     setExportingPdf(true);
     try {
-      await exportAgencyReportPdf(agency);
+      await exportAgencyReportPdf(agency, locale);
     } catch (err) {
       alert(getApiErrorMessage(err));
     } finally {
@@ -334,11 +342,12 @@ function AdminDashboard({
   // transversal : il n'apparaît ici que pour éviter tout double comptage.
   const taskStatuses = [
     ...statuses.map((s) => ({
-      label: s.label,
+      key: s.key,
+      label: statusLabel(s.key, s.label),
       value: agencyTasks.filter((t) => t.status === s.key).length,
       color: s.color,
     })),
-    { label: t("statuses.overdue"), value: overdueCount, color: "var(--color-error)" },
+    { key: "overdue", label: t("statuses.overdue"), value: overdueCount, color: "var(--color-error)" },
   ];
 
   const maxStatusValue = Math.max(1, ...taskStatuses.map((x) => x.value));
@@ -451,18 +460,18 @@ function AdminDashboard({
               </div>
             </div>
             <ul className="space-y-3">
-              {taskStatuses.map((t, i) => (
-                <li key={t.label} className="flex items-center gap-3 text-sm">
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: t.color, boxShadow: `0 0 8px ${t.color}` }} />
-                  <span style={{ color: "var(--text-secondary)" }}>{t.label}</span>
-                  <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{t.value}</span>
+              {taskStatuses.map((row, i) => (
+                <li key={row.key} className="flex items-center gap-3 text-sm">
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: row.color, boxShadow: `0 0 8px ${row.color}` }} />
+                  <span style={{ color: "var(--text-secondary)" }}>{row.label}</span>
+                  <span className="ml-auto font-bold" style={{ color: "var(--text-primary)" }}>{row.value}</span>
                   <div className="w-20 h-1.5 rounded-full shrink-0" style={{ background: "rgba(255,255,255,0.08)" }}>
                     <motion.div
                       initial={{ width: 0 }}
-                      animate={{ width: `${(t.value / maxStatusValue) * 100}%` }}
+                      animate={{ width: `${(row.value / maxStatusValue) * 100}%` }}
                       transition={{ duration: 0.8, delay: 0.2 + i * 0.1, ease: "easeOut" }}
                       className="h-full rounded-full"
-                      style={{ background: t.color }}
+                      style={{ background: row.color }}
                     />
                   </div>
                 </li>
@@ -682,7 +691,11 @@ function AdminDashboard({
                             <div className={`flex-1 min-w-0 ${isLast ? "" : "pb-3"}`}>
                               <div className="flex items-center justify-between gap-2 flex-wrap">
                                 <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                                  {formatActivitySentence(a, undefined, tTasks)}
+                                  {formatActivitySentence(a, undefined, tTasks, {
+                                    statuses,
+                                    statusLabel,
+                                    priorityLabel,
+                                  })}
                                 </span>
                                 <span
                                   className="text-[10px] font-bold px-2 py-0.5 rounded-full"
@@ -915,7 +928,7 @@ function MemberDashboard({
             <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>{t("projects.title")}</h2>
           </div>
           <Link
-            href={`/agences/${agencyId}/projets`}
+                href={projectsHref(agencyId)}
             className="inline-flex items-center gap-1.5 text-xs font-semibold transition-transform hover:scale-105"
             style={{ color: "var(--accent-text)" }}
           >
@@ -936,7 +949,7 @@ function MemberDashboard({
               return (
                 <Link
                   key={p.id}
-                  href={`/agences/${agencyId}/projets/${p.id}/kanban`}
+                  href={kanbanHref(agencyId, p.id)}
                   className="block rounded-xl px-4 py-3 transition-colors hover:bg-[var(--hover-soft)]"
                   style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
                 >
@@ -970,7 +983,7 @@ function MemberDashboard({
             })}
             {myProjects.length > 4 && (
               <Link
-                href={`/agences/${agencyId}/projets`}
+            href={projectsHref(agencyId)}
                 className="block text-center text-xs font-semibold pt-1 transition-colors hover:opacity-80"
                 style={{ color: "var(--accent-text)" }}
               >
