@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { motion, type Variants } from "framer-motion";
 import { Bell, Palette, Check, ChevronDown, SlidersHorizontal } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
@@ -34,6 +34,7 @@ export default function ReglagesPage() {
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
   const locale = useLocale();
+  const t = useTranslations("Settings");
   const switchLocale = useLocaleSwitch();
   const [showThemes, setShowThemes] = useState(false);
   const [accentError, setAccentError] = useState<string | null>(null);
@@ -50,8 +51,8 @@ export default function ReglagesPage() {
   const allNotifOn = notifKeys.every((key) => notifPrefs[key]);
 
   useEffect(() => {
-    document.title = "Réglages";
-  }, []);
+    document.title = t("title");
+  }, [t]);
 
   useEffect(() => {
     let active = true;
@@ -60,12 +61,12 @@ export default function ReglagesPage() {
         if (active) setNotifPrefs({ ...DEFAULT_NOTIFICATION_PREFERENCES, ...prefs });
       })
       .catch(() => {
-        if (active) setNotifPrefsError("Impossible de charger vos préférences de notifications.");
+        if (active) setNotifPrefsError(t("notifications.loadError"));
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [t]);
 
   const handleAccentSelect = async (hex: string) => {
     if (!user) return;
@@ -78,7 +79,7 @@ export default function ReglagesPage() {
     try {
       await updateUser({ themeColor: hex });
     } catch {
-      setAccentError("Impossible d'enregistrer la couleur d'accent.");
+      setAccentError(t("theme.saveError"));
     }
   };
 
@@ -89,7 +90,7 @@ export default function ReglagesPage() {
     try {
       await updateUser({ theme });
     } catch {
-      setThemeError("Impossible d'enregistrer le thème.");
+      setThemeError(t("appearance.saveError"));
     }
   };
 
@@ -115,36 +116,36 @@ export default function ReglagesPage() {
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-8">
       <motion.div variants={item}>
         <h1 className="text-2xl lg:text-3xl font-black" style={{ color: "var(--text-primary)" }}>
-          Réglages
+          {t("title")}
         </h1>
         <p style={{ color: "var(--text-secondary)" }}>
-          Les préférences qui s&apos;appliquent à toutes vos agences.
+          {t("subtitle")}
         </p>
       </motion.div>
 
       {/* ---------- Préférences ---------- */}
       <motion.section variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
         <h2 className="text-lg font-bold flex items-center gap-2 mb-1" style={{ color: "var(--text-primary)" }}>
-          <SlidersHorizontal size={18} style={{ color: "var(--accent-text)" }} /> Préférences
+          <SlidersHorizontal size={18} style={{ color: "var(--accent-text)" }} /> {t("preferences.title")}
         </h2>
         <p className="text-sm mb-5" style={{ color: "var(--text-secondary)" }}>
-          Le thème (couleurs), la langue et les notifications, sur toutes vos agences.
+          {t("preferences.description")}
         </p>
 
         <div className="space-y-6">
           <div className="max-w-sm">
             <label className="text-xs uppercase tracking-wide block mb-1" style={{ color: "var(--text-secondary)" }}>
-              Langue
+              {t("language.label")}
             </label>
             <Select
               value={locale}
               onChange={(value) => switchLocale(value as "fr" | "en")}
               options={[
-                { value: "fr", label: "Français" },
-                { value: "en", label: "English" },
+                { value: "fr", label: t("language.french") },
+                { value: "en", label: t("language.english") },
               ]}
               className="w-full"
-              ariaLabel="Langue"
+              ariaLabel={t("language.label")}
             />
           </div>
 
@@ -165,10 +166,10 @@ export default function ReglagesPage() {
                 <Bell size={15} style={{ color: "var(--text-secondary)" }} />
                 <span className="min-w-0">
                   <span className="block text-sm" style={{ color: "var(--text-primary)" }}>
-                    Notifications
+                    {t("notifications.title")}
                   </span>
                   <span className="block text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                    Affectations, commentaires, mentions et rappels d&apos;échéance.
+                    {t("notifications.description")}
                   </span>
                 </span>
               </span>
@@ -199,7 +200,7 @@ export default function ReglagesPage() {
               className="w-full flex items-center justify-between text-left"
             >
               <span className="text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-                <Palette size={15} style={{ color: "var(--text-secondary)" }} /> Thème
+                <Palette size={15} style={{ color: "var(--text-secondary)" }} /> {t("theme.title")}
               </span>
               <ChevronDown
                 size={16}
@@ -210,14 +211,15 @@ export default function ReglagesPage() {
             {showThemes && (
               <>
                 <div className="mt-3 grid grid-cols-6 gap-x-1.5 gap-y-2">
-                  {[{ key: "default", label: `Défaut (${DEFAULT_ACCENT})`, hex: DEFAULT_ACCENT }, ...PRESET_COLORS].map((preset) => {
+                  {[{ key: "default", hex: DEFAULT_ACCENT }, ...PRESET_COLORS].map((preset) => {
                     const active = userAccent.toLowerCase() === preset.hex.toLowerCase();
+                    const label = t(`colors.${preset.key}`);
                     return (
                       <button
                         key={preset.key}
                         onClick={() => handleAccentSelect(preset.hex)}
-                        title={preset.label}
-                        aria-label={`Couleur d'accent ${preset.label}`}
+                        title={label}
+                        aria-label={t("theme.accentColor", { name: label })}
                         className="h-9 w-9 justify-self-center rounded-full flex items-center justify-center transition-transform hover:scale-110"
                         style={{
                           background: preset.hex,
@@ -235,13 +237,13 @@ export default function ReglagesPage() {
                   style={{ background: "var(--hover-soft)", border: "1px solid var(--border-subtle)" }}
                 >
                   <span className="text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-                    <Palette size={15} style={{ color: "var(--text-secondary)" }} /> Couleur personnalisée
+                    <Palette size={15} style={{ color: "var(--text-secondary)" }} /> {t("theme.custom")}
                   </span>
                   <input
                     type="color"
                     value={userAccent}
                     onChange={(e) => handleAccentSelect(e.target.value)}
-                    aria-label="Couleur personnalisée"
+                    aria-label={t("theme.custom")}
                     className="ml-auto h-9 w-12 cursor-pointer rounded-lg border-none bg-transparent p-0"
                   />
                 </label>
@@ -260,10 +262,10 @@ export default function ReglagesPage() {
       {/* ---------- Apparence ---------- */}
       <motion.section variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
         <h2 className="text-lg font-bold flex items-center gap-2 mb-1" style={{ color: "var(--text-primary)" }}>
-          <Palette size={18} style={{ color: "var(--accent-text)" }} /> Apparence
+          <Palette size={18} style={{ color: "var(--accent-text)" }} /> {t("appearance.title")}
         </h2>
         <p className="text-sm mb-5" style={{ color: "var(--text-secondary)" }}>
-          Votre apparence est enregistrée sur votre compte : elle vous suit sur tous vos appareils.
+          {t("appearance.description")}
         </p>
 
         <div className="space-y-4">

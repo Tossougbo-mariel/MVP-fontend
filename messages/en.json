@@ -505,13 +505,163 @@
     "emptyDefault": "No notifications."
   },
   "Deadlines": {},
-  "Profile": {},
+  "Profile": {
+    "success": {
+      "updated": "Profile updated"
+    },
+    "errors": {
+      "save": "Unable to save your changes.",
+      "savePhoto": "Unable to save the photo."
+    },
+    "avatar": {
+      "alt": "Profile photo",
+      "viewTitle": "View profile photo",
+      "change": "Change photo",
+      "view": "View",
+      "crop": "Crop this photo"
+    },
+    "role": {
+      "owner": "Owner",
+      "admin": "Administrator",
+      "adminShort": "Admin",
+      "member": "Member"
+    },
+    "actions": {
+      "edit": "Edit",
+      "save": "Save"
+    },
+    "personal": {
+      "title": "Personal information",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "email": "Email",
+      "phone": "Phone",
+      "city": "City / Country",
+      "bio": "Bio",
+      "jobTitle": "Job title"
+    },
+    "professional": {
+      "title": "Professional information",
+      "memberSince": "Member since {date}",
+      "memberSinceRecently": "Recently joined",
+      "agenciesTitle": "My agencies",
+      "noAgencies": "You are not a member of any agency yet.",
+      "createAgency": "Create an agency"
+    },
+    "tasks": {
+      "title": "My tasks",
+      "assignedCount": "{count, plural, =0 {No assigned tasks} one {# task assigned} other {# tasks assigned}}",
+      "stats": {
+        "assigned": "Assigned tasks",
+        "done": "Completed tasks",
+        "late": "Overdue tasks"
+      },
+      "table": {
+        "task": "Task",
+        "project": "Project",
+        "agency": "Agency",
+        "deadline": "Deadline",
+        "status": "Status"
+      },
+      "status": {
+        "assigned": "Assigned",
+        "done": "Completed",
+        "late": "Overdue"
+      },
+      "empty": "No tasks are assigned to you yet."
+    },
+    "security": {
+      "title": "Security",
+      "changePassword": "Change my password",
+      "twoFactor": {
+        "title": "Two-factor authentication",
+        "enabledHint": "A code is sent by email after your password.",
+        "disabledHint": "Add an email code to secure your sign-in.",
+        "note": "Signing in with an email code remains available and is not affected.",
+        "passwordPlaceholder": "Your password",
+        "enabling": "Enabling...",
+        "confirm": "Confirm"
+      }
+    },
+    "crop": {
+      "title": "Adjust photo",
+      "close": "Close",
+      "cancel": "Cancel",
+      "processing": "Processing...",
+      "apply": "Apply"
+    }
+  },
   "Settings": {
+    "title": "Settings",
+    "subtitle": "Preferences that apply to all your agencies.",
+    "preferences": {
+      "title": "Preferences",
+      "description": "Theme (colors), language and notifications, across all your agencies."
+    },
+    "language": {
+      "label": "Language",
+      "french": "Français",
+      "english": "English"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Assignments, comments, mentions and deadline reminders.",
+      "loadError": "Unable to load your notification preferences."
+    },
     "theme": {
       "label": "Interface theme",
       "description": "Choose between light and dark appearance.",
       "light": "Light",
-      "dark": "Dark"
+      "dark": "Dark",
+      "title": "Theme",
+      "custom": "Custom color",
+      "accentColor": "Accent color {name}",
+      "saveError": "Unable to save the accent color."
+    },
+    "colors": {
+      "default": "Default",
+      "blue": "Blue",
+      "sky": "Sky blue",
+      "cyan": "Cyan",
+      "turquoise": "Turquoise",
+      "menthe": "Mint",
+      "emerald": "Emerald green",
+      "green": "Green",
+      "forest": "Forest green",
+      "lime": "Lime",
+      "olive": "Olive",
+      "yellow": "Yellow",
+      "amber": "Amber",
+      "mustard": "Mustard",
+      "orange": "Orange",
+      "burnt-orange": "Burnt orange",
+      "red": "Red",
+      "raspberry": "Raspberry red",
+      "coral": "Coral",
+      "burgundy": "Burgundy",
+      "pink": "Pink",
+      "salmon": "Salmon",
+      "fuchsia": "Fuchsia",
+      "magenta": "Magenta",
+      "violet": "Violet",
+      "indigo": "Indigo",
+      "royal-blue": "Royal blue",
+      "dark-blue": "Dark blue",
+      "navy": "Navy",
+      "teal": "Teal",
+      "aqua": "Aqua",
+      "slate": "Slate gray",
+      "gray": "Gray",
+      "light-gray": "Light gray",
+      "black": "Black",
+      "brown": "Brown",
+      "chocolate": "Chocolate brown",
+      "gold": "Gold"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "description": "Your appearance is saved to your account: it follows you on all your devices.",
+      "saveError": "Unable to save the theme."
     }
   },
   "Statuses": {},

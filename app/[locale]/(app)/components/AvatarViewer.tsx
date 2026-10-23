@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { X, Crop } from "lucide-react";
 
 interface AvatarViewerProps {
@@ -15,10 +16,12 @@ interface AvatarViewerProps {
 export default function AvatarViewer({
   open,
   src,
-  alt = "Photo de profil",
+  alt,
   onClose,
   onCrop,
 }: AvatarViewerProps) {
+  const t = useTranslations("Profile");
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -66,7 +69,7 @@ export default function AvatarViewer({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={src}
-              alt={alt}
+              alt={alt ?? t("avatar.alt")}
               className="max-w-[78vw] max-h-[75vh] w-auto h-auto object-contain rounded-2xl"
             />
 
@@ -76,14 +79,14 @@ export default function AvatarViewer({
                 className="absolute bottom-4 left-1/2 -translate-x-1/2 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition-transform hover:scale-105"
                 style={{ background: "var(--gradient-button)", boxShadow: "0 8px 24px -6px rgba(0,0,0,0.6)" }}
               >
-                <Crop className="w-4 h-4" /> Recadrer cette photo
+                <Crop className="w-4 h-4" /> {t("avatar.crop")}
               </button>
             )}
           </motion.div>
 
           <button
             onClick={onClose}
-            aria-label="Fermer"
+            aria-label={t("crop.close")}
             className="absolute top-5 right-5 w-10 h-10 rounded-full flex items-center justify-center text-white transition-transform hover:scale-110 hover:rotate-90"
             style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)" }}
           >

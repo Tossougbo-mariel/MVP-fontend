@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Link } from "@/i18n/navigation";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { motion, type Variants } from "framer-motion";
 import dynamic from "next/dynamic";
 import {
@@ -50,10 +50,16 @@ type CropperArea = { x: number; y: number; width: number; height: number };
 
 type TacheStatus = "Assignée" | "Terminée" | "En retard";
 
-const ROLE_LABEL: Record<"owner" | "admin" | "membre", string> = {
-  owner: "Propriétaire",
-  admin: "Administrateur",
-  membre: "Membre",
+const ROLE_KEY: Record<"owner" | "admin" | "membre", string> = {
+  owner: "role.owner",
+  admin: "role.admin",
+  membre: "role.member",
+};
+
+const STATUS_KEY: Record<TacheStatus, string> = {
+  "Assignée": "tasks.status.assigned",
+  "Terminée": "tasks.status.done",
+  "En retard": "tasks.status.late",
 };
 
 const STATUS_STYLE: Record<TacheStatus, React.CSSProperties> = {
@@ -75,7 +81,7 @@ const displayStatus = (t: MyTask): TacheStatus => {
   return "Assignée";
 };
 
-const formatEcheance = (d: string | null, locale: string = "fr"): string => {
+const formatEcheance = (d: string | null, locale: string): string => {
   if (!d) return "—";
   const date = new Date(d + "T00:00:00");
   if (Number.isNaN(date.getTime())) return d;
@@ -100,7 +106,7 @@ async function getCroppedImg(
   const image = await new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Impossible de charger l'image"));
+    img.onerror = () => reject(new Error("Failed to load image"));
     img.src = imageSrc;
   });
 
@@ -108,7 +114,7 @@ async function getCroppedImg(
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas non supporté");
+  if (!ctx) throw new Error("Canvas not supported");
 
   ctx.drawImage(
     image,
@@ -125,7 +131,7 @@ async function getCroppedImg(
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (blob) resolve(blob);
-      else reject(new Error("Échec de l'export de l'image"));
+      else reject(new Error("Failed to export image"));
     }, "image/png");
   });
 }
@@ -164,6 +170,7 @@ export default function ProfilPage() {
   const agencies = data.agencies;
   const myAgencies = user ? userAgencies(agencies, user.email) : [];
   const locale = useLocale();
+  const t = useTranslations("Profile");
 
   // ✅ Agence active : transmise via ?agency= depuis le Header quand on navigue
   // depuis une agence. Sans contexte → rôle agrégé et tâches de toutes les agences.
@@ -291,7 +298,8 @@ export default function ProfilPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Impossible d'enregistrer les modifications.");
+      console.error(err);
+      setSaveError(t("errors.save"));
     }
   };
 
@@ -322,7 +330,8 @@ export default function ProfilPage() {
       setLastRaw(selectedImage);
       setSelectedImage(null);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Impossible d'enregistrer la photo.");
+      console.error(err);
+      setSaveError(t("errors.savePhoto"));
     } finally {
       setCropping(false);
     }
@@ -352,7 +361,7 @@ export default function ProfilPage() {
             className="flex items-center gap-2 text-sm px-4 py-3 rounded-xl"
             style={{ background: "var(--surface)", border: "1px solid rgba(16,185,129,0.3)", color: "var(--color-success)" }}
           >
-            <CheckCircle2 size={16} /> Profil mis à jour
+            <CheckCircle2 size={16} /> {t("success.updated")}
           </motion.div>
         )}
 
@@ -375,7 +384,7 @@ export default function ProfilPage() {
                   style={{ background: "var(--gradient-primary)", boxShadow: "0 8px 20px -8px rgba(var(--blue-rgb),0.4)" }}
                   onClick={avatarUrl ? () => setViewerOpen(true) : undefined}
                   role={avatarUrl ? "button" : undefined}
-                  title={avatarUrl ? "Voir la photo de profil" : undefined}
+                  title={avatarUrl ? t("avatar.viewTitle") : undefined}
                 >
                   {avatarUrl ? (
                     <div
@@ -388,7 +397,7 @@ export default function ProfilPage() {
                 </div>
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  aria-label="Changer la photo"
+                  aria-label={t("avatar.change")}
                   className="absolute -bottom-1 -right-1 w-9 h-9 rounded-full flex items-center justify-center text-white"
                   style={{ background: "var(--gradient-button)", boxShadow: "0 4px 10px -4px rgba(var(--blue-rgb),0.4)" }}
                 >
@@ -412,7 +421,7 @@ export default function ProfilPage() {
                     style={{ background: "var(--gradient-button)", boxShadow: "0 4px 10px -4px rgba(var(--blue-rgb),0.4)" }}
                   >
                     <ShieldCheck size={13} />{" "}
-                    {ROLE_LABEL[displayRole]}
+                    {t(ROLE_KEY[displayRole])}
                   </span>
                 )}
               </div>
@@ -423,7 +432,7 @@ export default function ProfilPage() {
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold shrink-0"
                   style={{ background: "var(--surface)", border: "1px solid var(--chrome-border)", color: "var(--chrome-text-secondary)" }}
                 >
-                  <Eye size={16} /> Voir
+                  <Eye size={16} /> {t("avatar.view")}
                 </button>
               )}
             </div>
@@ -432,7 +441,7 @@ export default function ProfilPage() {
         <motion.div variants={item} className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-              <Mail size={18} /> Informations personnelles
+              <Mail size={18} /> {t("personal.title")}
             </h2>
             {editing !== "personnel" && (
               <button
@@ -440,21 +449,21 @@ export default function ProfilPage() {
                 className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg text-white"
                 style={{ background: "var(--gradient-button)", boxShadow: "0 4px 12px -4px rgba(var(--blue-rgb),0.35)" }}
               >
-                <Pencil size={14} /> Modifier
+                <Pencil size={14} /> {t("actions.edit")}
               </button>
             )}
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
-            <Champ label="Prénom" value={draft.firstName} onChange={set("firstName")} editing={editing === "personnel"} />
-            <Champ label="Nom" value={draft.lastName} onChange={set("lastName")} editing={editing === "personnel"} />
+            <Champ label={t("personal.firstName")} value={draft.firstName} onChange={set("firstName")} editing={editing === "personnel"} />
+            <Champ label={t("personal.lastName")} value={draft.lastName} onChange={set("lastName")} editing={editing === "personnel"} />
             <div className="md:col-span-2">
-              <Champ label="Email" value={draft.email} onChange={set("email")} editing={editing === "personnel"} type="email" />
+              <Champ label={t("personal.email")} value={draft.email} onChange={set("email")} editing={editing === "personnel"} type="email" />
             </div>
-            <Champ label="Téléphone" value={draft.phone} onChange={set("phone")} editing={editing === "personnel"} />
-            <Champ label="Ville / Pays" value={draft.city} onChange={set("city")} editing={editing === "personnel"} />
-            <Champ label="Bio" value={draft.bio} onChange={set("bio")} editing={editing === "personnel"} />
-            <Champ label="JobTitle" value={draft.jobTitle} onChange={set("jobTitle")} editing={editing === "personnel"} />
+            <Champ label={t("personal.phone")} value={draft.phone} onChange={set("phone")} editing={editing === "personnel"} />
+            <Champ label={t("personal.city")} value={draft.city} onChange={set("city")} editing={editing === "personnel"} />
+            <Champ label={t("personal.bio")} value={draft.bio} onChange={set("bio")} editing={editing === "personnel"} />
+            <Champ label={t("personal.jobTitle")} value={draft.jobTitle} onChange={set("jobTitle")} editing={editing === "personnel"} />
           </div>
 
           {editing === "personnel" && (
@@ -465,7 +474,7 @@ export default function ProfilPage() {
               className="mt-5 inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium text-white"
               style={{ background: "var(--gradient-button)", boxShadow: "0 6px 16px -6px rgba(var(--blue-rgb),0.4)" }}
             >
-              <Save size={16} /> Enregistrer
+              <Save size={16} /> {t("actions.save")}
             </motion.button>
           )}
         </motion.div>
@@ -473,29 +482,32 @@ export default function ProfilPage() {
         <motion.div variants={item} className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-              <Briefcase size={18} /> Informations professionnelles
+              <Briefcase size={18} /> {t("professional.title")}
             </h2>
             <span className="text-xs inline-flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
-              <Calendar size={13} /> Inscrit depuis {user?.createdAt ? formatEcheance(user.createdAt, locale) : "peu"}
+              <Calendar size={13} />{" "}
+              {user?.createdAt
+                ? t("professional.memberSince", { date: formatEcheance(user.createdAt, locale) })
+                : t("professional.memberSinceRecently")}
             </span>
           </div>
 
           <div className="space-y-4">
-            <div className="font-semibold text-sm" style={{ color: "var(--text-secondary)" }}>Mes agences</div>
+            <div className="font-semibold text-sm" style={{ color: "var(--text-secondary)" }}>{t("professional.agenciesTitle")}</div>
             {myAgencies.length === 0 && (
               <div
                 className="flex flex-col items-start gap-3 px-4 py-3 rounded-xl"
                 style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
               >
                 <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                  {"Vous n'êtes dans aucune agence pour le moment."}
+                  {t("professional.noAgencies")}
                 </p>
                 <Link
                   href="/agences/nouvelle"
                   className="inline-flex items-center gap-1.5 text-sm font-semibold"
                   style={{ color: "var(--blue)" }}
                 >
-                  <Plus size={15} /> Créer une agence
+                  <Plus size={15} /> {t("professional.createAgency")}
                 </Link>
               </div>
             )}
@@ -522,7 +534,7 @@ export default function ProfilPage() {
                           : { background: "var(--gradient-button)", color: "#fff" }
                       }
                     >
-                      {role === "owner" ? "Propriétaire" : role === "admin" ? "Admin" : "Membre"}
+                      {t(role === "admin" ? "role.adminShort" : ROLE_KEY[role])}
                     </span>
                   );
                 })()}
@@ -536,18 +548,18 @@ export default function ProfilPage() {
         <motion.div variants={item} className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
           <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
             <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-              <ClipboardList size={18} /> Mes tâches
+              <ClipboardList size={18} /> {t("tasks.title")}
             </h2>
             <span className="text-xs inline-flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
-              <Calendar size={13} /> {taches.length} tâche(s) assignée(s)
+              <Calendar size={13} /> {t("tasks.assignedCount", { count: taches.length })}
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             {[
-              { label: "Tâches assignées", count: taches.filter((t) => displayStatus(t) === "Assignée").length, icon: CheckSquare, color: "var(--accent-text)" },
-              { label: "Tâches terminées", count: taches.filter((t) => displayStatus(t) === "Terminée").length, icon: CheckCircle2, color: "var(--color-success)" },
-              { label: "Tâches en retard", count: taches.filter((t) => displayStatus(t) === "En retard").length, icon: AlertTriangle, color: "var(--color-error)" },
+              { label: t("tasks.stats.assigned"), count: taches.filter((task) => displayStatus(task) === "Assignée").length, icon: CheckSquare, color: "var(--accent-text)" },
+              { label: t("tasks.stats.done"), count: taches.filter((task) => displayStatus(task) === "Terminée").length, icon: CheckCircle2, color: "var(--color-success)" },
+              { label: t("tasks.stats.late"), count: taches.filter((task) => displayStatus(task) === "En retard").length, icon: AlertTriangle, color: "var(--color-error)" },
             ].map((s) => (
               <div
                 key={s.label}
@@ -567,7 +579,13 @@ export default function ProfilPage() {
             <table className="w-full text-sm min-w-[560px]">
               <thead>
                 <tr className="text-left">
-                  {["Tâche", "Projet", "Agence", "Échéance", "Statut"].map((h) => (
+                  {[
+                    t("tasks.table.task"),
+                    t("tasks.table.project"),
+                    t("tasks.table.agency"),
+                    t("tasks.table.deadline"),
+                    t("tasks.table.status"),
+                  ].map((h) => (
                     <th
                       key={h}
                       className="text-xs uppercase tracking-wide font-semibold px-4 py-2.5"
@@ -579,34 +597,34 @@ export default function ProfilPage() {
                 </tr>
               </thead>
               <tbody>
-                {taches.map((t) => {
-                  const status = displayStatus(t);
+                {taches.map((task) => {
+                  const status = displayStatus(task);
                   return (
-                    <tr key={t.id} className="transition-colors hover:bg-[var(--hover-soft)]">
+                    <tr key={task.id} className="transition-colors hover:bg-[var(--hover-soft)]">
                       <td className="px-4 py-3 font-medium" style={{ color: "var(--text-primary)", borderBottom: "1px solid var(--border-subtle)" }}>
                         <Link
-                          href={`/agences/${t.agencyId}/projets/${t.projectId}/taches/${t.id}`}
+                          href={`/agences/${task.agencyId}/projets/${task.projectId}/taches/${task.id}`}
                           className="hover:underline"
                           style={{ color: "inherit" }}
                         >
-                          {t.title}
+                          {task.title}
                         </Link>
                       </td>
                       <td className="px-4 py-3" style={{ color: "var(--text-secondary)", borderBottom: "1px solid var(--border-subtle)" }}>
-                        {t.projectName || "—"}
+                        {task.projectName || "—"}
                       </td>
                       <td className="px-4 py-3" style={{ color: "var(--text-secondary)", borderBottom: "1px solid var(--border-subtle)" }}>
-                        {t.agencyName}
+                        {task.agencyName}
                       </td>
                       <td className="px-4 py-3" style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border-subtle)" }}>
-                        {formatEcheance(t.deadline, locale)}
+                        {formatEcheance(task.deadline, locale)}
                       </td>
                       <td className="px-4 py-3" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
                         <span
                           className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
                           style={STATUS_STYLE[status]}
                         >
-                          {statusIcon(status)} {status}
+                          {statusIcon(status)} {t(STATUS_KEY[status])}
                         </span>
                       </td>
                     </tr>
@@ -619,7 +637,7 @@ export default function ProfilPage() {
                       className="px-4 py-8 text-center"
                       style={{ color: "var(--text-secondary)" }}
                     >
-                      Aucune tâche ne vous est assignée pour le moment.
+                      {t("tasks.empty")}
                     </td>
                   </tr>
                 )}
@@ -632,7 +650,7 @@ export default function ProfilPage() {
         <motion.div variants={item} className="grid lg:grid-cols-2 gap-6">
           <div className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
             <h2 className="text-lg font-bold flex items-center gap-2 mb-4" style={{ color: "var(--text-primary)" }}>
-              <ShieldCheck size={18} /> Sécurité
+              <ShieldCheck size={18} /> {t("security.title")}
             </h2>
             <div
               className="flex items-center gap-3 px-4 py-3 rounded-xl"
@@ -647,31 +665,31 @@ export default function ProfilPage() {
               style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)" }}
             >
               <Pencil size={15} style={{ color: "var(--text-secondary)" }} />
-              Changer mon mot de passe
+              {t("security.changePassword")}
             </Link>
           </div>
 
           <div className="glass rounded-2xl p-6 md:p-8" style={{ boxShadow: "var(--shadow-card)" }}>
             <h2 className="text-lg font-bold flex items-center gap-2 mb-4" style={{ color: "var(--text-primary)" }}>
-              <ShieldCheck size={18} /> Sécurité
+              <ShieldCheck size={18} /> {t("security.title")}
             </h2>
             <div className="space-y-4">
               {/* ---------- Sécurité : double authentification ---------- */}
               <div className="space-y-2">
                 <span className="text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-                  <ShieldCheck size={15} style={{ color: "var(--text-secondary)" }} /> Sécurité
+                  <ShieldCheck size={15} style={{ color: "var(--text-secondary)" }} /> {t("security.title")}
                 </span>
 
                 <div className="rounded-xl px-4 py-3 space-y-3" style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}>
                   <div className="flex items-center justify-between gap-4">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                        Double authentification
+                        {t("security.twoFactor.title")}
                       </p>
                       <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
                         {twoFactor
-                          ? "Un code est envoyé par email après votre mot de passe."
-                          : "Ajoutez un code par email pour sécuriser votre connexion."}
+                          ? t("security.twoFactor.enabledHint")
+                          : t("security.twoFactor.disabledHint")}
                       </p>
                     </div>
                     <button
@@ -690,7 +708,7 @@ export default function ProfilPage() {
 
                   {twoFactor && (
                     <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      La connexion par code email reste disponible et n&apos;est pas concernée.
+                      {t("security.twoFactor.note")}
                     </p>
                   )}
 
@@ -703,7 +721,7 @@ export default function ProfilPage() {
                         onKeyDown={(e) => {
                           if (e.key === "Enter") void handleTwoFactor();
                         }}
-                        placeholder="Votre mot de passe"
+                        placeholder={t("security.twoFactor.passwordPlaceholder")}
                         className="flex-1 rounded-lg px-3 py-2 text-sm focus:outline-none"
                         style={{
                           background: "var(--input-bg)",
@@ -717,7 +735,7 @@ export default function ProfilPage() {
                         className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50"
                         style={{ background: "var(--gradient-button)", color: "#fff" }}
                       >
-                        {twoFactorBusy ? "Activation..." : "Confirmer"}
+                        {twoFactorBusy ? t("security.twoFactor.enabling") : t("security.twoFactor.confirm")}
                       </button>
                     </div>
                   )}
@@ -741,8 +759,8 @@ export default function ProfilPage() {
             style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)", boxShadow: "var(--shadow-card)" }}
           >
             <div className="flex items-center justify-between px-5 py-4">
-              <h3 className="font-bold" style={{ color: "var(--text-primary)" }}>Ajuster la photo</h3>
-              <button onClick={() => setSelectedImage(null)} aria-label="Fermer">
+              <h3 className="font-bold" style={{ color: "var(--text-primary)" }}>{t("crop.title")}</h3>
+              <button onClick={() => setSelectedImage(null)} aria-label={t("crop.close")}>
                 <X className="w-5 h-5" style={{ color: "var(--text-secondary)" }} />
               </button>
             </div>
@@ -778,7 +796,7 @@ export default function ProfilPage() {
                   className="px-4 py-2 rounded-xl text-sm font-medium"
                   style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
                 >
-                  Annuler
+                  {t("crop.cancel")}
                 </button>
                 <button
                   onClick={handleApplyCrop}
@@ -786,7 +804,7 @@ export default function ProfilPage() {
                   className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-60"
                   style={{ background: "var(--gradient-button)", boxShadow: "0 5px 14px -5px rgba(var(--blue-rgb),0.4)" }}
                 >
-                  <CheckCircle2 size={15} /> {cropping ? "Traitement..." : "Valider"}
+                  <CheckCircle2 size={15} /> {cropping ? t("crop.processing") : t("crop.apply")}
                 </button>
               </div>
             </div>

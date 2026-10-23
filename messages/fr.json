@@ -505,13 +505,163 @@
     "emptyDefault": "Aucune notification."
   },
   "Deadlines": {},
-  "Profile": {},
+  "Profile": {
+    "success": {
+      "updated": "Profil mis à jour"
+    },
+    "errors": {
+      "save": "Impossible d'enregistrer les modifications.",
+      "savePhoto": "Impossible d'enregistrer la photo."
+    },
+    "avatar": {
+      "alt": "Photo de profil",
+      "viewTitle": "Voir la photo de profil",
+      "change": "Changer la photo",
+      "view": "Voir",
+      "crop": "Recadrer cette photo"
+    },
+    "role": {
+      "owner": "Propriétaire",
+      "admin": "Administrateur",
+      "adminShort": "Admin",
+      "member": "Membre"
+    },
+    "actions": {
+      "edit": "Modifier",
+      "save": "Enregistrer"
+    },
+    "personal": {
+      "title": "Informations personnelles",
+      "firstName": "Prénom",
+      "lastName": "Nom",
+      "email": "Email",
+      "phone": "Téléphone",
+      "city": "Ville / Pays",
+      "bio": "Bio",
+      "jobTitle": "Intitulé du poste"
+    },
+    "professional": {
+      "title": "Informations professionnelles",
+      "memberSince": "Inscrit depuis {date}",
+      "memberSinceRecently": "Inscrit depuis peu",
+      "agenciesTitle": "Mes agences",
+      "noAgencies": "Vous n'êtes dans aucune agence pour le moment.",
+      "createAgency": "Créer une agence"
+    },
+    "tasks": {
+      "title": "Mes tâches",
+      "assignedCount": "{count, plural, =0 {Aucune tâche assignée} =1 {# tâche assignée} other {# tâches assignées}}",
+      "stats": {
+        "assigned": "Tâches assignées",
+        "done": "Tâches terminées",
+        "late": "Tâches en retard"
+      },
+      "table": {
+        "task": "Tâche",
+        "project": "Projet",
+        "agency": "Agence",
+        "deadline": "Échéance",
+        "status": "Statut"
+      },
+      "status": {
+        "assigned": "Assignée",
+        "done": "Terminée",
+        "late": "En retard"
+      },
+      "empty": "Aucune tâche ne vous est assignée pour le moment."
+    },
+    "security": {
+      "title": "Sécurité",
+      "changePassword": "Changer mon mot de passe",
+      "twoFactor": {
+        "title": "Double authentification",
+        "enabledHint": "Un code est envoyé par email après votre mot de passe.",
+        "disabledHint": "Ajoutez un code par email pour sécuriser votre connexion.",
+        "note": "La connexion par code email reste disponible et n'est pas concernée.",
+        "passwordPlaceholder": "Votre mot de passe",
+        "enabling": "Activation...",
+        "confirm": "Confirmer"
+      }
+    },
+    "crop": {
+      "title": "Ajuster la photo",
+      "close": "Fermer",
+      "cancel": "Annuler",
+      "processing": "Traitement...",
+      "apply": "Valider"
+    }
+  },
   "Settings": {
+    "title": "Réglages",
+    "subtitle": "Les préférences qui s'appliquent à toutes vos agences.",
+    "preferences": {
+      "title": "Préférences",
+      "description": "Le thème (couleurs), la langue et les notifications, sur toutes vos agences."
+    },
+    "language": {
+      "label": "Langue",
+      "french": "Français",
+      "english": "English"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Affectations, commentaires, mentions et rappels d'échéance.",
+      "loadError": "Impossible de charger vos préférences de notifications."
+    },
     "theme": {
       "label": "Thème de l'interface",
       "description": "Choisis entre l'apparence claire et sombre.",
       "light": "Clair",
-      "dark": "Sombre"
+      "dark": "Sombre",
+      "title": "Thème",
+      "custom": "Couleur personnalisée",
+      "accentColor": "Couleur d'accent {name}",
+      "saveError": "Impossible d'enregistrer la couleur d'accent."
+    },
+    "colors": {
+      "default": "Défaut",
+      "blue": "Bleu",
+      "sky": "Bleu ciel",
+      "cyan": "Cyan",
+      "turquoise": "Turquoise",
+      "menthe": "Menthe",
+      "emerald": "Vert émeraude",
+      "green": "Vert",
+      "forest": "Vert forêt",
+      "lime": "Lime",
+      "olive": "Olive",
+      "yellow": "Jaune",
+      "amber": "Ambre",
+      "mustard": "Moutarde",
+      "orange": "Orange",
+      "burnt-orange": "Orange brûlée",
+      "red": "Rouge",
+      "raspberry": "Rouge framboise",
+      "coral": "Corail",
+      "burgundy": "Bordeaux",
+      "pink": "Rose",
+      "salmon": "Saumon",
+      "fuchsia": "Fuchsia",
+      "magenta": "Magenta",
+      "violet": "Violet",
+      "indigo": "Indigo",
+      "royal-blue": "Bleu roi",
+      "dark-blue": "Bleu foncé",
+      "navy": "Marine",
+      "teal": "Teal",
+      "aqua": "Aqua",
+      "slate": "Gris ardoise",
+      "gray": "Gris",
+      "light-gray": "Gris clair",
+      "black": "Noir",
+      "brown": "Brun",
+      "chocolate": "Brun chocolat",
+      "gold": "Or"
+    },
+    "appearance": {
+      "title": "Apparence",
+      "description": "Votre apparence est enregistrée sur votre compte : elle vous suit sur tous vos appareils.",
+      "saveError": "Impossible d'enregistrer le thème."
     }
   },
   "Statuses": {},
