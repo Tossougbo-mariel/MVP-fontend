@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Manrope, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { NextIntlClientProvider } from "next-intl";
 import {
   getMessages,
@@ -11,14 +11,14 @@ import { routing } from "@/i18n/routing";
 import ThemeProvider from "./(PageConnexion)/components/ThemeProvider";
 import "./globals.css";
 
-const manrope = Manrope({
-  variable: "--font-manrope",
-  subsets: ["latin"],
-});
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+// Police hébergée dans le projet (app/fonts) : elle s'affiche même sans
+// connexion, contrairement à next/font/google qui la télécharge au démarrage.
+const manrope = localFont({
+  src: "../fonts/Manrope-Variable.woff2",
+  variable: "--font-manrope",
+  weight: "200 800",
+  display: "swap",
 });
 
 type LocaleParams = { locale: string };
@@ -57,7 +57,7 @@ export default async function LocaleLayout({
   return (
     <html
       lang={locale}
-      className={`${manrope.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${manrope.variable} h-full antialiased`}
       data-theme="dark"
       // Indispensable avec `scroll-behavior: smooth` dans globals.css : sans
       // cet attribut, Next ne peut pas supprimer le défilement lisse pendant

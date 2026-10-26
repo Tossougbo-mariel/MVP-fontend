@@ -7,6 +7,7 @@ import { motion, type Variants } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { Building2, ArrowLeft, Plus } from "lucide-react";
 import { useAppData } from "@/lib/appData";
+import { agencyDashboardHref } from "@/lib/agencyHref";
 import { createAgency, getApiErrorMessage } from "@/lib/services";
 
 const container: Variants = {
@@ -49,7 +50,7 @@ export default function NouvelleAgencePage() {
         description: description.trim() || undefined,
       });
       await reload();
-      router.push(`/agences/${agency.id}/dashboard`);
+      router.push(agencyDashboardHref(agency.id));
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {

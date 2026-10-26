@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Bot, X, Send, Sparkles, Loader2, Trash2, AlertTriangle, WifiOff,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   fetchAiStatus, sendAiMessage, type AiStatus, type AiTurn,
 } from "@/lib/ai";
@@ -12,11 +13,11 @@ import { getApiErrorMessage } from "@/lib/api";
 
 type Message = AiTurn & { id: string };
 
-const SUGGESTIONS = [
-  "Par quoi je commence aujourd'hui ?",
-  "Quelles tâches sont en retard ?",
-  "Résume mes projets en cours",
-];
+const SUGGESTION_KEYS = [
+  "suggestionStart",
+  "suggestionLate",
+  "suggestionSummary",
+] as const;
 
 let counter = 0;
 const nextId = () => `m${++counter}`;
@@ -42,6 +43,7 @@ export default function AiAgentPanel({
   onOpen: () => void;
   agencyId: string | null;
 }) {
+  const t = useTranslations("Ai");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
@@ -61,9 +63,9 @@ export default function AiAgentPanel({
         // un etat inconnu et on laisse l'envoi tenter sa chance : l'erreur
         // reelle s'affichera dans la zone dediee si l'envoi echoue.
         setStatus(null);
-        setError("Impossible de vérifier l'état de l'assistant. Réessayez ou envoyez un message.");
+        setError(t("statusError"));
       });
-  }, [open]);
+  }, [open, t]);
 
   useEffect(() => {
     if (!open) return;
@@ -122,8 +124,8 @@ export default function AiAgentPanel({
           <motion.button
             type="button"
             onClick={onOpen}
-            aria-label="Ouvrir l'assistant IA"
-            title="Assistant IA"
+            aria-label={t("open")}
+            title={t("title")}
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.5 }}
@@ -161,19 +163,19 @@ export default function AiAgentPanel({
                 <Sparkles className="w-5 h-5 text-white" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-white">Assistant IA</p>
+                <p className="text-sm font-bold text-white">{t("title")}</p>
                 <p className="text-[11px] text-white/75 truncate">
                   {status === null
-                    ? "Connexion…"
+                    ? t("connecting")
                     : notConfigured
-                      ? "Non configuré"
-                      : `Lecture seule · ${status.model ?? "modèle"}`}
+                      ? t("notConfigured")
+                      : t("readOnly", { model: status.model ?? t("modelFallback") })}
                 </p>
               </div>
               {messages.length > 0 && (
                 <button
                   onClick={() => setMessages([])}
-                  aria-label="Effacer la conversation"
+                  aria-label={t("clear")}
                   className="p-2 rounded-lg text-white/80 hover:bg-white/15 transition-colors"
                 >
                   <Trash2 size={15} />
@@ -181,7 +183,7 @@ export default function AiAgentPanel({
               )}
               <button
                 onClick={onClose}
-                aria-label="Fermer"
+                aria-label={t("close")}
                 className="p-2 rounded-lg text-white/80 hover:bg-white/15 transition-colors"
               >
                 <X size={17} />
@@ -199,11 +201,9 @@ export default function AiAgentPanel({
               >
                 <AlertTriangle size={15} className="shrink-0 mt-px" style={{ color: "var(--color-error)" }} />
                 <span>
-                  Aucune clé IA n&apos;est configurée côté backend. Renseignez{" "}
-                  <code className="font-semibold">AI_API_KEY</code> dans{" "}
-                  <code className="font-semibold">.env</code> puis relancez{" "}
-                  <code className="font-semibold">php artisan optimize:clear</code>. L&apos;assistant
-                  refusera de répondre tant que ce n&apos;est pas fait — il ne simule pas de réponse.
+                  {t.rich("notConfiguredWarning", {
+                    code: (chunks) => <code className="font-semibold">{chunks}</code>,
+                  })}
                 </span>
               </div>
             )}
@@ -218,26 +218,29 @@ export default function AiAgentPanel({
                     <Bot size={26} style={{ color: "var(--accent-text)" }} />
                   </div>
                   <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                    Comment puis-je t&apos;aider ?
+                    {t("emptyTitle")}
                   </p>
                   <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                    Je vois tes agences, projets et tâches, et je peux les résumer.
+                    {t("emptyText")}
                   </p>
 
                   <div className="mt-4 flex flex-col gap-2">
-                    {SUGGESTIONS.map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => send(s)}
-                        className="px-3 py-2 rounded-xl text-xs text-left transition-colors"
-                        style={{
-                          background: "var(--hover-soft)",
-                          color: "var(--text-secondary)",
-                        }}
-                      >
-                        {s}
-                      </button>
-                    ))}
+                    {SUGGESTION_KEYS.map((key) => {
+                      const suggestion = t(key);
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => send(suggestion)}
+                          className="px-3 py-2 rounded-xl text-xs text-left transition-colors"
+                          style={{
+                            background: "var(--hover-soft)",
+                            color: "var(--text-secondary)",
+                          }}
+                        >
+                          {suggestion}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -262,7 +265,7 @@ export default function AiAgentPanel({
                     style={{ background: "var(--hover-soft)", color: "var(--text-muted)" }}
                   >
                     <Loader2 size={13} className="animate-spin" />
-                    Analyse de votre espace de travail…
+                    {t("analyzing")}
                   </div>
                 </div>
               )}
@@ -300,7 +303,7 @@ export default function AiAgentPanel({
                   }
                 }}
                 rows={1}
-                placeholder={notConfigured ? "Configurez AI_API_KEY pour commencer" : "Posez votre question…"}
+                placeholder={notConfigured ? t("placeholderNotConfigured") : t("placeholder")}
                 className="flex-1 resize-none px-3 py-2.5 rounded-xl text-sm outline-none max-h-28"
                 style={{
                   background: "var(--input-bg)",
@@ -311,7 +314,7 @@ export default function AiAgentPanel({
               <button
                 type="submit"
                 disabled={pending || !input.trim() || notConfigured}
-                aria-label="Envoyer"
+                aria-label={t("send")}
                 className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 disabled:opacity-40"
                 style={{ background: "var(--gradient-primary)" }}
               >

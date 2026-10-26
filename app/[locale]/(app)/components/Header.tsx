@@ -9,9 +9,11 @@ import { Menu, Bell, LogOut, User, ImageIcon, CheckCheck, AtSign, Sparkles, Chev
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
 import { markAllNotificationsRead, markNotificationRead } from "@/lib/services";
-import { getNotificationMeta, relativeTime, parseInvitationText } from "@/lib/notifications";
+import { getNotificationMeta, relativeTime } from "@/lib/notifications";
+import { useNotificationContent } from "@/lib/useNotificationContent";
 import type { AppNotification } from "@/lib/types";
 import { useActiveAgencyId, profileHrefFor } from "@/lib/useActiveAgencyId";
+import { agencyNotificationsHref } from "@/lib/agencyHref";
 
 // La recherche globale et la visionneuse d'avatar sont chargées à la demande.
 // Le fallback reprend exactement la boîte du champ (largeur + hauteur) pour que
@@ -40,6 +42,7 @@ export default function Header({
   const locale = useLocale();
   const t = useTranslations("Header");
   const tNotif = useTranslations("Notifications");
+  const resolveNotification = useNotificationContent();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const { unreadCount: notificationCount, data, reload } = useAppData();
@@ -52,7 +55,7 @@ export default function Header({
   const contextAgencyId = useActiveAgencyId();
   const profileHref = profileHrefFor(contextAgencyId);
   const notificationsHref = contextAgencyId
-    ? `/agences/${contextAgencyId}/notifications`
+    ? agencyNotificationsHref(contextAgencyId)
     : "/notifications";
 
   const [open, setOpen] = useState(false);
@@ -234,14 +237,7 @@ export default function Header({
                     const meta = getNotificationMeta(n.type);
                     const Icon = meta.icon;
                     const unread = !n.readAt;
-                    const isInvit = n.type === "invitation";
-                    const parsed = isInvit ? parseInvitationText(n) : null;
-                    const title = isInvit && parsed?.agency
-                      ? tNotif("invitTitle", { agency: parsed.agency })
-                      : n.title;
-                    const message = isInvit && parsed?.agency && parsed?.inviter
-                      ? tNotif("invitBody", { inviter: parsed.inviter, agency: parsed.agency, role: parsed.role === "admin" ? tNotif("roleAdmin") : tNotif("roleMember") })
-                      : n.message;
+                    const { title, message } = resolveNotification(n, data.projects);
                     return (
                       <li key={n.id}>
                         <Link
@@ -271,19 +267,32 @@ export default function Header({
                                 {relativeTime(n.createdAt, locale)}
                               </span>
                             </span>
-                            <span
-                              className={`block text-sm truncate ${unread ? "font-semibold" : "font-medium"}`}
-                              style={{ color: "var(--chrome-text)" }}
-                            >
-                              {title}
-                            </span>
-                            {message && (
-                              <span
-                                className="block text-xs truncate"
-                                style={{ color: "var(--chrome-text-muted)" }}
-                              >
-                                {message}
-                              </span>
+                            {title ? (
+                              <>
+                                <span
+                                  className={`block text-sm truncate ${unread ? "font-semibold" : "font-medium"}`}
+                                  style={{ color: "var(--chrome-text)" }}
+                                >
+                                  {title}
+                                </span>
+                                {message && (
+                                  <span
+                                    className="block text-xs truncate"
+                                    style={{ color: "var(--chrome-text-muted)" }}
+                                  >
+                                    {message}
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              message && (
+                                <span
+                                  className={`block text-sm truncate ${unread ? "font-semibold" : "font-medium"}`}
+                                  style={{ color: "var(--chrome-text-secondary)" }}
+                                >
+                                  {message}
+                                </span>
+                              )
                             )}
                           </span>
                           {unread && (

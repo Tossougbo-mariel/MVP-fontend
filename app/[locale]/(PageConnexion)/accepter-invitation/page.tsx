@@ -11,6 +11,7 @@ import {
 import AuthCard from "../components/AuthCard";
 import { useAuthStore } from "@/app/store/authStore";
 import { acceptInvitation, fetchInvitationPreview, getApiErrorMessage } from "@/lib/services";
+import { agencyTeamHref } from "@/lib/agencyHref";
 import type { InvitationPreview } from "@/lib/types";
 import { useTranslations } from "next-intl";
 
@@ -90,7 +91,7 @@ function AcceptInvitationContent() {
       await acceptInvitation(token);
       setAccepted(true);
       const dest = preview?.agency?.id
-        ? `/agences/${preview.agency.id}/equipe`
+        ? agencyTeamHref(preview.agency.id)
         : "/mes-agences";
       setTimeout(() => router.push(dest), 1400);
     } catch (err) {

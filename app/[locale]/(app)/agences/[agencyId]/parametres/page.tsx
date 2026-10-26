@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
+import { agencyDashboardHref, agencyTeamHref } from "@/lib/agencyHref";
 import {
   isAgencyOwner,
   type AgencyInvitation,
@@ -130,7 +131,7 @@ export default function ParametresPage() {
           </p>
         </motion.div>
         <motion.div variants={item}>
-          <Link href={`/agences/${agencyId}/dashboard`} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--gradient-button)" }}>
+          <Link href={agencyDashboardHref(agencyId)} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--gradient-button)" }}>
             <ArrowLeft size={16} /> {tSettings("backToDashboard")}
           </Link>
         </motion.div>
@@ -260,7 +261,7 @@ export default function ParametresPage() {
           </div>
         </div>
         <Link
-          href={`/agences/${agencyId}/equipe`}
+          href={agencyTeamHref(agencyId)}
           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-opacity hover:opacity-80"
           style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
         >

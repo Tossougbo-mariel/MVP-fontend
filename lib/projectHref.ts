@@ -14,6 +14,11 @@ export const projectsHref = (agencyId: EntityId): Href => ({
   params: { agencyId: id(agencyId) },
 });
 
+export const newProjectHref = (agencyId: EntityId): Href => ({
+  pathname: "/agences/[agencyId]/projets/nouveauProjet",
+  params: { agencyId: id(agencyId) },
+});
+
 export const projectHref = (
   agencyId: EntityId,
   projectId: EntityId,

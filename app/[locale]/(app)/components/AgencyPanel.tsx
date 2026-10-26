@@ -1,13 +1,19 @@
 "use client";
 
 import { Link } from "@/i18n/navigation";
-import { kanbanHref, planningHref, projectsHref } from "@/lib/projectHref";
+import { kanbanHref, planningHref } from "@/lib/projectHref";
+import {
+  agencySectionHref,
+  agencySectionPath,
+  newAgencyHref,
+  type AgencySection,
+} from "@/lib/agencyHref";
 import { useNormalizedPathname } from "@/lib/useNormalizedPathname";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   LayoutDashboard, CheckSquare, FolderKanban, Users, Hash, CalendarDays,
-  ChevronDown, Plus, Settings,
+  ChevronDown, Plus, Settings, type LucideIcon,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
@@ -16,18 +22,18 @@ import { userAgencies, userRoleInAgency, type AgencyRole } from "@/lib/types";
 // Les réglages d'agence vivent dans ce panneau : ils ne concernent que
 // l'agence affichée, donc ils ne figurent pas sur le rail principal, qui est
 // commun à toutes les agences. Les libellés sont des clés, traduites au rendu.
-const AGENCY_ITEMS = [
-  { suffix: "dashboard", labelKey: "app.dashboard", icon: LayoutDashboard },
-  { suffix: "projets", labelKey: "app.projects", icon: FolderKanban },
-  { suffix: "mes-taches", labelKey: "app.myTasks", icon: CheckSquare },
-  { suffix: "equipe", labelKey: "app.team", icon: Users },
+const AGENCY_ITEMS: { section: AgencySection; labelKey: string; icon: LucideIcon }[] = [
+  { section: "dashboard", labelKey: "app.dashboard", icon: LayoutDashboard },
+  { section: "projects", labelKey: "app.projects", icon: FolderKanban },
+  { section: "myTasks", labelKey: "app.myTasks", icon: CheckSquare },
+  { section: "team", labelKey: "app.team", icon: Users },
 ];
 
 // La page des réglages d'agence n'est accessible qu'au propriétaire : l'entrée
 // n'apparaît donc que pour ce rôle, comme le faisait le rail principal.
 const OWNER_AGENCY_ITEMS = [
   ...AGENCY_ITEMS,
-  { suffix: "parametres", labelKey: "app.agencySettings", icon: Settings },
+  { section: "settings" as const, labelKey: "app.agencySettings", icon: Settings },
 ];
 
 // Rôles → clés du namespace « Agencies ».
@@ -173,7 +179,7 @@ export default function AgencyPanel({ agencyId }: { agencyId: string }) {
               return (
                 <Link
                   key={item.id}
-                  href={`/agences/${item.id}/dashboard`}
+                  href={agencySectionHref(item.id, "dashboard")}
                   onClick={() => setOptionsOpen(false)}
                   className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors"
                   style={{ background: isActive ? "var(--hover-soft)" : "transparent" }}
@@ -205,7 +211,7 @@ export default function AgencyPanel({ agencyId }: { agencyId: string }) {
               style={{ borderColor: "var(--border-subtle)" }}
             >
               <Link
-                href="/agences/nouvelle"
+                href={newAgencyHref}
                 onClick={() => setOptionsOpen(false)}
                 className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors"
                 style={{ color: "var(--text-secondary)" }}
@@ -220,15 +226,12 @@ export default function AgencyPanel({ agencyId }: { agencyId: string }) {
       <nav className="flex-1 min-h-0 overflow-y-auto mt-3">
         <ul className="space-y-0.5">
           {items.map((item) => {
-            const href =
-              item.suffix === "projets"
-                ? projectsHref(agencyId)
-                : `/agences/${agencyId}/${item.suffix}`;
-            const sectionPath = `/agences/${agencyId}/${item.suffix}`;
+            const href = agencySectionHref(agencyId, item.section);
+            const sectionPath = agencySectionPath(agencyId, item.section);
             const active =
               pathname === sectionPath || pathname.startsWith(`${sectionPath}/`);
             return (
-              <li key={item.suffix}>
+              <li key={item.section}>
                 <Link
                   href={href}
                   className="flex items-center gap-3 px-2.5 py-2.5 rounded-lg transition-colors hover:bg-[var(--sidebar-hover)]"

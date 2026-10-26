@@ -23,6 +23,15 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/:locale(fr|en)/mon_profil",
+        destination: "/:locale/profil",
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     return [
       {

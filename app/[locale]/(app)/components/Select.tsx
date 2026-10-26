@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export type SelectOption = { value: string | number; label: string };
 
@@ -16,6 +17,7 @@ type SelectProps = {
 };
 
 export default function Select({ value, onChange, options, placeholder, className, style, ariaLabel }: SelectProps) {
+  const t = useTranslations("Common");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -56,7 +58,7 @@ export default function Select({ value, onChange, options, placeholder, classNam
         aria-expanded={open}
       >
         <span className="truncate" style={{ color: selected ? "var(--text-primary)" : "var(--text-muted)" }}>
-          {selected ? selected.label : placeholder ?? "Sélectionner…"}
+          {selected ? selected.label : placeholder ?? t("selectPlaceholder")}
         </span>
         <ChevronDown
           size={16}

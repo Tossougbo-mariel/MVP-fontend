@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link, type Href } from "@/i18n/navigation";
+import { agencyAlertsHref } from "@/lib/agencyHref";
 import { taskHref } from "@/lib/projectHref";
 import { useLocale, useTranslations } from "next-intl";
 import { AlertTriangle, CalendarClock } from "lucide-react";
@@ -49,9 +50,7 @@ export default function DeadlineAlertsMenu({ variant }: { variant: MenuVariant }
     });
   }, []);
 
-  const alertsHref = contextAgencyId
-    ? `/agences/${contextAgencyId}/alertes`
-    : "/alertes";
+  const alertsHref = contextAgencyId ? agencyAlertsHref(contextAgencyId) : "/alertes";
 
   // La tâche vit dans son agence : on la rejoint par le projet, seule source
   // du lien. Sans projet trouvable (donnée en cours de chargement), on retombe

@@ -15,17 +15,17 @@ import {
   isNeutralNotification,
   matchesFilter,
   notificationAction,
-  parseInvitationText,
   relativeTime,
   type NotificationAction,
 } from "@/lib/notifications";
+import { useNotificationContent } from "@/lib/useNotificationContent";
 import {
   deleteNotifications,
   markAllNotificationsRead,
   markNotificationRead,
   markNotificationUnread,
 } from "@/lib/services";
-import { isUnread, type AppNotification } from "@/lib/types";
+import { isUnread, type AppNotification, type Project } from "@/lib/types";
 import ConfirmDialog from "@/app/[locale]/(app)/components/ConfirmDialog";
 
 const container: Variants = {
@@ -72,15 +72,18 @@ function ActionLink({
 
 function NotificationDetailModal({
   notification,
+  projects,
   onClose,
   onToggle,
 }: {
   notification: AppNotification | null;
+  projects: Project[];
   onClose: () => void;
   onToggle: (n: AppNotification) => void;
 }) {
   const locale = useLocale();
   const t = useTranslations("Notifications");
+  const resolveNotification = useNotificationContent();
   useEffect(() => {
     if (!notification) return;
     const onKey = (e: KeyboardEvent) => {
@@ -96,10 +99,7 @@ function NotificationDetailModal({
   const Icon = meta.icon;
   const action = notificationAction(notification);
   const unread = isUnread(notification);
-  const isInvit = notification.type === "invitation";
-  const parsed = isInvit ? parseInvitationText(notification) : null;
-  const title = isInvit && parsed?.agency ? t("invitTitle", { agency: parsed.agency }) : notification.title;
-  const message = isInvit && parsed?.agency && parsed?.inviter ? t("invitBody", { inviter: parsed.inviter, agency: parsed.agency, role: parsed.role === "admin" ? t("roleAdmin") : t("roleMember") }) : notification.message;
+  const { title, message } = resolveNotification(notification, projects);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
@@ -129,9 +129,11 @@ function NotificationDetailModal({
             >
               {t(meta.labelKey)}
             </span>
-            <h2 className="mt-1.5 text-lg font-bold leading-tight" style={{ color: "var(--chrome-text)" }}>
-              {title}
-            </h2>
+            {title && (
+              <h2 className="mt-1.5 text-lg font-bold leading-tight" style={{ color: "var(--chrome-text)" }}>
+                {title}
+              </h2>
+            )}
             <p className="text-xs mt-1" style={{ color: "var(--chrome-text-muted)" }}>
               {formatFullDate(notification.createdAt, locale)}
               {" · "}
@@ -213,9 +215,10 @@ export default function NotificationsView({
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [confirmIds, setConfirmIds] = useState<number[] | null>(null);
-  const { reload } = useAppData();
+  const { data, reload } = useAppData();
   const locale = useLocale();
   const t = useTranslations("Notifications");
+  const resolveNotification = useNotificationContent();
 
   // Le menu d'actions se referme au clic à l'extérieur et sur Échap.
   useEffect(() => {
@@ -538,10 +541,8 @@ export default function NotificationsView({
             const neutral = isNeutralNotification(n);
             const isSelected = selected.has(n.id);
             const clickable = selecting || !neutral;
-            const isInvit = n.type === "invitation";
-            const parsed = isInvit ? parseInvitationText(n) : null;
-            const title = isInvit && parsed?.agency ? t("invitTitle", { agency: parsed.agency }) : n.title;
-            const message = isInvit && parsed?.agency && parsed?.inviter ? t("invitBody", { inviter: parsed.inviter, agency: parsed.agency, role: parsed.role === "admin" ? t("roleAdmin") : t("roleMember") }) : n.message;
+            const { title, message } = resolveNotification(n, data.projects);
+            const label = title ?? message ?? t(meta.labelKey);
 
             // En sélection le clic coche ; sinon il ouvre le contenu, sauf sur
             // une notification neutre qui n'a plus rien à ouvrir.
@@ -559,9 +560,9 @@ export default function NotificationsView({
                 aria-label={
                   selecting
                     ? isSelected
-                      ? `${t("deselectNotification")} : ${title}`
-                      : `${t("selectNotification")} : ${title}`
-                    : `${t("openNotification")} : ${title}`
+                      ? `${t("deselectNotification")} : ${label}`
+                      : `${t("selectNotification")} : ${label}`
+                    : `${t("openNotification")} : ${label}`
                 }
                 aria-pressed={selecting ? isSelected : undefined}
                 onClick={clickable ? activate : undefined}
@@ -633,16 +634,29 @@ export default function NotificationsView({
                         )}
                       </div>
 
-                      <p
-                        className={`mt-0.5 text-[13px] ${unread ? "font-semibold" : "font-medium"}`}
-                        style={{ color: "var(--chrome-text)" }}
-                      >
-                        {title}
-                      </p>
-                      {message && (
-                        <p className="mt-0.5 text-[11px] line-clamp-2" style={{ color: "var(--chrome-text-muted)" }}>
-                          {message}
-                        </p>
+                      {title ? (
+                        <>
+                          <p
+                            className={`mt-0.5 text-[13px] ${unread ? "font-semibold" : "font-medium"}`}
+                            style={{ color: "var(--chrome-text)" }}
+                          >
+                            {title}
+                          </p>
+                          {message && (
+                            <p className="mt-0.5 text-[11px] line-clamp-2" style={{ color: "var(--chrome-text-muted)" }}>
+                              {message}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        message && (
+                          <p
+                            className={`mt-0.5 text-[13px] leading-snug ${unread ? "font-semibold" : "font-medium"}`}
+                            style={{ color: "var(--chrome-text-secondary)" }}
+                          >
+                            {message}
+                          </p>
+                        )
                       )}
                     </div>
 
@@ -816,6 +830,7 @@ export default function NotificationsView({
 
       <NotificationDetailModal
         notification={detail}
+        projects={data.projects}
         onClose={() => setDetail(null)}
         onToggle={(n) => void toggleRead(n)}
       />

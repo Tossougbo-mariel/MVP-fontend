@@ -2,7 +2,7 @@
 
 import { Link } from "@/i18n/navigation";
 import { taskHref } from "@/lib/projectHref";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Ban, Clock, TriangleAlert, GitBranch } from "lucide-react";
 import {
   buildGanttRows, ganttBounds, toISODate, diffDays, monthName, formatDay,
@@ -25,6 +25,8 @@ export default function GanttChart({
 }) {
   const { colorOf, isTerminal, statuses } = useTaskStatuses();
   const locale = useLocale();
+  const tp = useTranslations("Planning");
+  const tc = useTranslations("Common");
   const rows = buildGanttRows(tasks, statuses);
   const { from, to } = ganttBounds(rows);
   const totalDays = Math.max(1, diffDays(from, to) + 1);
@@ -38,10 +40,10 @@ export default function GanttChart({
         style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)" }}
       >
         <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-          Aucune tâche à planifier
+          {tp("emptyTitle")}
         </p>
         <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-          Ajoutez des tâches avec une date de début et une date d&apos;échéance.
+          {tp("emptyText")}
         </p>
       </div>
     );
@@ -72,7 +74,7 @@ export default function GanttChart({
             borderRight: "1px solid var(--border-subtle)",
           }}
         >
-          {rows.length} tâche(s)
+          {tp("taskCount", { count: rows.length })}
         </div>
         <div className="flex-1 overflow-hidden">
           <div className="flex">
@@ -169,7 +171,7 @@ export default function GanttChart({
                       className="text-[10px] font-semibold px-1.5 py-0.5 rounded inline-flex items-center gap-1"
                       style={{ color: "var(--text-muted)", background: "var(--hover-soft)" }}
                     >
-                      <Clock size={9} /> non planifiée
+                      <Clock size={9} /> {tp("unplanned")}
                     </span>
                   </div>
                 );
@@ -197,9 +199,11 @@ export default function GanttChart({
                       border: `1px solid ${color}`,
                       borderStyle: row.violatesDependency ? "dashed" : "solid",
                     }}
-                    title={`${row.task.title} — ${formatDay(row.plannedStart, locale)} → ${formatDay(row.plannedEnd, locale)}${
-                      row.violatesDependency ? " (reporte à cause d'une dépendance)" : ""
-                    }`}
+                    title={`${tp("dependencyTooltip", {
+                      title: row.task.title,
+                      start: formatDay(row.plannedStart, locale),
+                      end: formatDay(row.plannedEnd, locale),
+                    })}${row.violatesDependency ? tp("dependencyViolationSuffix") : ""}`}
                   >
                     <span
                       className="text-[10px] font-bold truncate"
@@ -267,14 +271,14 @@ export default function GanttChart({
         style={{ borderTop: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}
       >
         <span className="flex items-center gap-1.5">
-          <GitBranch size={11} /> trait tireté = dépendance non terminée
+          <GitBranch size={11} /> {tp("legendDependency")}
         </span>
         <span className="flex items-center gap-1.5">
-          <TriangleAlert size={11} style={{ color: "#d97706" }} /> barre en pointillés = tâche repoussée
+          <TriangleAlert size={11} style={{ color: "#d97706" }} /> {tp("legendDelayed")}
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-0.5 inline-block" style={{ background: "var(--color-error)" }} />{" "}
-          aujourd&apos;hui
+          {tc("today")}
         </span>
       </div>
     </div>

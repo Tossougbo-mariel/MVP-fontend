@@ -15,7 +15,7 @@ import {
   Eye,
 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
-import { kanbanHref, projectHref } from "@/lib/projectHref";
+import { kanbanHref, newProjectHref, projectHref } from "@/lib/projectHref";
 import { useParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
@@ -219,7 +219,7 @@ export default function ProjetsPage() {
         {canCreateProjects && (
           <div className="flex items-center gap-2 self-start sm:self-auto">
             <Link
-              href={{ pathname: "/agences/[agencyId]/projets/nouveauProjet", params: { agencyId } }}
+              href={newProjectHref(agencyId)}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
               style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
             >
@@ -250,7 +250,7 @@ export default function ProjetsPage() {
           </p>
           {isAdmin && (
             <Link
-              href={{ pathname: "/agences/[agencyId]/projets/nouveauProjet", params: { agencyId } }}
+              href={newProjectHref(agencyId)}
               className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
               style={{ background: "var(--gradient-button)" }}
             >
