@@ -280,7 +280,13 @@
     "agencyNotFound": "Agency not found",
     "agencyNotFoundDetail": "This agency does not exist or you are not part of it.",
     "notAgencyMember": "You are not a member of this agency.",
-    "accessDenied": "Access denied"
+    "accessDenied": "Access denied",
+    "notFoundTitle": "Page not found",
+    "notFoundDescription": "This address does not match anything. It may have changed, or the link you used is invalid.",
+    "errorTitle": "Something went wrong",
+    "errorDescription": "This page failed to load. You can try again or go back to your agencies.",
+    "globalErrorTitle": "An unexpected error occurred",
+    "globalErrorDescription": "The application could not be displayed. Try again or reload the page."
   },
   "Landing": {
     "hero": {
@@ -1009,7 +1015,51 @@
       "forcedDefault": "This member has ongoing tasks in the agency's projects."
     }
   },
-  "Planning": {},
+  "Planning": {
+    "title": "Schedule — {project}",
+    "backToKanban": "Back to Kanban",
+    "plannedCount": "{count, plural, one {# scheduled task} other {# scheduled tasks}}",
+    "readOnly": "Read only",
+    "readOnlyTitle": "Only administrators can modify the project",
+    "kanban": "Kanban",
+    "undatedWarning": "{count, plural, one {# task has no start date or due date: it appears in the calendar's “undated” list and is not shown on the Gantt. Open it to add dates.} other {# tasks have no start date or due date: they appear in the calendar's “undated” list and are not shown on the Gantt. Open them to add dates.}}",
+    "tabCalendar": "Calendar",
+    "tabGantt": "Gantt",
+    "withoutDateSuffix": " · {count} undated",
+    "noTasksDay": "No tasks on this day.",
+    "noDate": "Undated ({count})",
+    "noDateHint": "These tasks do not appear in the grid: add their dates.",
+    "nextSevenDays": "The next 7 days",
+    "emptyTitle": "No tasks to schedule",
+    "emptyText": "Add tasks with a start date and a due date.",
+    "taskCount": "{count, plural, one {# task} other {# tasks}}",
+    "unplanned": "unscheduled",
+    "dependencyTooltip": "{title} — {start} → {end}",
+    "dependencyViolationSuffix": " (delayed by a dependency)",
+    "legendDependency": "dashed line = unfinished dependency",
+    "legendDelayed": "dotted bar = delayed task"
+  },
+  "Ai": {
+    "suggestionStart": "What should I start with today?",
+    "suggestionLate": "Which tasks are overdue?",
+    "suggestionSummary": "Summarize my current projects",
+    "statusError": "Unable to check the assistant status. Try again or send a message.",
+    "open": "Open AI assistant",
+    "title": "AI assistant",
+    "connecting": "Connecting…",
+    "notConfigured": "Not configured",
+    "readOnly": "Read only · {model}",
+    "modelFallback": "model",
+    "clear": "Clear conversation",
+    "close": "Close",
+    "notConfiguredWarning": "No AI key is configured on the backend. Set <code>AI_API_KEY</code> in <code>.env</code> and restart <code>php artisan optimize:clear</code>. The assistant will refuse to answer until then — it does not simulate a response.",
+    "emptyTitle": "How can I help?",
+    "emptyText": "I can see your agencies, projects and tasks, and summarize them.",
+    "analyzing": "Analyzing your workspace…",
+    "placeholderNotConfigured": "Configure AI_API_KEY to get started",
+    "placeholder": "Ask your question…",
+    "send": "Send"
+  },
 
   "Notifications": {
     "typeInvitation": "Invitation",
@@ -1044,6 +1094,7 @@
     "exitSelection": "Exit selection",
     "loading": "Loading notifications…",
     "emptyDefault": "No notifications yet.",
+    "emptyAgency": "No notifications for this agency.",
     "emptyCategory": "No notification in this category.",
     "emptyHint": "A new task, comment or deadline will appear here.",
     "emptyCategoryHint": "Choose another filter.",
@@ -1070,7 +1121,39 @@
     "invitTitle": "Invitation to join {agency}",
     "invitBody": "{inviter} invites you to join the agency \"{agency}\" as {role}. Click to confirm your membership.",
     "roleMember": "member",
-    "roleAdmin": "administrator"
+    "roleAdmin": "administrator",
+    "actorWithRole": "{name} ({role})",
+    "actorWithRoleAndAgency": "{name} ({role}) of the \"{agency}\" agency",
+    "actorRoleOwner": "owner",
+    "actorRoleAdmin": "admin",
+    "actorRoleMember": "member",
+    "taskAssignedBody": "{actor} assigned you the task \"{task}\" in the \"{project}\" project.",
+    "taskAssignedBodyNoProject": "{actor} assigned you the task \"{task}\".",
+    "taskRemovedBody": "{actor} removed you from the task \"{task}\" in the \"{project}\" project.",
+    "taskRemovedBodyNoProject": "{actor} removed you from the task \"{task}\".",
+    "taskDoneBody": "{actor} marked the task \"{task}\" in the \"{project}\" project as complete.",
+    "taskDoneBodyNoProject": "{actor} marked the task \"{task}\" as complete.",
+    "taskReopenedBody": "The task \"{task}\" in the \"{project}\" project was reopened: its prerequisite \"{prereq}\" is no longer complete.",
+    "taskReopenedBodyNoProject": "The task \"{task}\" was reopened: its prerequisite \"{prereq}\" is no longer complete.",
+    "commentBody": "{author} commented on the task \"{task}\" in the \"{project}\" project.",
+    "commentBodyNoProject": "{author} commented on the task \"{task}\".",
+    "commentBodyWithExcerpt": "{author} commented on the task \"{task}\" in the \"{project}\" project: \"{excerpt}\"",
+    "commentBodyNoProjectWithExcerpt": "{author} commented on the task \"{task}\": \"{excerpt}\"",
+    "mentionBody": "{author} mentioned you on the task \"{task}\" in the \"{project}\" project.",
+    "mentionBodyNoProject": "{author} mentioned you on the task \"{task}\".",
+    "mentionBodyWithExcerpt": "{author} mentioned you on the task \"{task}\" in the \"{project}\" project: \"{excerpt}\"",
+    "mentionBodyNoProjectWithExcerpt": "{author} mentioned you on the task \"{task}\": \"{excerpt}\"",
+    "dueSoonBody": "The task \"{task}\" in the \"{project}\" project is due on {date}. Please complete it before that date.",
+    "dueSoonBodyNoProject": "The task \"{task}\" is due on {date}. Please complete it before that date.",
+    "dueSoonReminderBody": "The task \"{task}\" in the \"{project}\" project is due on {date}.",
+    "dueSoonReminderBodyNoProject": "The task \"{task}\" is due on {date}.",
+    "taskLateBody": "The task \"{task}\" in the \"{project}\" project is overdue since {date}. Please handle it as soon as possible.",
+    "taskLateBodyNoProject": "The task \"{task}\" is overdue since {date}. Please handle it as soon as possible.",
+    "adminPromotedBody": "{actor} made you administrator of the \"{agency}\" agency.",
+    "roleChangedBody": "{actor} changed your role in the \"{agency}\" agency: you are now \"{role}\".",
+    "accountEnabledBody": "{actor} reactivated your account in the \"{agency}\" agency: your access has been restored.",
+    "accountDisabledBody": "{actor} disabled your account in the \"{agency}\" agency: you no longer have access to its content.",
+    "removedFromAgencyBody": "{actor} removed you from the \"{agency}\" agency."
   },
 
   "NotificationsPage": {
@@ -1081,6 +1164,7 @@
   "Deadlines": {
     "overdue": "Overdue",
     "dueSoon": "Due soon",
+    "pageSubtitle": "{firstName}, here are the tasks to watch",
     "titleOverdue": "Overdue task",
     "titleDueSoon": "Due soon",
     "messageOverdue": "The task “{task}” is overdue. It was due on {date}. It is not completed yet.",
@@ -1107,6 +1191,7 @@
   "saved": "Profile updated",
   "avatar": {
     "view": "View profile picture",
+    "alt": "Profile picture",
     "change": "Change picture",
     "viewShort": "View"
   },
@@ -1180,6 +1265,7 @@
   },
   "crop": {
     "title": "Adjust the photo",
+    "button": "Crop this photo",
     "apply": "Confirm",
     "processing": "Processing..."
   },

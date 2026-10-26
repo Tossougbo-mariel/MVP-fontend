@@ -980,7 +980,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                     className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
                     style={{ color: readableOnWhite(statusBadge.color), background: "#fff", border: `1px solid ${statusBadge.color}` }}
                   >
-                    {statusBadge.label}
+                    {statusLabel(task.status, statusBadge.label)}
                   </span>
                   <span
                     className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
@@ -1086,7 +1086,7 @@ const [commentMentions, setCommentMentions] = useState<number[]>([]);
                       {s.is_terminal && <CheckCircle2 size={14} />}
                       {s.key === "a_faire" && <Clock size={14} />}
                       {!s.is_terminal && s.key !== "a_faire" ? <CalendarClock size={14} /> : null}
-                      {cfg.label}
+                      {statusLabel(s.key, cfg.label)}
                     </div>
                   );
                 })}

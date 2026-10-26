@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Link } from "@/i18n/navigation";
+import { agencyDashboardHref, newAgencyHref } from "@/lib/agencyHref";
 import { taskHref } from "@/lib/projectHref";
 import { useLocale, useTranslations } from "next-intl";
 import { motion, type Variants } from "framer-motion";
@@ -532,7 +533,7 @@ export default function ProfilPage() {
                   {t("agencies.empty")}
                 </p>
                 <Link
-                  href="/agences/nouvelle"
+                  href={newAgencyHref}
                   className="inline-flex items-center gap-1.5 text-sm font-semibold"
                   style={{ color: "var(--blue)" }}
                 >
@@ -543,7 +544,7 @@ export default function ProfilPage() {
             {myAgencies.map((a) => (
               <Link
                 key={a.id}
-                href={`/agences/${a.id}/dashboard`}
+                href={agencyDashboardHref(a.id)}
                 className="flex items-center gap-3 px-4 py-3 rounded-xl hover:opacity-80 transition-opacity"
                 style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}
               >

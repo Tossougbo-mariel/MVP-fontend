@@ -28,6 +28,7 @@ export default function ProjectPlanningPage() {
   const { agencyId, projectId } = useParams<{ agencyId: string; projectId: string }>();
   const te = useTranslations("Errors");
   const tc = useTranslations("Common");
+  const tp = useTranslations("Planning");
   const tErrors = useTranslations("Projects.errors");
   const user = useAuthStore((s) => s.user);
   const { agencyById, getProject, tasksByProject, data } = useAppData();
@@ -89,8 +90,8 @@ export default function ProjectPlanningPage() {
   const undated = tasks.filter((t) => !t.archivedAt && !t.startDate && !t.dueDate);
 
   const tabs: { id: Tab; label: string; icon: typeof CalendarDays }[] = [
-    { id: "calendrier", label: "Calendrier", icon: CalendarDays },
-    { id: "gantt", label: "Gantt", icon: GanttChartSquare },
+    { id: "calendrier", label: tp("tabCalendar"), icon: CalendarDays },
+    { id: "gantt", label: tp("tabGantt"), icon: GanttChartSquare },
   ];
 
   return (
@@ -99,7 +100,7 @@ export default function ProjectPlanningPage() {
         <div className="flex items-center gap-3 min-w-0">
           <Link
             href={kanbanHref(agencyId, projectId)}
-            aria-label="Retour au Kanban"
+            aria-label={tp("backToKanban")}
             className="p-2 rounded-lg transition-colors hover:bg-[var(--hover-soft)] shrink-0"
             style={{ color: "var(--text-secondary)" }}
           >
@@ -107,10 +108,10 @@ export default function ProjectPlanningPage() {
           </Link>
           <div className="min-w-0">
             <h1 className="text-xl font-black truncate" style={{ color: "var(--text-primary)" }}>
-              Planning — {project.name}
+              {tp("title", { project: project.name })}
             </h1>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {tasks.length - undated.length} tâche(s) planifiée(s)
+              {tp("plannedCount", { count: tasks.length - undated.length })}
             </p>
           </div>
         </div>
@@ -120,9 +121,9 @@ export default function ProjectPlanningPage() {
             <span
               className="text-[11px] font-semibold px-2.5 py-1 rounded-full inline-flex items-center gap-1.5"
               style={{ color: "var(--text-muted)", background: "var(--hover-soft)" }}
-              title="Seuls les administrateurs modifient le projet"
+              title={tp("readOnlyTitle")}
             >
-              <Lock size={11} /> Lecture seule
+              <Lock size={11} /> {tp("readOnly")}
             </span>
           )}
           <Link
@@ -130,7 +131,7 @@ export default function ProjectPlanningPage() {
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors"
             style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
           >
-            <FolderKanban size={14} /> Kanban
+            <FolderKanban size={14} /> {tp("kanban")}
           </Link>
         </div>
       </div>
@@ -145,11 +146,7 @@ export default function ProjectPlanningPage() {
           }}
         >
           <AlertTriangle size={15} className="shrink-0 mt-px" style={{ color: "#d97706" }} />
-          <span>
-            {undated.length} tâche(s) n&apos;ont ni date de début ni date d&apos;échéance : elles
-            apparaissent dans la liste « sans date » du calendrier et ne sont pas tracées sur le
-            Gantt. Ouvrez-les pour leur ajouter des dates.
-          </span>
+          <span>{tp("undatedWarning", { count: undated.length })}</span>
         </div>
       )}
 

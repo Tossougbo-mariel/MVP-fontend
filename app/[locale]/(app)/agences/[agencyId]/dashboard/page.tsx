@@ -68,10 +68,6 @@ export default function AgencyDashboardPage() {
   const user = useAuthStore((s) => s.user);
   const t = useTranslations("Dashboard");
 
-  // Résumé dédié (UNE seule agence) : le tableau de bord n'attend plus le
-  // bootstrap complet (toutes agences + notifications) pour afficher ses
-  // indicateurs. Le bootstrap continue de tourner en arrière-plan pour le
-  // shell (cloche, recherche…).
   const { data: summary, loading } = useAsync(
     () => fetchAgencyDashboard(agencyId),
     [agencyId],

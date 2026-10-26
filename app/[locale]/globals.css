@@ -349,7 +349,7 @@
   --color-dark-border: var(--border-subtle);
   --color-dark-text: #a9b9d6;
   --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --shadow-card: var(--shadow-card);
   --shadow-glow-blue: 0 8px 24px rgba(var(--blue-rgb), 0.35);
   --shadow-btn: 0 6px 18px rgba(var(--blue-rgb), 0.35);

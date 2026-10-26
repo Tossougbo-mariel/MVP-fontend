@@ -12,7 +12,8 @@ import {
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { useAuthStore } from "@/app/store/authStore";
-import { getNotificationMeta, notificationAction, parseInvitationText } from "./notifications";
+import { getNotificationMeta, notificationAction } from "./notifications";
+import { useNotificationContent } from "./useNotificationContent";
 import {
   fetchAgencies,
   fetchBootstrap,
@@ -412,7 +413,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   return (
     <>
       <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>
-      {toast && <RealtimeToast notification={toast} onClose={() => setToast(null)} />}
+      {toast && (
+        <RealtimeToast
+          notification={toast}
+          projects={data.projects}
+          onClose={() => setToast(null)}
+        />
+      )}
     </>
   );
 }
@@ -420,19 +427,19 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 // Petit toast affiché en bas à droite dès qu'une notification arrive en direct.
 function RealtimeToast({
   notification,
+  projects,
   onClose,
 }: {
   notification: AppNotification;
+  projects: Project[];
   onClose: () => void;
 }) {
   const meta = getNotificationMeta(notification.type);
   const action = notificationAction(notification);
   const Icon = meta.icon;
   const t = useTranslations("Notifications");
-  const isInvit = notification.type === "invitation";
-  const parsed = isInvit ? parseInvitationText(notification) : null;
-  const title = isInvit && parsed?.agency ? t("invitTitle", { agency: parsed.agency }) : notification.title;
-  const message = isInvit && parsed?.agency && parsed?.inviter ? t("invitBody", { inviter: parsed.inviter, agency: parsed.agency, role: parsed.role === "admin" ? t("roleAdmin") : t("roleMember") }) : notification.message;
+  const resolveNotification = useNotificationContent();
+  const { title, message } = resolveNotification(notification, projects);
 
   return (
     <div
@@ -454,13 +461,23 @@ function RealtimeToast({
         <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: meta.color }}>
           {t(meta.labelKey)}
         </p>
-        <p className="text-sm font-bold truncate" style={{ color: "var(--chrome-text)" }}>
-          {title}
-        </p>
-        {message && (
-          <p className="text-xs mt-0.5 line-clamp-2" style={{ color: "var(--chrome-text-muted)" }}>
-            {message}
-          </p>
+        {title ? (
+          <>
+            <p className="text-sm font-bold truncate" style={{ color: "var(--chrome-text)" }}>
+              {title}
+            </p>
+            {message && (
+              <p className="text-xs mt-0.5 line-clamp-2" style={{ color: "var(--chrome-text-muted)" }}>
+                {message}
+              </p>
+            )}
+          </>
+        ) : (
+          message && (
+            <p className="text-sm mt-0.5 line-clamp-2" style={{ color: "var(--chrome-text-secondary)" }}>
+              {message}
+            </p>
+          )
         )}
         <Link
           href={action?.href ?? notification.link ?? "/notifications"}

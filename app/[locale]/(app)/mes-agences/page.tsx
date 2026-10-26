@@ -15,7 +15,7 @@ import {
   type DisplayMember,
 } from "@/lib/types";
 import { agencyGradientOf, agencyDarkGradientOf } from "@/app/lib/agencyDecor";
-import { agencyDashboardHref } from "@/lib/agencyHref";
+import { agencyDashboardHref, newAgencyHref } from "@/lib/agencyHref";
 import { useIsDarkMode } from "@/app/lib/useIsDarkMode";
 
 const container: Variants = {
@@ -183,7 +183,7 @@ export default function MesAgencesPage() {
             </p>
           </div>
           <Link
-            href="/agences/nouvelle"
+            href={newAgencyHref}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-white"
             style={{
               background: "var(--gradient-button)",
@@ -210,7 +210,7 @@ export default function MesAgencesPage() {
             </p>
           </div>
           <Link
-            href="/agences/nouvelle"
+            href={newAgencyHref}
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white"
             style={{
               background: "var(--gradient-button)",

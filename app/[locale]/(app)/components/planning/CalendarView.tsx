@@ -3,10 +3,11 @@
 import { useMemo, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { taskHref } from "@/lib/projectHref";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   ChevronLeft, ChevronRight, CalendarDays, Link2, Ban, Clock,
 } from "lucide-react";
+import { useLabels } from "@/lib/useLabels";
 import {
   addDays, monthGrid, tasksByDay, toISODate,
   isSameDay, formatDayLong, monthName, weekdayShort,
@@ -32,6 +33,9 @@ export default function CalendarView({
 }) {
   const { colorOf, isTerminal, statuses } = useTaskStatuses();
   const locale = useLocale();
+  const tc = useTranslations("Common");
+  const tp = useTranslations("Planning");
+  const { status, priority } = useLabels();
   const today = useMemo(() => new Date(), []);
   const [anchor, setAnchor] = useState(
     () => new Date(today.getFullYear(), today.getMonth(), 1),
@@ -65,7 +69,7 @@ export default function CalendarView({
         <div className="flex items-center gap-2">
           <button
             onClick={() => shift(-1)}
-            aria-label="Mois précédent"
+            aria-label={tc("previousMonth")}
             className="p-2 rounded-lg transition-colors hover:bg-[var(--hover-soft)]"
             style={{ color: "var(--text-secondary)" }}
           >
@@ -76,7 +80,7 @@ export default function CalendarView({
           </h3>
           <button
             onClick={() => shift(1)}
-            aria-label="Mois suivant"
+            aria-label={tc("nextMonth")}
             className="p-2 rounded-lg transition-colors hover:bg-[var(--hover-soft)]"
             style={{ color: "var(--text-secondary)" }}
           >
@@ -87,13 +91,13 @@ export default function CalendarView({
             className="ml-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
             style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}
           >
-            Aujourd&apos;hui
+            {tc("today")}
           </button>
         </div>
 
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          {tasks.length - undated.length} tâche(s) planifiée(s)
-          {undated.length > 0 && ` · ${undated.length} sans date`}
+          {tp("plannedCount", { count: tasks.length - undated.length })}
+          {undated.length > 0 && tp("withoutDateSuffix", { count: undated.length })}
         </p>
       </div>
 
@@ -185,7 +189,7 @@ export default function CalendarView({
 
           {selectedTasks.length === 0 ? (
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Aucune tâche ce jour-là.
+              {tp("noTasksDay")}
             </p>
           ) : (
             <ul className="space-y-2 max-h-[420px] overflow-y-auto">
@@ -210,7 +214,7 @@ export default function CalendarView({
                         className="text-[10px] font-bold px-1.5 py-0.5 rounded"
                         style={{ color: colorOf(t.status) }}
                       >
-                        {t.status.replace("_", " ")}
+                        {status(t.status, t.status.replace("_", " "))}
                       </span>
                       <span
                         className="text-[10px] font-bold px-1.5 py-0.5 rounded"
@@ -219,14 +223,14 @@ export default function CalendarView({
                           background: "var(--hover-soft)",
                         }}
                       >
-                        {t.priority}
+                        {priority(t.priority, t.priority)}
                       </span>
                       {blocked && (
                         <span
                           className="text-[10px] font-bold px-1.5 py-0.5 rounded inline-flex items-center gap-1"
                           style={{ color: "var(--color-error)", background: "rgba(239,68,68,0.10)" }}
                         >
-                          <Ban size={9} /> bloquée
+                          <Ban size={9} /> {tc("blocked")}
                         </span>
                       )}
                       {t.assigneeName && (
@@ -250,7 +254,7 @@ export default function CalendarView({
                 className="text-[11px] font-bold uppercase tracking-wide flex items-center gap-1.5"
                 style={{ color: "var(--text-muted)" }}
               >
-                <Link2 size={11} /> Sans date ({undated.length})
+                <Link2 size={11} /> {tp("noDate", { count: undated.length })}
               </p>
               <ul className="mt-1.5 space-y-1">
                 {undated.slice(0, 6).map((t) => (
@@ -266,7 +270,7 @@ export default function CalendarView({
                 ))}
               </ul>
               <p className="text-[10px] mt-1.5" style={{ color: "var(--text-muted)" }}>
-                Ces tâches n&apos;apparaissent pas dans la grille : renseignez leurs dates.
+                {tp("noDateHint")}
               </p>
             </div>
           )}
@@ -279,7 +283,7 @@ export default function CalendarView({
         style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)" }}
       >
         <h4 className="font-bold text-sm mb-3" style={{ color: "var(--text-primary)" }}>
-          Les 7 prochains jours
+          {tp("nextSevenDays")}
         </h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-2">
           {Array.from({ length: 7 }, (_, i) => addDays(today, i)).map((day) => {

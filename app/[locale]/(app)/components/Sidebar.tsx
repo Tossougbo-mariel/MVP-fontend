@@ -1,12 +1,12 @@
 "use client";
 
-import { Link } from "@/i18n/navigation";
-import { useRouter } from "@/i18n/navigation";
+import { Link, useRouter, type Href } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import {
   Building2, LogOut, X, Sparkles, Bell, User, Plus, Bot,
   LayoutDashboard, CheckSquare, FolderKanban, Users, Settings, Wrench, Hash,
+  type LucideIcon,
 } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
@@ -14,7 +14,14 @@ import {
   userAgencies, userRoleInAgency, type AgencyRole,
 } from "@/lib/types";
 import { useActiveAgencyId, profileHrefFor } from "@/lib/useActiveAgencyId";
-import { kanbanHref, projectsHref } from "@/lib/projectHref";
+import {
+  agencyNotificationsHref,
+  agencySectionHref,
+  agencySectionPath,
+  newAgencyHref,
+  type AgencySection,
+} from "@/lib/agencyHref";
+import { kanbanHref } from "@/lib/projectHref";
 import { useNormalizedPathname } from "@/lib/useNormalizedPathname";
 import DeadlineAlertsMenu from "./DeadlineAlertsMenu";
 
@@ -24,18 +31,18 @@ export const MAIN_RAIL_WIDTH = 80;
 /** Navigation globale, hors agence : les mêmes accès depuis n'importe quel écran.
  *  « Mon profil » est résolu plus bas : son href dépend de l'agence courante. */
 const GLOBAL_ITEMS = [
-  { href: "/mes-agences", labelKey: "myAgencies", icon: Building2 },
-  { href: "/agences/nouvelle", labelKey: "createAgency", icon: Plus },
-  { href: "/notifications", labelKey: "notifications", icon: Bell },
+  { href: "/mes-agences" as Href, labelKey: "myAgencies", icon: Building2 },
+  { href: newAgencyHref, labelKey: "createAgency", icon: Plus },
+  { href: "/notifications" as Href, labelKey: "notifications", icon: Bell },
   { key: "profil", labelKey: "myProfile", icon: User },
-  { href: "/reglages", labelKey: "settings", icon: Wrench },
+  { href: "/reglages" as Href, labelKey: "settings", icon: Wrench },
 ];
 
-const AGENCY_ITEMS = [
-  { suffix: "dashboard", labelKey: "dashboard", icon: LayoutDashboard },
-  { suffix: "projets", labelKey: "projects", icon: FolderKanban },
-  { suffix: "mes-taches", labelKey: "myTasks", icon: CheckSquare },
-  { suffix: "equipe", labelKey: "team", icon: Users },
+const AGENCY_ITEMS: { section: AgencySection; labelKey: string; icon: LucideIcon }[] = [
+  { section: "dashboard", labelKey: "dashboard", icon: LayoutDashboard },
+  { section: "projects", labelKey: "projects", icon: FolderKanban },
+  { section: "myTasks", labelKey: "myTasks", icon: CheckSquare },
+  { section: "team", labelKey: "team", icon: Users },
 ];
 
 // Sur desktop, les réglages d'agence sont dans le second sidebar
@@ -43,8 +50,11 @@ const AGENCY_ITEMS = [
 // il conserve donc l'entrée pour que la page reste atteignable sur mobile.
 const OWNER_AGENCY_ITEMS = [
   ...AGENCY_ITEMS,
-  { suffix: "parametres", labelKey: "agencySettings", icon: Settings },
+  { section: "settings" as const, labelKey: "agencySettings", icon: Settings },
 ];
+
+const hrefPath = (href: Href): string =>
+  typeof href === "string" ? href.split("?")[0] : href.pathname;
 
 /* Le contexte d'agence n'est pas défini ici : useActiveAgencyId (lib/) est la
    seule source de vérité, utilisée par le rail comme par AppShell. Elle lit le
@@ -110,7 +120,7 @@ export default function Sidebar({
   const railItem = (opts: {
     label: string;
     short?: string;
-    href?: string;
+    href?: Href;
     active?: boolean;
     badge?: number;
     onClick?: () => void;
@@ -306,16 +316,13 @@ export default function Sidebar({
               {currentAgency?.name ?? t("agencyFallback")}
             </p>
             {agencyItems.map((item) => {
-              const href =
-                item.suffix === "projets"
-                  ? projectsHref(agencyId)
-                  : `/agences/${agencyId}/${item.suffix}`;
-              const sectionPath = `/agences/${agencyId}/${item.suffix}`;
+              const href = agencySectionHref(agencyId ?? "", item.section);
+              const sectionPath = agencySectionPath(agencyId ?? "", item.section);
               const active =
                 pathname === sectionPath || pathname.startsWith(`${sectionPath}/`);
               return (
                 <Link
-                  key={item.suffix}
+                  key={item.section}
                   href={href}
                   onClick={onClose}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
@@ -351,11 +358,11 @@ export default function Sidebar({
             {/* Notifications filtrées sur l'agence courante. */}
             <div className="pt-2 mt-1 border-t" style={{ borderColor: "var(--rail-border)" }}>
               <Link
-                href={`/agences/${agencyId}/notifications`}
+                href={agencyNotificationsHref(agencyId ?? "")}
                 onClick={onClose}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
                 style={
-                  pathname.startsWith(`/agences/${agencyId}/notifications`)
+                  pathname.startsWith(agencySectionPath(agencyId ?? "", "notifications"))
                     ? { background: "var(--rail-accent-soft)", color: "var(--rail-text)" }
                     : { color: "var(--rail-text-secondary)" }
                 }
@@ -383,12 +390,12 @@ export default function Sidebar({
           const href = "key" in item ? profileHref : item.href;
           return (
             <Link
-              key={href}
+              key={hrefPath(href)}
               href={href}
               onClick={onClose}
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
               style={
-                pathname === href.split("?")[0]
+                pathname === hrefPath(href)
                   ? { background: "var(--rail-accent-soft)", color: "var(--rail-text)" }
                   : { color: "var(--rail-text-secondary)" }
               }

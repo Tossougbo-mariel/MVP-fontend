@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, type Href } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
+import { agencyDashboardHref } from "@/lib/agencyHref";
 import { kanbanHref, taskHref } from "@/lib/projectHref";
 import { Building2, CheckSquare, CornerDownLeft, FolderKanban, Search } from "lucide-react";
 import { useAppData } from "@/lib/appData";
@@ -64,7 +65,7 @@ export default function GlobalSearch() {
         id: `agency-${a.id}`,
         label: a.name,
         sub: t("subAgency"),
-        href: `/agences/${a.id}/dashboard`,
+        href: agencyDashboardHref(a.id),
         kind: "agency",
       }));
 

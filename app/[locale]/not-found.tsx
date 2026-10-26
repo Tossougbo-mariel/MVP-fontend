@@ -2,9 +2,13 @@
 
 import { Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
-import { FileQuestion, ArrowLeft, Home } from "lucide-react";
+import { FileQuestion, Home } from "lucide-react";
+import { useTranslations } from "next-intl";
 
-export default function TokenPage() {
+export default function NotFound() {
+  const t = useTranslations("Errors");
+  const tc = useTranslations("Common");
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -36,11 +40,10 @@ export default function TokenPage() {
             color: "transparent",
           }}
         >
-          Page introuvable
+          {t("notFoundTitle")}
         </h1>
         <p className="mt-2 max-w-md" style={{ color: "var(--text-secondary)" }}>
-          Cette adresse ne correspond à rien. Elle a peut-être changé, ou le lien que vous
-          avez utilisé est invalide.
+          {t("notFoundDescription")}
         </p>
       </div>
 
@@ -49,7 +52,7 @@ export default function TokenPage() {
         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 active:scale-95"
         style={{ background: "var(--gradient-button)", boxShadow: "0 10px 24px -8px rgba(var(--blue-rgb),0.5)" }}
       >
-        <Home size={16} /> Retour à mes agences
+        <Home size={16} /> {tc("backToMyAgencies")}
       </Link>
     </motion.div>
   );
