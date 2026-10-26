@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export interface CustomSelectOption {
   value: string;
@@ -32,7 +33,7 @@ const DEFAULT_STYLE: React.CSSProperties = {
 export default function CustomSelectField({
   options,
   value: controlledValue,
-  placeholder = "Sélectionner…",
+  placeholder,
   disabled,
   resetAfterChange,
   onChange,
@@ -40,6 +41,8 @@ export default function CustomSelectField({
   style,
   ariaLabel,
 }: CustomSelectFieldProps) {
+  const t = useTranslations("Common");
+  const resolvedPlaceholder = placeholder ?? t("selectPlaceholder");
   const [open, setOpen] = useState(false);
   const [internal, setInternal] = useState<string>(controlledValue ?? "");
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -114,7 +117,7 @@ export default function CustomSelectField({
           >
             {options.length === 0 ? (
               <p className="px-3 py-2 text-sm" style={{ color: "var(--text-muted)" }}>
-                Aucune option
+                {t("noOption")}
               </p>
             ) : (
               options.map((opt) => {
@@ -171,7 +174,7 @@ export default function CustomSelectField({
         <span className="flex items-center gap-2 min-w-0">
           {current?.icon ?? null}
           <span className="truncate" style={{ color: current ? "var(--text-primary)" : "var(--text-muted)" }}>
-            {current ? current.label : placeholder}
+            {current ? current.label : resolvedPlaceholder}
           </span>
         </span>
         <ChevronDown

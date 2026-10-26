@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "@/i18n/navigation";
+import { Link, type Href } from "@/i18n/navigation";
+import { taskHref } from "@/lib/projectHref";
 import { useLocale, useTranslations } from "next-intl";
 import { motion, type Variants } from "framer-motion";
 import { AlertTriangle, CalendarClock, BellRing, CheckSquare } from "lucide-react";
@@ -44,7 +45,7 @@ type DeadlineAlertsViewProps = {
 export default function DeadlineAlertsView({ agencyId = null, subtitle }: DeadlineAlertsViewProps) {
   const { data, getProject, agencyById } = useAppData();
   const locale = useLocale();
-  const t = useTranslations("DeadlineAlerts");
+  const t = useTranslations("Deadlines");
   const [filter, setFilter] = useState<Filter>("toutes");
 
   // L'alerte se calcule sur l'heure courante : un point de repère toutes les
@@ -80,15 +81,15 @@ export default function DeadlineAlertsView({ agencyId = null, subtitle }: Deadli
   );
 
   const chips: { key: Filter; label: string }[] = [
-    { key: "toutes", label: t("filterAll") },
-    { key: "retard", label: t("filterLate") },
-    { key: "bientot", label: t("filterSoon") },
+    { key: "toutes", label: t("all") },
+    { key: "retard", label: t("overdue") },
+    { key: "bientot", label: t("dueSoon") },
   ];
 
-  const hrefFor = (alert: DeadlineAlert): string | null => {
+  const hrefFor = (alert: DeadlineAlert): Href | null => {
     const project = getProject(alert.projectId);
     if (!project) return null;
-    return `/agences/${project.agencyId}/projets/${project.id}/taches/${alert.taskId}`;
+    return taskHref(project.agencyId, project.id, alert.taskId);
   };
 
   return (
@@ -106,12 +107,12 @@ export default function DeadlineAlertsView({ agencyId = null, subtitle }: Deadli
               className="text-2xl lg:text-3xl font-black tracking-tight"
               style={{ color: "var(--chrome-text)" }}
             >
-              {t("title")}
+              {t("menuTitle")}
             </h1>
             <p className="text-sm truncate" style={{ color: "var(--chrome-text-secondary)" }}>
               {subtitle}
               {subtitle ? " · " : ""}
-              {t("watch", { count: scoped.length })}
+              {t("watchCount", { count: scoped.length })}
               {counts.retard > 0 && (
                 <span className="font-semibold" style={{ color: "var(--color-error)" }}>
                   {" "}· {t("lateCount", { count: counts.retard })}
@@ -182,14 +183,10 @@ export default function DeadlineAlertsView({ agencyId = null, subtitle }: Deadli
           </span>
           <div>
             <p className="font-semibold" style={{ color: "var(--chrome-text)" }}>
-              {filter === "toutes"
-                ? t("empty")
-                : t("emptyCategory")}
+              {filter === "toutes" ? t("emptyTitle") : t("emptyFilterTitle")}
             </p>
             <p className="text-sm mt-1" style={{ color: "var(--chrome-text-muted)" }}>
-              {filter === "toutes"
-                ? t("emptyAllHint")
-                : t("emptyCategoryHint")}
+              {filter === "toutes" ? t("emptyText") : t("emptyFilterText")}
             </p>
           </div>
         </motion.div>
@@ -197,6 +194,7 @@ export default function DeadlineAlertsView({ agencyId = null, subtitle }: Deadli
         <div className="space-y-3">
           {visible.map((alert) => {
             const tone = deadlineAlertTone(alert);
+            const label = deadlineAlertLabel(alert, locale);
             const Icon = alert.stage === "retard" ? AlertTriangle : CalendarClock;
             const project = getProject(alert.projectId);
             const agency = project ? agencyById(project.agencyId) : undefined;
@@ -224,10 +222,10 @@ export default function DeadlineAlertsView({ agencyId = null, subtitle }: Deadli
                           className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
                           style={{ background: tone.bg, color: tone.color }}
                         >
-                          {deadlineAlertLabel(alert, locale)}
+                          {t(label.key, label.params)}
                         </span>
                         <span className="text-[10px]" style={{ color: "var(--chrome-text-muted)" }}>
-                          {t("due", { date: formatDueDate(alert.dueDate, locale) })}
+                          {t("dueOn", { date: formatDueDate(alert.dueDate, locale) })}
                         </span>
                         {project && (
                           <span className="text-[10px]" style={{ color: "var(--chrome-text-muted)" }}>
@@ -244,7 +242,7 @@ export default function DeadlineAlertsView({ agencyId = null, subtitle }: Deadli
                         {alert.taskTitle}
                       </p>
                       <p className="mt-0.5 text-[11px] line-clamp-2" style={{ color: "var(--chrome-text-muted)" }}>
-                        {alert.message}
+                        {t(alert.messageKey, alert.params)}
                       </p>
                     </div>
 

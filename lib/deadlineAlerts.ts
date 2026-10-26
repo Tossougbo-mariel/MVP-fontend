@@ -61,32 +61,39 @@ export const buildDeadlineAlert = (
     return {
       taskId: task.id,
       stage,
-      title: "Tâche en retard",
+      titleKey: "titleOverdue",
       taskTitle: task.title,
       projectId: task.projectId,
       dueDate: task.dueDate,
       daysLeft: null,
-      message: `La tâche « ${task.title} » est en retard. Son échéance était le ${date}. Elle n'est pas encore terminée.`,
+      messageKey: "messageOverdue",
+      params: { task: task.title, date },
     };
   }
 
   return {
     taskId: task.id,
     stage,
-    title: "Échéance proche",
+    titleKey: "titleDueSoon",
     taskTitle: task.title,
     projectId: task.projectId,
     dueDate: task.dueDate,
     daysLeft: dayDiff,
-    message: `Attention. La tâche « ${task.title} » doit être terminée ${relativeLabel(dayDiff, locale)}, le ${date}. Pensez à la faire sans attendre.`,
+    messageKey: "messageDueSoon",
+    params: { task: task.title, day: relativeLabel(dayDiff, locale), date },
   };
 };
 
-/** Ligne courte d'une alerte, commune à la liste déroulante et à la page. */
-export const deadlineAlertLabel = (alert: DeadlineAlert, locale: string = "fr"): string => {
-  if (alert.stage === "retard") return "En retard";
+/** Ligne courte d'une alerte, commune à la liste déroulante et à la page.
+ *  Renvoie une clé (namespace « Deadlines ») et ses valeurs : le libellé est
+ *  résolu au moment de l'affichage, dans la locale active. */
+export const deadlineAlertLabel = (
+  alert: DeadlineAlert,
+  locale: string = "fr",
+): { key: string; params: Record<string, string> } => {
+  if (alert.stage === "retard") return { key: "labelOverdue", params: {} };
   const dayLabel = relativeDayLabel(alert.daysLeft ?? 2, locale);
-  return `Échéance ${dayLabel}`;
+  return { key: "labelDue", params: { day: dayLabel } };
 };
 
 /** Couleurs reprises de DEADLINE_META : rouge en retard, ambre à venir. */

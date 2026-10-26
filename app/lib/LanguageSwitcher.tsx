@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useEffect, useTransition } from "react";
 import { useLocale } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
@@ -10,14 +10,35 @@ type Locale = (typeof routing.locales)[number];
 /**
  * Change la langue courante en conservant la page visitée. Le hook est partagé
  * par le sélecteur inline (pied de page) et les Réglages.
+ *
+ * Changer de langue remonte tout le segment `[locale]` (la locale fait partie
+ * de la clé de segment de Next.js) : l'application est démontée puis remontée.
+ * Deux précautions évitent le « flash » :
+ *
+ * 1. L'autre locale est préchargée : le payload RSC est déjà en cache au
+ *    moment du clic, la bascule est donc immédiate et l'application n'est
+ *    jamais демontée plus d'une image.
+ * 2. La navigation est lancée dans une `startTransition` : React conserve
+ *    l'interface affichée jusqu'à ce que la nouvelle locale soit prête.
  */
 export function useLocaleSwitch() {
   const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
+  const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    for (const target of routing.locales) {
+      if (target === locale) continue;
+      router.prefetch(pathname, { locale: target });
+    }
+  }, [router, pathname, locale]);
+
   return (next: Locale) => {
     if (next === locale) return;
-    router.replace(pathname, { locale: next });
+    startTransition(() => {
+      router.replace(pathname, { locale: next });
+    });
   };
 }
 

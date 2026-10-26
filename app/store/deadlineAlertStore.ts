@@ -9,7 +9,7 @@ export type DeadlineAlert = {
   taskId: number;
   stage: DeadlineAlertStage;
   /** Titre de l'alerte. */
-  title: string;
+  titleKey: string;
   /** Intitulé de la tâche : ce que la liste déroulante et la page des alertes
    *  affichent en ligne, sans devoir relier l'alerte à sa tâche. */
   taskTitle: string;
@@ -20,7 +20,9 @@ export type DeadlineAlert = {
   /** Jours restants arrondis au-dessus (null en retard). */
   daysLeft: number | null;
   /** Message complet de l'alerte. */
-  message: string;
+  messageKey: string;
+  /** Valeurs interpolées dans le message de l'alerte. */
+  params: Record<string, string>;
 };
 
 type DeadlineAlertStore = {

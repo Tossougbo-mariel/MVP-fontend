@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, ShieldAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -20,12 +21,16 @@ export default function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = "Confirmer",
-  cancelLabel = "Annuler",
+  confirmLabel,
+  cancelLabel,
   tone = "default",
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const t = useTranslations("Common");
+  const resolvedConfirmLabel = confirmLabel ?? t("confirm");
+  const resolvedCancelLabel = cancelLabel ?? t("cancel");
+
   useEffect(() => {
     if (!open) return;
     const key = (e: KeyboardEvent) => {
@@ -75,14 +80,14 @@ export default function ConfirmDialog({
             </div>
 
             <div className="mt-6 flex flex-col-reverse sm:flex-row justify-end gap-2.5">
-              {cancelLabel && cancelLabel.length > 0 && (
+              {resolvedCancelLabel && resolvedCancelLabel.length > 0 && (
                 <button
                   type="button"
                   onClick={onCancel}
                   className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-semibold"
                   style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
                 >
-                  {cancelLabel}
+                  {resolvedCancelLabel}
                 </button>
               )}
               <button
@@ -95,7 +100,7 @@ export default function ConfirmDialog({
                     : { background: "var(--gradient-button)", boxShadow: "0 6px 14px -6px rgba(var(--blue-rgb),0.45)" }
                 }
               >
-                {confirmLabel}
+                {resolvedConfirmLabel}
               </button>
             </div>
           </motion.div>

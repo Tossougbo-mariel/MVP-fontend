@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { Link } from "@/i18n/navigation";
 import { motion, type Variants } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { Building2, ArrowLeft, Plus } from "lucide-react";
 import { useAppData } from "@/lib/appData";
 import { createAgency, getApiErrorMessage } from "@/lib/services";
@@ -26,6 +27,7 @@ const inputStyle = {
 export default function NouvelleAgencePage() {
   const router = useRouter();
   const { reload } = useAppData();
+  const t = useTranslations("Agencies");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
@@ -36,7 +38,7 @@ export default function NouvelleAgencePage() {
     setError(null);
 
     if (!name.trim()) {
-      setError("Le nom de l'agence est obligatoire.");
+      setError(t("createNameRequired"));
       return;
     }
 
@@ -64,7 +66,7 @@ export default function NouvelleAgencePage() {
           style={{ color: "var(--text-secondary)" }}
         >
           <ArrowLeft className="w-4 h-4" />
-          Retour à mes agences
+          {t("createBack")}
         </Link>
 
         <div className="flex items-center gap-4">
@@ -76,10 +78,10 @@ export default function NouvelleAgencePage() {
           </div>
           <div>
             <h1 className="text-2xl lg:text-3xl font-black" style={{ color: "var(--text-primary)" }}>
-              Créer une agence
+              {t("createTitle")}
             </h1>
             <p style={{ color: "var(--text-secondary)" }}>
-              Créez votre espace de travail pour gérer projets, tâches et équipe.
+              {t("createSubtitle")}
             </p>
           </div>
         </div>
@@ -95,11 +97,11 @@ export default function NouvelleAgencePage() {
 
           <div>
             <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-primary)" }}>
-              {"Nom de l'agence *"}
+              {t("createNameLabel")}
             </label>
             <input
               type="text"
-              placeholder="Ex : MVP Studio"
+              placeholder={t("createNamePlaceholder")}
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full rounded-xl px-4 py-3 focus:outline-none transition-all"
@@ -109,10 +111,10 @@ export default function NouvelleAgencePage() {
 
           <div>
             <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text-primary)" }}>
-              Description (optionnel)
+              {t("createDescriptionLabel")}
             </label>
             <textarea
-              placeholder="Décrivez l'activité de votre agence..."
+              placeholder={t("createDescriptionPlaceholder")}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
@@ -131,11 +133,11 @@ export default function NouvelleAgencePage() {
             }}
           >
             {loading ? (
-              "Création en cours..."
+              t("createSubmitting")
             ) : (
               <>
                 <Plus className="w-5 h-5" />
-                {"Créer l'agence"}
+                {t("createSubmit")}
               </>
             )}
           </button>

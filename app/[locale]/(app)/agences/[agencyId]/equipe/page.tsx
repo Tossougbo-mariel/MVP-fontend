@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
@@ -79,19 +79,15 @@ const TONE_MEMBRE: Tone = {
   border: "1px solid var(--border-subtle)",
 };
 
-const STATUT_META: Record<AgencyMemberStatus, { label: string; dot: string }> = {
-  actif: { label: "Actif", dot: "var(--color-success)" },
-  en_attente: { label: "En attente", dot: "#f59e0b" },
-  inactif: { label: "Inactif", dot: "var(--color-error)" },
+const STATUT_DOT: Record<AgencyMemberStatus, string> = {
+  actif: "var(--color-success)",
+  en_attente: "#f59e0b",
+  inactif: "var(--color-error)",
 };
 
-const FILTRES_ROLE = [
-  { key: "all", label: "Tous" },
-  { key: "admin", label: "Administrateur" },
-  { key: "membre", label: "Membre" },
-] as const;
+const FILTRES_ROLE = ["all", "admin", "membre"] as const;
 
-type FiltreRole = (typeof FILTRES_ROLE)[number]["key"];
+type FiltreRole = (typeof FILTRES_ROLE)[number];
 
 function InviteConfirmModal({
   email,
@@ -104,6 +100,9 @@ function InviteConfirmModal({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const t = useTranslations("Team");
+  const tc = useTranslations("Common");
+
   if (!email) return null;
 
   return (
@@ -125,14 +124,17 @@ function InviteConfirmModal({
             <UserPlus className="w-5 h-5 text-white" />
           </div>
           <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-            Confirmer l&apos;invitation
+            {t("modals.inviteConfirm.title")}
           </h2>
         </div>
 
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          Envoyer une invitation à rejoindre{" "}
-          <strong style={{ color: "var(--text-primary)" }}>{agencyName}</strong>{" "}
-          à l&apos;adresse :
+          {t.rich("modals.inviteConfirm.text", {
+            agency: agencyName,
+            strong: (chunks) => (
+              <strong style={{ color: "var(--text-primary)" }}>{chunks}</strong>
+            ),
+          })}
         </p>
         <div
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium"
@@ -147,14 +149,14 @@ function InviteConfirmModal({
             className="px-4 py-2 rounded-xl text-sm font-semibold"
             style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
           >
-            Annuler
+            {tc("cancel")}
           </button>
           <button
             onClick={onConfirm}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
             style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
           >
-            <UserPlus size={15} /> Confirmer
+            <UserPlus size={15} /> {tc("confirm")}
           </button>
         </div>
       </div>
@@ -179,6 +181,7 @@ function ConfirmActionModal({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const tc = useTranslations("Common");
   const toneBg =
     tone === "danger"
       ? "var(--color-error)"
@@ -228,7 +231,7 @@ function ConfirmActionModal({
             className="px-4 py-2 rounded-xl text-sm font-semibold"
             style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
           >
-            Annuler
+            {tc("cancel")}
           </button>
           <button
             onClick={onConfirm}
@@ -262,6 +265,8 @@ function MemberMenu({
   onToggleStatus: () => void;
   onRemove: () => void;
 }) {
+  const t = useTranslations("Team");
+  const tc = useTranslations("Common");
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [flipUp, setFlipUp] = useState(false);
@@ -303,7 +308,7 @@ function MemberMenu({
           color: open ? "var(--blue)" : "var(--text-secondary)",
           boxShadow: "0 4px 12px -6px rgba(10,27,60,0.3)",
         }}
-        title="Actions de gestion"
+        title={t("menu.actions")}
       >
         <MoreHorizontal size={16} />
       </button>
@@ -342,7 +347,7 @@ function MemberMenu({
               style={{ color: "var(--text-primary)" }}
             >
               <ShieldCheck size={15} style={{ color: "var(--blue)" }} />
-              {member.role === "admin" ? "Rétrograder en Membre" : "Promouvoir en Admin"}
+              {member.role === "admin" ? t("menu.demote") : t("menu.promote")}
             </button>
             {member.status !== "en_attente" && (
               <button
@@ -351,7 +356,7 @@ function MemberMenu({
                 style={{ color: member.status === "inactif" ? "var(--color-success)" : "var(--color-error)" }}
               >
                 {member.status === "inactif" ? <UserCheck size={15} /> : <Ban size={15} />}
-                {member.status === "inactif" ? "Réactiver le compte" : "Désactiver le compte"}
+                {member.status === "inactif" ? t("menu.reactivate") : t("menu.deactivate")}
               </button>
             )}
             <div className="my-1" style={{ borderTop: "1px solid var(--border-subtle)" }} />
@@ -360,7 +365,7 @@ function MemberMenu({
               className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left rounded-lg transition-colors hover:bg-[var(--hover-soft)]"
               style={{ color: "var(--color-error)" }}
             >
-              <Trash2 size={15} /> Supprimer
+              <Trash2 size={15} /> {tc("delete")}
             </button>
           </motion.div>
         </>,
@@ -373,9 +378,16 @@ function MemberMenu({
 export default function EquipePage() {
   const { agencyId } = useParams<{ agencyId: string }>();
   const locale = useLocale();
+  const tc = useTranslations("Common");
+  const te = useTranslations("Errors");
+  const tTeam = useTranslations("Team");
+  const tn = useTranslations("Navigation.app");
   const { data, reload, tasksByAgency, setAgencyMembers } = useAppData();
   const agency = data.agencies.find((a) => a.id === Number(agencyId));
   const user = useAuthStore((s) => s.user);
+
+  // Balise <strong> réutilisée dans les messages riches (t.rich)
+  const strong = (chunks: React.ReactNode) => <strong>{chunks}</strong>;
 
   const [viewerMail, setViewerMail] = useState<string | null>(null);
   const [email, setEmail] = useState("");
@@ -437,7 +449,7 @@ export default function EquipePage() {
   if (data.loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>{tc("loading")}</p>
       </div>
     );
   }
@@ -445,16 +457,16 @@ export default function EquipePage() {
   if (!agency) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>Agence introuvable</p>
+        <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{te("agencyNotFound")}</p>
         <p style={{ color: "var(--text-secondary)" }}>
-          Cette agence n&apos;existe pas ou vous n&apos;en faites pas partie.
+          {te("agencyNotFoundDetail")}
         </p>
         <Link
           href="/mes-agences"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Mes agences
+          <ArrowLeft size={16} /> {tn("myAgencies")}
         </Link>
       </div>
     );
@@ -475,17 +487,17 @@ export default function EquipePage() {
     | { type: "remove"; member: AgencyMember };
 
   const requestChangeRole = (m: AgencyMember) => {
-    if (m.user.id === user?.id) { alert("Vous ne pouvez pas modifier votre propre rôle."); return; }
+    if (m.user.id === user?.id) { alert(tTeam("errors.cannotChangeOwnRole")); return; }
     setPendingAction({ type: "changeRole", member: m });
   };
 
   const requestToggleStatus = (m: AgencyMember) => {
-    if (m.user.id === user?.id) { alert("Vous ne pouvez pas modifier votre propre statut."); return; }
+    if (m.user.id === user?.id) { alert(tTeam("errors.cannotChangeOwnStatus")); return; }
     setPendingAction({ type: "toggleStatus", member: m });
   };
 
   const requestRemove = (m: AgencyMember) => {
-    if (m.user.id === user?.id) { alert("Vous ne pouvez pas supprimer votre propre compte."); return; }
+    if (m.user.id === user?.id) { alert(tTeam("errors.cannotRemoveSelf")); return; }
     setPendingAction({ type: "remove", member: m });
   };
 
@@ -533,7 +545,12 @@ export default function EquipePage() {
           agencyId,
           snapshot.map((m) => (m.id === member.id ? { ...m, role: newRole } : m)),
         );
-        setActionSuccess(`« ${fullName} » est désormais ${newRole === "admin" ? "Admin" : "Membre"}.`);
+        setActionSuccess(
+          tTeam("success.roleChanged", {
+            name: fullName,
+            role: tTeam(`roleShort.${newRole}`),
+          }),
+        );
         await updateAgencyMember(agencyId, member.id, { role: newRole });
         reconcile();
       } else if (type === "toggleStatus") {
@@ -544,8 +561,8 @@ export default function EquipePage() {
         );
         setActionSuccess(
           newStatus === "actif"
-            ? `Le compte de « ${fullName} » a été réactivé.`
-            : `Le compte de « ${fullName} » a été désactivé.`,
+            ? tTeam("success.accountReactivated", { name: fullName })
+            : tTeam("success.accountDeactivated", { name: fullName }),
         );
         await updateAgencyMember(agencyId, member.id, { status: newStatus });
         reconcile();
@@ -557,7 +574,7 @@ export default function EquipePage() {
         );
         try {
           await removeAgencyMember(agencyId, member.id);
-          setActionSuccess(`« ${fullName} » a été supprimé(e) de l'agence.`);
+          setActionSuccess(tTeam("success.memberRemoved", { name: fullName }));
           reconcile();
         } catch (err) {
           const axiosErr = err as {
@@ -570,7 +587,7 @@ export default function EquipePage() {
             setAgencyMembers(agencyId, snapshot);
             setPendingForcedRemoval({
               member,
-              message: axiosErr.response.data.message ?? "Ce membre a des tâches en cours dans les projets de l'agence.",
+              message: axiosErr.response.data.message ?? tTeam("errors.forcedDefault"),
             });
             return;
           }
@@ -593,14 +610,14 @@ export default function EquipePage() {
     const trimmed = email.trim().toLowerCase();
     if (!trimmed) return;
     if (trimmed === (user?.email ?? "").toLowerCase()) {
-      alert("Vous ne pouvez pas vous inviter vous-même.");
+      alert(tTeam("errors.cannotInviteSelf"));
       return;
     }
     const already = (agency.members ?? []).some(
       (m) => (m.user.email ?? "").toLowerCase() === trimmed,
     );
     if (already) {
-      setInviteError(`Une invitation ou un membre existe déjà pour ${trimmed}.`);
+      setInviteError(tTeam("errors.alreadyExists", { email: trimmed }));
       setTimeout(() => setInviteError(null), 4000);
       return;
     }
@@ -642,7 +659,7 @@ export default function EquipePage() {
     try {
       const updated = await resendInvitation(agencyId, inv.id);
       setInvitations((prev) => prev.map((i) => (i.id === inv.id ? updated : i)));
-      setActionSuccess(`Rappel envoyé à ${inv.email}.`);
+      setActionSuccess(tTeam("success.reminderSent", { email: inv.email }));
       setTimeout(() => setActionSuccess(null), 3000);
     } catch (err) {
       setInviteError(getApiErrorMessage(err));
@@ -663,7 +680,7 @@ export default function EquipePage() {
     try {
       await cancelInvitation(agencyId, inv.id);
       setInvitations((prev) => prev.filter((i) => i.id !== inv.id));
-      setActionSuccess(`Invitation de ${inv.email} annulée.`);
+      setActionSuccess(tTeam("success.invitationCancelled", { email: inv.email }));
       setTimeout(() => setActionSuccess(null), 3000);
       void reload();
     } catch (err) {
@@ -691,14 +708,21 @@ export default function EquipePage() {
           </div>
           <div>
             <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
-              Équipe
+              {tTeam("title")}
             </h1>
             <p className="mt-0.5 text-sm flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
-              <span className="font-bold" style={{ color: "var(--blue)" }}>{people.length}</span>
-              membre{people.length > 1 ? "s" : ""} dans
-              <span className="font-semibold" style={{ color: "var(--text-primary)" }}>
-                {agency.name}
-              </span>
+              {tTeam.rich("subtitle", {
+                count: people.length,
+                name: agency.name,
+                num: (chunks) => (
+                  <span className="font-bold" style={{ color: "var(--blue)" }}>{chunks}</span>
+                ),
+                agency: (chunks) => (
+                  <span className="font-semibold" style={{ color: "var(--text-primary)" }}>
+                    {chunks}
+                  </span>
+                ),
+              })}
               <Sparkles size={13} className="ml-0.5" style={{ color: "var(--blue)", opacity: 0.6 }} />
             </p>
           </div>
@@ -711,7 +735,7 @@ export default function EquipePage() {
         className="-mt-3 text-lg  tracking-tight"
         style={{ color: "var(--text-secondary)" }}
       >
-        Gérez les membres de votre équipe et accompagnez chaque projet efficacement.
+        {tTeam("tagline")}
       </motion.p>
 
       <AnimatePresence>
@@ -731,13 +755,13 @@ export default function EquipePage() {
             <CheckCircle2 className="w-5 h-5 shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="text-sm">
-                <span className="font-semibold">Invitation envoyée à {inviteSuccess}.</span>{" "}
-                Un e-mail lui a été envoyé pour rejoindre {agency.name}.
+                <span className="font-semibold">{tTeam("invite.sent", { email: inviteSuccess })}</span>{" "}
+                {tTeam("invite.sentDetail", { agency: agency.name })}
               </p>
             </div>
             <button
               onClick={() => setInviteSuccess(null)}
-              aria-label="Fermer"
+              aria-label={tc("close")}
               className="shrink-0 self-start rounded-lg p-1 transition-opacity hover:opacity-70"
               style={{ color: "var(--color-success)" }}
             >
@@ -796,10 +820,10 @@ export default function EquipePage() {
             <Users size={26} />
           </div>
           <p className="font-semibold" style={{ color: "var(--text-primary)" }}>
-            Vous êtes le seul agent pour le moment
+            {tTeam("alone.title")}
           </p>
           <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-            Invitez des membres de l&apos;équipe pour commencer à collaborer.
+            {tTeam("alone.text")}
           </p>
         </motion.div>
       )}
@@ -813,7 +837,7 @@ export default function EquipePage() {
         <div className="px-5 py-3 flex flex-col lg:flex-row lg:items-center gap-3">
           <div className="relative flex-1 min-w-0 max-w-sm">
             <label htmlFor="equipe-recherche" className="sr-only">
-              Rechercher un membre par nom ou e-mail
+              {tTeam("search.label")}
             </label>
             <Search
               size={14}
@@ -825,7 +849,7 @@ export default function EquipePage() {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher par nom, e-mail..."
+              placeholder={tTeam("search.placeholder")}
               className="w-full rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none transition-all duration-200"
               style={{
                 background: "var(--input-bg)",
@@ -836,13 +860,13 @@ export default function EquipePage() {
           </div>
 
           <div className="flex items-center gap-2 overflow-x-auto lg:ml-auto">
-            {FILTRES_ROLE.map((f) => {
-              const actif = roleFilter === f.key;
+            {FILTRES_ROLE.map((key) => {
+              const actif = roleFilter === key;
               return (
                 <button
-                  key={f.key}
+                  key={key}
                   type="button"
-                  onClick={() => setRoleFilter(f.key)}
+                  onClick={() => setRoleFilter(key)}
                   aria-pressed={actif}
                   className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-80"
                   style={{
@@ -851,8 +875,8 @@ export default function EquipePage() {
                     border: `1px solid ${actif ? "transparent" : "var(--border-subtle)"}`,
                   }}
                 >
-                  {f.label}
-                  <span className="opacity-80">{compteRole(f.key)}</span>
+                  {tTeam(`filters.${key}`)}
+                  <span className="opacity-80">{compteRole(key)}</span>
                 </button>
               );
             })}
@@ -863,19 +887,12 @@ export default function EquipePage() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[880px]">
             <caption className="sr-only">
-              Membres de l&apos;agence : jobtitle, rôle, tâches assignées et statut.
+              {tTeam("table.caption")}
             </caption>
             <thead>
               <tr style={{ background: "var(--surface)" }}>
                 {(
-                  [
-                    "Membre",
-                    "Jobtitle",
-                    "Rôle",
-                    "Tâches",
-                    "Statut",
-                    "Actions",
-                  ] as const
+                  ["member", "jobTitle", "role", "tasks", "status", "actions"] as const
                 ).map((h) => (
                   <th
                     key={h}
@@ -883,7 +900,7 @@ export default function EquipePage() {
                     className="text-left text-[11px] font-bold uppercase tracking-wide px-4 py-3 whitespace-nowrap"
                     style={{ color: "var(--text-muted)" }}
                   >
-                    {h}
+                    {tTeam(`table.columns.${h}`)}
                   </th>
                 ))}
               </tr>
@@ -898,7 +915,7 @@ export default function EquipePage() {
                       style={{ color: "var(--text-muted)" }}
                     />
                     <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                      Aucun membre ne correspond à votre recherche.
+                      {tTeam("table.noResults")}
                     </p>
                     <button
                       type="button"
@@ -913,7 +930,7 @@ export default function EquipePage() {
                         border: "1px solid var(--border-subtle)",
                       }}
                     >
-                      <RefreshCw size={12} /> Réinitialiser les filtres
+                      <RefreshCw size={12} /> {tTeam("table.resetFilters")}
                     </button>
                   </td>
                 </tr>
@@ -921,7 +938,8 @@ export default function EquipePage() {
                 visiblePeople.map((m) => {
                   const role = roleAffiche(m);
                   const poste = posteDe(m);
-                  const meta = STATUT_META[m.status];
+                  const dot = STATUT_DOT[m.status];
+                  const joined = formatJoinedAt(m.joinedAt, locale);
                   return (
                     <tr
                       key={m.user.id}
@@ -939,7 +957,9 @@ export default function EquipePage() {
                             disabled={!m.user.avatar}
                             aria-label={
                               m.user.avatar
-                                ? `Voir la photo de ${m.user.firstName} ${m.user.lastName}`
+                                ? tTeam("table.viewPhoto", {
+                                    name: `${m.user.firstName} ${m.user.lastName}`,
+                                  })
                                 : undefined
                             }
                             className="relative w-10 h-10 rounded-full p-[2px] shrink-0 disabled:cursor-default"
@@ -1005,13 +1025,12 @@ export default function EquipePage() {
                             >
                               <Mail size={10} /> {m.user.email}
                             </div>
-                            {formatJoinedAt(m.joinedAt, locale) && (
+                            {joined && (
                               <div
                                 className="text-[11px] truncate flex items-center gap-1 mt-0.5"
                                 style={{ color: "var(--text-muted)" }}
                               >
-                                <Calendar size={10} /> Depuis le{" "}
-                                {formatJoinedAt(m.joinedAt, locale)}
+                                <Calendar size={10} /> {tTeam("table.since", { date: joined })}
                               </div>
                             )}
                           </div>
@@ -1048,11 +1067,7 @@ export default function EquipePage() {
                           ) : (
                             <ShieldCheck size={11} />
                           )}
-                          {role === "proprietaire"
-                            ? "Propriétaire"
-                            : role === "admin"
-                              ? "Administrateur"
-                              : "Membre"}
+                          {tTeam(`roles.${role}`)}
                         </span>
                       </td>
 
@@ -1074,13 +1089,13 @@ export default function EquipePage() {
                       <td className="px-4 py-3">
                         <span
                           className="inline-flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap"
-                          style={{ color: meta.dot }}
+                          style={{ color: dot }}
                         >
                           <span
                             className="w-2 h-2 rounded-full shrink-0"
-                            style={{ background: meta.dot }}
+                            style={{ background: dot }}
                           />
-                          {meta.label}
+                          {tTeam(`status.${m.status}`)}
                         </span>
                       </td>
 
@@ -1112,7 +1127,7 @@ export default function EquipePage() {
           className="glass rounded-2xl p-5 flex items-center gap-3"
           style={{ boxShadow: "var(--shadow-card)" }}
         >
-          <span className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement des invitations...</span>
+          <span className="text-sm" style={{ color: "var(--text-muted)" }}>{tTeam("loadingInvitations")}</span>
         </motion.div>
       ) : (invitations.filter((i) => i.status === "en_attente").length > 0 ? (
         <motion.div
@@ -1124,7 +1139,7 @@ export default function EquipePage() {
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-4"
             style={{ background: "rgba(245,158,11,0.12)", color: "#f59e0b" }}
           >
-            <Clock size={13} /> Invitations en attente
+            <Clock size={13} /> {tTeam("invitations.pending")}
           </div>
           <div className="space-y-3">
             {invitations
@@ -1144,15 +1159,16 @@ export default function EquipePage() {
                       <div className="text-xs mt-0.5 flex items-center gap-2 flex-wrap" style={{ color: "var(--text-muted)" }}>
                         <span className="inline-flex items-center gap-1">
                           <ShieldCheck size={11} />
-                          {inv.role === "admin" ? "Admin" : "Membre"}
+                          {tTeam(`roleShort.${inv.role}`)}
                         </span>
                         {expired ? (
                           <span className="inline-flex items-center gap-1" style={{ color: "var(--color-error)" }}>
-                            <X size={11} /> Expirée
+                            <X size={11} /> {tTeam("invitations.expired")}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1">
-                            <Clock size={11} /> Expire le {formatExpiry(inv.expiresAt, locale)}
+                            <Clock size={11} />{" "}
+                            {tTeam("invitations.expiresOn", { date: formatExpiry(inv.expiresAt, locale) })}
                           </span>
                         )}
                       </div>
@@ -1164,7 +1180,7 @@ export default function EquipePage() {
                         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold disabled:opacity-60"
                         style={{ background: "rgba(var(--blue-rgb),0.08)", border: "1px solid rgba(var(--blue-rgb),0.25)", color: "var(--blue)" }}
                       >
-                        <RefreshCw size={13} /> Relancer
+                        <RefreshCw size={13} /> {tTeam("invitations.resend")}
                       </button>
                       <button
                         onClick={() => requestCancelInvitation(inv)}
@@ -1172,7 +1188,7 @@ export default function EquipePage() {
                         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold disabled:opacity-60"
                         style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "var(--color-error)" }}
                       >
-                        <X size={13} /> Annuler
+                        <X size={13} /> {tc("cancel")}
                       </button>
                     </div>
                   </div>
@@ -1198,7 +1214,7 @@ export default function EquipePage() {
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-4"
             style={{ background: "var(--accent-soft)", color: "var(--blue)" }}
           >
-            <UserPlus size={13} /> Inviter un agent
+            <UserPlus size={13} /> {tTeam("invite.badge")}
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <input
@@ -1206,7 +1222,7 @@ export default function EquipePage() {
               onChange={(e) => setEmail(e.target.value)}
               onFocus={() => setInviteFocused(true)}
               onBlur={() => setInviteFocused(false)}
-              placeholder="Email de l'agent à inviter"
+              placeholder={tTeam("invite.emailPlaceholder")}
               type="email"
               required
               className="flex-1 rounded-xl px-4 py-3 text-sm focus:outline-none transition-all duration-200"
@@ -1221,8 +1237,8 @@ export default function EquipePage() {
               value={inviteRole}
               onChange={(v) => setInviteRole(v as "admin" | "membre")}
               options={[
-                { value: "membre", label: "Membre" },
-                { value: "admin", label: "Admin" },
+                { value: "membre", label: tTeam("roleShort.membre") },
+                { value: "admin", label: tTeam("roleShort.admin") },
               ]}
               className="rounded-xl"
             />
@@ -1233,7 +1249,7 @@ export default function EquipePage() {
               className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white shrink-0"
               style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
             >
-              <Plus size={16} /> Inviter
+              <Plus size={16} /> {tTeam("invite.submit")}
             </motion.button>
           </div>
         </motion.form>
@@ -1245,18 +1261,13 @@ export default function EquipePage() {
 
         if (type === "changeRole") {
           const isPromote = member.role === "membre";
+          const k = isPromote ? "modals.promote" : "modals.demote";
           return (
             <ConfirmActionModal
               icon={<ShieldCheck size={20} />}
-              title={isPromote ? "Promouvoir ce membre" : "Rétrograder ce membre"}
-              description={
-                <>
-                  Confirmer la {isPromote ? "promotion" : "rétrogradation"} de{" "}
-                  <strong>{fullName}</strong> en tant que {isPromote ? "Admin" : "Membre"} ?
-                  {!isPromote && " Il perdra ses droits d'administration."}
-                </>
-              }
-              confirmLabel={isPromote ? "Promouvoir" : "Rétrograder"}
+              title={tTeam(`${k}.title`)}
+              description={tTeam.rich(`${k}.description`, { name: fullName, strong })}
+              confirmLabel={tTeam(`${k}.confirm`)}
               tone="primary"
               onConfirm={confirmPendingAction}
               onCancel={() => setPendingAction(null)}
@@ -1266,24 +1277,14 @@ export default function EquipePage() {
 
         if (type === "toggleStatus") {
           const isDeactivate = member.status !== "inactif";
+          const k = isDeactivate ? "modals.deactivate" : "modals.reactivate";
           return (
             <ConfirmActionModal
               icon={isDeactivate ? <Ban size={20} /> : <UserCheck size={20} />}
               tone={isDeactivate ? "danger" : "success"}
-              title={isDeactivate ? "Désactiver ce compte" : "Réactiver ce compte"}
-              description={
-                isDeactivate ? (
-                  <>
-                    Désactiver le compte de <strong>{fullName}</strong> ? Ce membre ne pourra plus recevoir de
-                    nouvelles tâches.
-                  </>
-                ) : (
-                  <>
-                    Réactiver le compte de <strong>{fullName}</strong> ? Il pourra de nouveau recevoir des tâches.
-                  </>
-                )
-              }
-              confirmLabel={isDeactivate ? "Désactiver" : "Réactiver"}
+              title={tTeam(`${k}.title`)}
+              description={tTeam.rich(`${k}.description`, { name: fullName, strong })}
+              confirmLabel={tTeam(`${k}.confirm`)}
               onConfirm={confirmPendingAction}
               onCancel={() => setPendingAction(null)}
             />
@@ -1294,14 +1295,9 @@ export default function EquipePage() {
           <ConfirmActionModal
             icon={<Trash2 size={20} />}
             tone="danger"
-            title="Supprimer ce membre"
-            description={
-              <>
-                Supprimer <strong>{fullName}</strong> de l&apos;agence ? Cette action est{" "}
-                <strong>irréversible</strong>.
-              </>
-            }
-            confirmLabel="Supprimer"
+            title={tTeam("modals.remove.title")}
+            description={tTeam.rich("modals.remove.description", { name: fullName, strong })}
+            confirmLabel={tc("delete")}
             onConfirm={confirmPendingAction}
             onCancel={() => setPendingAction(null)}
           />
@@ -1320,7 +1316,7 @@ export default function EquipePage() {
           );
           try {
             await removeAgencyMember(agencyId, member.id, true);
-            setActionSuccess(`« ${fullName} » a été supprimé(e) de l'agence.`);
+            setActionSuccess(tTeam("success.memberRemoved", { name: fullName }));
             void loadAgencyMembers(agencyId)
               .then((members) => setAgencyMembers(agencyId, members))
               .catch(() => {});
@@ -1335,18 +1331,20 @@ export default function EquipePage() {
           <ConfirmActionModal
             icon={<Trash2 size={20} />}
             tone="danger"
-            title="Retirer ce membre&nbsp;?"
+            title={tTeam("modals.forced.title")}
             description={
               <>
                 {message}
                 <div className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
-                  Si vous continuez, ce membre sera supprimé de l&apos;agence et de{" "}
-                  <strong style={{ color: "var(--color-error)" }}>tous les projets</strong> auxquels il
-                  appartient.
+                  {tTeam.rich("modals.forced.warning", {
+                    danger: (chunks) => (
+                      <strong style={{ color: "var(--color-error)" }}>{chunks}</strong>
+                    ),
+                  })}
                 </div>
               </>
             }
-            confirmLabel="Retirer quand même"
+            confirmLabel={tTeam("modals.forced.confirm")}
             onConfirm={confirmForcedRemoval}
             onCancel={() => setPendingForcedRemoval(null)}
           />
@@ -1370,15 +1368,12 @@ export default function EquipePage() {
         <ConfirmActionModal
           icon={<X size={20} />}
           tone="danger"
-          title="Annuler l'invitation"
-          description={
-            <>
-              Annuler l&apos;invitation envoyée à <strong>{cancelInvitationTarget.email}</strong> ?{" "}
-              {cancelInvitationTarget.email} ne pourra plus confirmer son adresse et l&apos;invitation sera
-              définitivement supprimée.
-            </>
-          }
-          confirmLabel="Annuler l'invitation"
+          title={tTeam("modals.cancelInvitation.title")}
+          description={tTeam.rich("modals.cancelInvitation.description", {
+            email: cancelInvitationTarget.email,
+            strong,
+          })}
+          confirmLabel={tTeam("modals.cancelInvitation.confirm")}
           onConfirm={() => confirmCancelInvitation(cancelInvitationTarget)}
           onCancel={() => setCancelInvitationTarget(null)}
         />

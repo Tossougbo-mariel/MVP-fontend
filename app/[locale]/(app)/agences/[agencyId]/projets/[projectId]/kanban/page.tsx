@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
 import { Link } from "@/i18n/navigation";
-import { useLocale } from "next-intl";
+import { projectHref, projectsHref, taskHref } from "@/lib/projectHref";
+import { useLocale, useTranslations } from "next-intl";
 import { motion, type Variants } from "framer-motion";
 import {
   ArrowLeft,
@@ -41,6 +42,7 @@ import {
   type TaskStatusMeta,
 } from "@/lib/types";
 import { useTaskStatuses } from "@/lib/useTaskStatuses";
+import { useLabels } from "@/lib/useLabels";
 import { useAuthStore } from "@/app/store/authStore";
 import {
   fetchProjectMembers,
@@ -64,18 +66,16 @@ const item: Variants = {
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
 };
 
-const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: string; border?: string }> = {
+const statusConfig: Record<ProjectStatus, { color: string; bg: string; border?: string }> = {
   a_venir: {
-    label: "À venir",
     color: "var(--text-secondary)",
     bg: "transparent",
     border: "1px solid var(--border-subtle)",
   },
-  en_cours: { label: "En cours", color: "var(--blue)", bg: "var(--accent-soft)" },
-  en_retard: { label: "En retard", color: "#D85A30", bg: "rgba(216,90,48,0.14)" },
-  termine: { label: "Terminé", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
+  en_cours: { color: "var(--blue)", bg: "var(--accent-soft)" },
+  en_retard: { color: "#D85A30", bg: "rgba(216,90,48,0.14)" },
+  termine: { color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
   archive: {
-    label: "Archivé",
     color: "var(--text-muted)",
     bg: "transparent",
     border: "1px solid var(--border-subtle)",
@@ -103,27 +103,39 @@ const withAlpha = (hex: string, alpha: number): string => {
   return `rgba(${r},${g},${b},${alpha})`;
 };
 
-const buildKanbanColumns = (statuses: TaskStatusMeta[]): KanbanColumn[] =>
+const buildKanbanColumns = (
+  statuses: TaskStatusMeta[],
+  labelFor: (key: string, fallback: string) => string,
+): KanbanColumn[] =>
   statuses.map((s) => ({
     status: s.key,
-    label: s.label,
+    label: labelFor(s.key, s.label),
     color: s.color,
     bg: withAlpha(s.color, 0.14),
   }));
 
-const priorityConfig: Record<TaskPriority, { label: string; color: string; bg: string; border?: string }> = {
+const priorityConfig: Record<TaskPriority, { color: string; bg: string; border?: string }> = {
   basse: {
-    label: "Basse",
     color: "var(--text-secondary)",
     bg: "transparent",
     border: "1px solid var(--border-subtle)",
   },
-  moyenne: { label: "Moyenne", color: "var(--blue)", bg: "var(--accent-soft)" },
-  haute: { label: "Haute", color: "#d97706", bg: "rgba(245,158,11,0.15)" },
-  urgente: { label: "Urgente", color: "var(--color-error)", bg: "rgba(239,68,68,0.12)" },
+  moyenne: { color: "var(--blue)", bg: "var(--accent-soft)" },
+  haute: { color: "#d97706", bg: "rgba(245,158,11,0.15)" },
+  urgente: { color: "var(--color-error)", bg: "rgba(239,68,68,0.12)" },
 };
 
-const formatDate = (date: string | null, locale: string = "fr") => {
+type CascadeErrorData = {
+  requires_cascade?: boolean;
+  requires_force?: boolean;
+  message?: string;
+  dependents?: { id: number; title: string; status: TaskStatus }[];
+};
+
+const cascadeErrorData = (err: unknown): CascadeErrorData | undefined =>
+  (err as { response?: { data?: CascadeErrorData } })?.response?.data;
+
+const formatDate = (date: string | null, locale: string) => {
   if (!date) return "";
   const d = new Date(date + "T00:00:00");
   if (Number.isNaN(d.getTime())) return date;
@@ -138,11 +150,26 @@ const todayISO = (() => {
 export default function ProjectKanbanPage() {
   const { agencyId, projectId } = useParams<{ agencyId: string; projectId: string }>();
   const locale = useLocale();
+  const te = useTranslations("Errors");
+  const tc = useTranslations("Common");
+  const tn = useTranslations("Navigation.app");
+  const tErrors = useTranslations("Projects.errors");
+  const tKanban = useTranslations("Projects.kanban");
+  const tForm = useTranslations("Tasks.form");
+  const tValidation = useTranslations("Validation");
+  const tProjectStatus = useTranslations("ProjectStatuses");
+  const tPriority = useTranslations("Priorities");
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const { refresh, agencyById, getProject, tasksByProject, patchTaskLocal, data } = useAppData();
   const { statuses, isTerminal } = useTaskStatuses();
-  const KANBAN_COLUMNS = useMemo(() => buildKanbanColumns(statuses), [statuses]);
+  const { status: statusLabel, deadline: deadlineLabel } = useLabels();
+  const apiErrorMessage = (err: unknown) =>
+    getApiErrorMessage(err, { generic: te("generic"), server: te("generic") });
+  const KANBAN_COLUMNS = useMemo(
+    () => buildKanbanColumns(statuses, statusLabel),
+    [statuses, statusLabel],
+  );
 
   const agency = agencyById(agencyId);
   const project = getProject(projectId);
@@ -223,7 +250,7 @@ export default function ProjectKanbanPage() {
   if (data.loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>{tc("loading")}</p>
       </div>
     );
   }
@@ -233,14 +260,14 @@ export default function ProjectKanbanPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Agence introuvable
+          {te("agencyNotFound")}
         </p>
         <Link
           href="/mes-agences"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Mes agences
+          <ArrowLeft size={16} /> {tn("myAgencies")}
         </Link>
       </div>
     );
@@ -252,14 +279,14 @@ export default function ProjectKanbanPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Vous n&apos;êtes pas membre de cette agence.
+          {te("notAgencyMember")}
         </p>
         <Link
           href="/mes-agences"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Retour à Mes agences
+          <ArrowLeft size={16} /> {tc("backToMyAgencies")}
         </Link>
       </div>
     );
@@ -270,14 +297,14 @@ export default function ProjectKanbanPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Projet introuvable
+          {tErrors("projectNotFound")}
         </p>
         <Link
-          href={`/agences/${agencyId}/projets`}
+          href={projectsHref(agencyId)}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Retour aux projets
+          <ArrowLeft size={16} /> {tErrors("backToProjects")}
         </Link>
       </div>
     );
@@ -370,7 +397,7 @@ export default function ProjectKanbanPage() {
           deadlineStatus: prevDeadlineStatus,
         });
       };
-      const d = (err as any)?.response?.data;
+      const d = cascadeErrorData(err);
       if (d?.requires_cascade) {
         // Rouvrir ce prérequis rouvrirait des dépendants déjà terminés : on
         // annule le déplacement visuel et on demande confirmation.
@@ -378,13 +405,11 @@ export default function ProjectKanbanPage() {
         setCascadeConfirm({
           taskId,
           targetStatus,
-          dependents: ((d.dependents ?? []) as { id: number; title: string; status: TaskStatus }[]).map(
-            (dep) => ({
-              id: dep.id,
-              title: dep.title,
-              status: dep.status,
-            }),
-          ),
+          dependents: (d.dependents ?? []).map((dep) => ({
+            id: dep.id,
+            title: dep.title,
+            status: dep.status,
+          })),
         });
         return;
       }
@@ -395,10 +420,10 @@ export default function ProjectKanbanPage() {
             kind: "task",
             taskId,
             targetStatus,
-            message: d.message || "Cette tâche a des sous-tâches non cochées.",
+            message: d.message || tKanban("forceTaskMessage"),
           });
         } else {
-          alert(d.message || "Impossible de terminer : des sous-tâches ne sont pas cochées.");
+          alert(d.message || tKanban("subtasksNotChecked"));
         }
         return;
       }
@@ -408,7 +433,7 @@ export default function ProjectKanbanPage() {
 
   const openTaskDetail = (taskId: string) => {
     if (draggingId) return;
-    router.push(`/agences/${agencyId}/projets/${projectId}/taches/${taskId}`);
+    router.push(taskHref(agencyId, projectId, taskId));
   };
 
   const openCreateModal = () => {
@@ -442,20 +467,20 @@ export default function ProjectKanbanPage() {
     setTaskApiError(null);
 
     const fe: Record<string, string> = {};
-    if (!taskTitle.trim()) fe.title = "Le titre de la tâche est obligatoire.";
+    if (!taskTitle.trim()) fe.title = tValidation("taskTitleRequired");
     if (!taskStartDate) {
-      fe.startDate = "La date de début est obligatoire.";
+      fe.startDate = tValidation("startDateRequired");
     } else if (taskStartDate < todayISO) {
-      fe.startDate = "La date de début ne peut pas être antérieure à aujourd'hui.";
+      fe.startDate = tValidation("startDateNotPast");
     } else if (project.startDate && taskStartDate < project.startDate) {
-      fe.startDate = `Doit être postérieure ou égale au début du projet (${project.startDate}).`;
+      fe.startDate = tValidation("startDateAfterProject", { date: project.startDate });
     }
     if (!taskDueDate) {
-      fe.dueDate = "La date d'échéance est obligatoire.";
+      fe.dueDate = tValidation("dueDateRequired");
     } else if (taskStartDate && taskDueDate < taskStartDate) {
-      fe.dueDate = "La date d'échéance doit être postérieure ou égale à la date de début.";
+      fe.dueDate = tValidation("dueDateBeforeStart");
     } else if (project.dueDate && taskDueDate > project.dueDate) {
-      fe.dueDate = `Doit être antérieure ou égale à l'échéance du projet (${project.dueDate}).`;
+      fe.dueDate = tValidation("dueDateBeforeProject", { date: project.dueDate });
     }
     if (Object.keys(fe).length > 0) {
       setTaskFieldErrors(fe);
@@ -475,7 +500,7 @@ export default function ProjectKanbanPage() {
       await refresh();
       setCreating(false);
     } catch (err) {
-      setTaskApiError(getApiErrorMessage(err));
+      setTaskApiError(apiErrorMessage(err));
     } finally {
       setActionLoading(false);
     }
@@ -509,14 +534,11 @@ export default function ProjectKanbanPage() {
       await refresh();
       setSelectedIds([]);
     } catch (err) {
-      const d = (err as any)?.response?.data;
+      const d = cascadeErrorData(err);
       if (d?.requires_cascade) {
         // La réouverture en lot toucherait des dépendants terminés : on ne
         // cascada pas en lot, on invite à rouvrir carte par carte.
-        alert(
-          d.message ||
-            "Certaines tâches ont des dépendants déjà terminés : rouvrez-les carte par carte.",
-        );
+        alert(d.message || tKanban("cascadeBulk"));
         return;
       }
       if (d?.requires_force) {
@@ -524,14 +546,14 @@ export default function ProjectKanbanPage() {
           setForceConfirm({
             kind: "bulk",
             payload,
-            message: d.message || "Certaines tâches ont des sous-tâches non cochées.",
+            message: d.message || tKanban("forceBulkMessage"),
           });
           return;
         }
-        alert(d.message || "Impossible de terminer : des sous-tâches ne sont pas cochées.");
+        alert(d.message || tKanban("subtasksNotChecked"));
         return;
       }
-      alert(getApiErrorMessage(err));
+      alert(apiErrorMessage(err));
     } finally {
       setBulkBusy(false);
     }
@@ -542,11 +564,11 @@ export default function ProjectKanbanPage() {
       {/* Lien retour */}
       <motion.div variants={item}>
         <Link
-          href={`/agences/${agencyId}/projets`}
+          href={projectsHref(agencyId)}
           className="inline-flex items-center gap-2 text-sm font-semibold hover:opacity-80"
           style={{ color: "var(--text-secondary)" }}
         >
-          <ArrowLeft size={16} /> Projets
+          <ArrowLeft size={16} /> {tn("projects")}
         </Link>
       </motion.div>
 
@@ -578,7 +600,7 @@ export default function ProjectKanbanPage() {
                 className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full"
                 style={{ color: badge.color, background: badge.bg, border: badge.border }}
               >
-                {badge.label}
+                {tProjectStatus(projectStatus)}
               </span>
               <span className="w-px h-5 shrink-0 mx-1" style={{ background: "var(--border-subtle)" }} />
               <span className="flex items-center gap-1.5 text-sm font-bold whitespace-nowrap" style={{ color: "var(--text-secondary)" }}>
@@ -588,7 +610,7 @@ export default function ProjectKanbanPage() {
                 {formatDate(project.dueDate, locale)}
               </span>
               <span className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
-                {projectTasks.length} tâche{projectTasks.length > 1 ? "s" : ""}
+                {tKanban("taskCount", { count: projectTasks.length })}
               </span>
               {isAdmin && archivedTasks.length > 0 && (
                 <button
@@ -602,7 +624,9 @@ export default function ProjectKanbanPage() {
                   }
                 >
                   <Archive size={13} />
-                  {showArchived ? "Masquer l'archive" : `Archivées (${archivedTasks.length})`}
+                  {showArchived
+                    ? tKanban("archiveHide")
+                    : tKanban("archiveShow", { count: archivedTasks.length })}
                 </button>
               )}
               {isAdmin && (
@@ -616,7 +640,7 @@ export default function ProjectKanbanPage() {
                       : { background: "var(--hover-soft)", color: "var(--text-secondary)" }
                   }
                 >
-                  <CheckSquare size={13} /> {selectMode ? "Annuler" : "Sélectionner"}
+                  <CheckSquare size={13} /> {selectMode ? tc("cancel") : tKanban("select")}
                 </button>
               )}
             </div>
@@ -628,7 +652,7 @@ export default function ProjectKanbanPage() {
                 style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", backdropFilter: "blur(12px)" }}
               >
                 <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-                  <Tags size={13} /> Filtrer
+                  <Tags size={13} /> {tKanban("filtersTitle")}
                 </span>
                 {projectTags.map((tg) => {
                   const on = activeTagIds.includes(tg.id);
@@ -659,7 +683,7 @@ export default function ProjectKanbanPage() {
                     className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
                     style={{ color: "var(--text-muted)", background: "var(--hover-soft)" }}
                   >
-                    Effacer
+                    {tc("clear")}
                   </button>
                 )}
               </div>
@@ -710,7 +734,7 @@ export default function ProjectKanbanPage() {
               <div className="flex flex-col gap-2 min-h-[120px]">
                 {colTasks.length === 0 ? (
                   <div className="rounded-lg px-3 py-4 text-center text-xs" style={{ background: "var(--hover-soft)", color: "var(--text-muted)" }}>
-                    Aucune tâche
+                    {tKanban("emptyColumn")}
                   </div>
                 ) : (
                   colTasks.map((task) => {
@@ -718,10 +742,11 @@ export default function ProjectKanbanPage() {
                     const canView = canViewTaskDetails(task);
                     const assignee = memberById(task.assignedTo);
                     const prio = priorityConfig[task.priority];
-                    const deadlineBadge =
+                    const deadlineKey =
                       task.deadlineStatus && task.deadlineStatus !== "a_venir"
-                        ? DEADLINE_META[task.deadlineStatus]
+                        ? task.deadlineStatus
                         : null;
+                    const deadlineBadge = deadlineKey ? DEADLINE_META[deadlineKey] : null;
                     return (
                       <div
                         key={task.id}
@@ -753,12 +778,12 @@ export default function ProjectKanbanPage() {
                         }}
                         title={
                           selectMode
-                            ? "Cliquer pour sélectionner"
+                            ? tKanban("tooltipSelect")
                             : canDrag
-                              ? "Cliquer pour les détails — glisser pour changer de colonne"
+                              ? tKanban("tooltipDrag")
                               : canView
-                                ? "Déplacement réservé à l'assigné ou à l'admin — cliquer pour les détails"
-                                : "Vous suivez simplement l'évolution de cette tâche — utilisable uniquement par l'assigné ou l'admin"
+                                ? tKanban("tooltipRestricted")
+                                : tKanban("tooltipFollow")
                         }
                       >
                         {/* Titre + badge priorité compact */}
@@ -781,14 +806,14 @@ export default function ProjectKanbanPage() {
                             className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
                             style={{ color: prio.color, background: prio.bg, border: prio.border }}
                           >
-                            {prio.label}
+                            {tPriority(task.priority)}
                           </span>
                         </div>
 
                         {isTaskBlocked(task, statuses) && (
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="inline-flex items-center gap-1 text-[9px] font-bold" style={{ color: "var(--color-error)" }}>
-                              <Lock size={10} /> Bloquée
+                              <Lock size={10} /> {tc("blocked")}
                             </span>
                           </div>
                         )}
@@ -827,7 +852,7 @@ export default function ProjectKanbanPage() {
                             className="inline-flex w-fit items-center text-[9px] font-bold px-1.5 py-0.5 rounded-full"
                             style={{ color: deadlineBadge.color, background: deadlineBadge.bg }}
                           >
-                            {deadlineBadge.label}
+                            {deadlineLabel(deadlineKey ?? "", deadlineBadge.label)}
                           </span>
                         )}
 
@@ -885,7 +910,7 @@ export default function ProjectKanbanPage() {
               boxShadow: "var(--shadow-card)",
             }}
           >
-            <Plus size={16} /> Nouvelle tâche
+            <Plus size={16} /> {tKanban("newTask")}
           </button>
         )}
             </div>
@@ -909,10 +934,10 @@ export default function ProjectKanbanPage() {
               <Archive className="w-4 h-4" style={{ color: "#b45309" }} />
             </div>
             <h2 className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
-              Tâches archivées ({archivedTasks.length})
+              {tKanban("archiveShow", { count: archivedTasks.length })}
             </h2>
             <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-              Retirées du tableau, elles restent restaurables à tout moment.
+              {tKanban("archiveDescription")}
             </p>
           </div>
 
@@ -924,7 +949,7 @@ export default function ProjectKanbanPage() {
                 style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)" }}
               >
                 <Link
-                  href={`/agences/${agencyId}/projets/${projectId}/taches/${t.id}`}
+                  href={taskHref(agencyId, projectId, t.id)}
                   className="flex items-center gap-2 min-w-0"
                 >
                   <span className="truncate text-[13px] font-semibold hover:underline" style={{ color: "var(--text-primary)" }}>
@@ -944,7 +969,7 @@ export default function ProjectKanbanPage() {
                         await apiRestoreTask(t.id);
                         await refresh();
                       } catch (err) {
-                        alert(getApiErrorMessage(err));
+                        alert(apiErrorMessage(err));
                       } finally {
                         setRestoreBusyId(null);
                       }
@@ -954,12 +979,12 @@ export default function ProjectKanbanPage() {
                     style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}
                   >
                     <ArchiveRestore size={12} />
-                    {restoreBusyId === t.id ? "…" : "Restaurer"}
+                    {restoreBusyId === t.id ? "…" : tc("restore")}
                   </button>
                   {isAdmin && (
                     <button
                       onClick={() => setConfirmingDeleteTask(t)}
-                      title="Supprimer définitivement"
+                      title={tc("deletePermanently")}
                       className="inline-flex items-center justify-center w-7 h-7 rounded-lg transition-colors"
                       style={{ background: "var(--color-danger-soft)", color: "var(--color-error)" }}
                     >
@@ -982,12 +1007,12 @@ export default function ProjectKanbanPage() {
           style={{ background: "var(--card-bg)", border: "1px solid var(--border-subtle)", boxShadow: "var(--shadow-card)" }}
         >
           <span className="text-sm font-bold shrink-0" style={{ color: "var(--text-primary)" }}>
-            {selectedIds.length} sélectionnée{selectedIds.length > 1 ? "s" : ""}
+            {tKanban("bulkSelected", { count: selectedIds.length })}
           </span>
 
           <CustomSelectField
             disabled={bulkBusy || selectedIds.length === 0}
-            placeholder="Statut…"
+            placeholder={tKanban("bulkStatus")}
             resetAfterChange
             onChange={(v) => {
               if (v) runBulk({ status: v as TaskStatus });
@@ -998,18 +1023,18 @@ export default function ProjectKanbanPage() {
 
           <CustomSelectField
             disabled={bulkBusy || selectedIds.length === 0}
-            placeholder="Priorité…"
+            placeholder={tKanban("bulkPriority")}
             resetAfterChange
             onChange={(v) => {
               if (v) runBulk({ priority: v as TaskPriority });
             }}
-            options={(Object.keys(priorityConfig) as TaskPriority[]).map((p) => ({ value: p, label: priorityConfig[p].label }))}
+            options={(Object.keys(priorityConfig) as TaskPriority[]).map((p) => ({ value: p, label: tPriority(p) }))}
             className="text-xs font-semibold"
           />
 
           <CustomSelectField
             disabled={bulkBusy || selectedIds.length === 0}
-            placeholder="Responsable…"
+            placeholder={tKanban("bulkAssignee")}
             resetAfterChange
             onChange={(v) => {
               if (v) runBulk({ assigned_to: Number(v) });
@@ -1024,7 +1049,7 @@ export default function ProjectKanbanPage() {
           {projectTags.length > 0 && (
           <CustomSelectField
             disabled={bulkBusy || selectedIds.length === 0}
-            placeholder="+ Étiquette…"
+            placeholder={tKanban("bulkTag")}
             resetAfterChange
             onChange={(v) => {
               if (v) runBulk({ add_tag_ids: [Number(v)] });
@@ -1039,7 +1064,7 @@ export default function ProjectKanbanPage() {
             className="ml-auto text-xs font-semibold px-3 py-2 rounded-lg"
             style={{ color: "var(--text-muted)" }}
           >
-            Fermer
+            {tc("close")}
           </button>
         </motion.div>
       )}
@@ -1061,16 +1086,16 @@ export default function ProjectKanbanPage() {
           >
             <div className="flex items-center justify-between">
               <h2 className="font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-                <Plus size={18} /> Nouvelle tâche
+                <Plus size={18} /> {tKanban("newTask")}
               </h2>
-              <button type="button" onClick={() => setCreating(false)} aria-label="Fermer">
+              <button type="button" onClick={() => setCreating(false)} aria-label={tc("close")}>
                 <X className="w-5 h-5" style={{ color: "var(--text-secondary)" }} />
               </button>
             </div>
 
             <div>
               <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                Titre *
+                {tForm("titleLabel")}
               </label>
               <input
                 value={taskTitle}
@@ -1078,7 +1103,7 @@ export default function ProjectKanbanPage() {
                   setTaskTitle(e.target.value);
                   clearTaskFieldError("title");
                 }}
-                placeholder="Intitulé de la tâche"
+                placeholder={tForm("titlePlaceholder")}
                 className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-shadow"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
               />
@@ -1091,13 +1116,13 @@ export default function ProjectKanbanPage() {
 
             <div>
               <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                Description
+                {tForm("descriptionLabel")}
               </label>
               <textarea
                 value={taskDescription}
                 onChange={(e) => setTaskDescription(e.target.value)}
                 rows={3}
-                placeholder="Détails de la tâche (optionnel)"
+                placeholder={tForm("descriptionPlaceholder")}
                 className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
               />
@@ -1106,7 +1131,7 @@ export default function ProjectKanbanPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                  Date de début *
+                  {tForm("startDateLabel")}
                 </label>
 <DatePickerField
                   min={taskStartMin}
@@ -1128,7 +1153,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                  Date d&apos;échéance *
+                  {tForm("dueDateLabel")}
                 </label>
 <DatePickerField
                   min={taskStartDate || taskStartMin}
@@ -1152,33 +1177,33 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                  Priorité
+                  {tPriority("label")}
                 </label>
 <CustomSelectField
                   value={taskPriority}
                   onChange={(v) => setTaskPriority(v as TaskPriority)}
-                  options={(Object.keys(priorityConfig) as TaskPriority[]).map((p) => ({ value: p, label: priorityConfig[p].label }))}
+                  options={(Object.keys(priorityConfig) as TaskPriority[]).map((p) => ({ value: p, label: tPriority(p) }))}
                   className="w-full"
-                  ariaLabel="Priorité"
+                  ariaLabel={tPriority("label")}
                 />
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                  Assignée à
+                  {tForm("assigneeLabel")}
                 </label>
 <CustomSelectField
                   value={taskAssigneeId}
                   onChange={(v) => setTaskAssigneeId(v)}
-                  placeholder="Non assignée"
+                  placeholder={tc("unassigned")}
                   options={[
-                    { value: "", label: "Non assignée" },
+                    { value: "", label: tc("unassigned") },
                     ...projectMembers.map((pm) => ({
                       value: String(pm.user.id),
                       label: `${pm.user.firstName} ${pm.user.lastName}`.trim() || pm.user.name,
                     })),
                   ]}
                   className="w-full"
-                  ariaLabel="Assignée à"
+                  ariaLabel={tForm("assigneeLabel")}
                 />
               </div>
             </div>
@@ -1196,7 +1221,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
               >
-                Annuler
+                {tc("cancel")}
               </button>
               <button
                 type="submit"
@@ -1204,7 +1229,8 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
                 style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
               >
-                <Save size={16} /> {actionLoading ? "Création…" : "Créer la tâche"}
+                <Save size={16} />{" "}
+                {actionLoading ? tKanban("createSubmitting") : tKanban("createSubmit")}
               </button>
             </div>
           </motion.form>
@@ -1234,13 +1260,14 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
               </div>
               <div className="min-w-0">
                 <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>
-                  Projet arrivé à échéance
+                  {tKanban("overdueTitle")}
                 </h2>
                 <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-                  L&apos;échéance de ce projet est dépassée
-                  {project.dueDate ? ` (${formatDate(project.dueDate, locale)})` : ""}. Il n&apos;est plus possible
-                  d&apos;ajouter une tâche à des dates passées : modifiez d&apos;abord la date d&apos;échéance
-                  du projet pour continuer.
+                  {project.dueDate
+                    ? tKanban("overdueMessageWithDate", {
+                        date: formatDate(project.dueDate, locale),
+                      })
+                    : tKanban("overdueMessage")}
                 </p>
               </div>
             </div>
@@ -1252,15 +1279,15 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
               >
-                Fermer
+                {tc("close")}
               </button>
               <Link
-                href={`/agences/${agencyId}/projets/${projectId}`}
+                href={projectHref(agencyId, projectId)}
                 onClick={() => setOverdueNotice(false)}
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
                 style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
               >
-                <FolderKanban size={16} /> Voir le projet
+                <FolderKanban size={16} /> {tKanban("viewProject")}
               </Link>
             </div>
           </motion.div>
@@ -1268,22 +1295,22 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
       )}
       <ConfirmDialog
         open={blockedDependency !== null}
-        title="Tâche bloquée par une dépendance"
+        title={tKanban("blockedTitle")}
         message={
           blockedDependency
-            ? `« ${blockedDependency.task.title} » ne peut pas être déplacée vers un statut terminal car elle dépend d’une autre tâche non terminée. Vous devez d’abord terminer ses prérequis.`
+            ? tKanban("blockedMessage", { title: blockedDependency.task.title })
             : ""
         }
-        confirmLabel="Compris"
+        confirmLabel={tc("gotIt")}
         cancelLabel=""
         onConfirm={() => setBlockedDependency(null)}
         onCancel={() => setBlockedDependency(null)}
       />
       <ConfirmDialog
         open={forceConfirm !== null}
-        title="Terminer malgré tout ?"
+        title={tKanban("forceTitle")}
         message={forceConfirm?.message ?? ""}
-        confirmLabel="Terminer quand même"
+        confirmLabel={tKanban("forceConfirm")}
         onConfirm={async () => {
           const fc = forceConfirm;
           if (!fc) return;
@@ -1313,7 +1340,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
               setSelectedIds([]);
             }
           } catch (err) {
-            alert(getApiErrorMessage(err));
+            alert(apiErrorMessage(err));
           }
           setForceConfirm(null);
         }}
@@ -1321,18 +1348,11 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
       />
       <ConfirmDialog
         open={cascadeConfirm !== null}
-        title="Rouvrir des tâches dépendantes ?"
+        title={tKanban("cascadeTitle")}
         message={
           cascadeConfirm ? (
             <div>
-              <p>
-                En rouvrant cette tâche, {cascadeConfirm.dependents.length} tâche
-                {cascadeConfirm.dependents.length > 1 ? "s" : ""} déjà terminée
-                {cascadeConfirm.dependents.length > 1 ? "s" : ""} qui en dépende
-                {cascadeConfirm.dependents.length > 1 ? "nt" : ""} sera
-                {cascadeConfirm.dependents.length > 1 ? "ont" : ""} aussi rouverte
-                {cascadeConfirm.dependents.length > 1 ? "s" : ""} :
-              </p>
+              <p>{tKanban("cascadeMessage", { count: cascadeConfirm.dependents.length })}</p>
               <ul className="mt-2 flex flex-col gap-1.5">
                 {cascadeConfirm.dependents.map((dep) => {
                   const meta = statuses.find((s) => s.key === dep.status);
@@ -1357,7 +1377,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
             </div>
           ) : ""
         }
-        confirmLabel="Rouvrir les dépendants"
+        confirmLabel={tKanban("cascadeConfirm")}
         onConfirm={async () => {
           const cc = cascadeConfirm;
           setCascadeConfirm(null);
@@ -1407,20 +1427,20 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
             for (const { id, task: depTask } of depOriginals) {
               if (depTask) patchTaskLocal(id, { status: depTask.status, deadlineStatus: depTask.deadlineStatus });
             }
-            alert(getApiErrorMessage(err));
+            alert(apiErrorMessage(err));
           }
         }}
         onCancel={() => setCascadeConfirm(null)}
       />
       <ConfirmDialog
         open={confirmingDeleteTask !== null}
-        title="Supprimer définitivement ?"
+        title={tKanban("deleteTitle")}
         message={
           confirmingDeleteTask
-            ? `« ${confirmingDeleteTask.title} » et toutes ses données (sous-tâches, fichiers, commentaires) seront définitivement supprimées. Cette action est irréversible.`
+            ? tKanban("deleteMessage", { title: confirmingDeleteTask.title })
             : ""
         }
-        confirmLabel="Supprimer"
+        confirmLabel={tc("delete")}
         tone="danger"
         onConfirm={async () => {
           const t = confirmingDeleteTask;
@@ -1429,7 +1449,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
             await apiDeleteTask(t.id);
             void refresh();
           } catch (err) {
-            alert(getApiErrorMessage(err));
+            alert(apiErrorMessage(err));
           }
           setConfirmingDeleteTask(null);
         }}

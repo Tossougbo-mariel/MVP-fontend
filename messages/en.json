@@ -3,16 +3,70 @@
     "title": "MVP Studio — Task management",
     "description": "Task management and tracking platform for teams, freelancers and agencies."
   },
-  "Common": {},
+  "Common": {
+    "loading": "Loading...",
+    "retry": "Retry",
+    "seeMore": "See more",
+    "seeLess": "See less",
+    "seeAll": "See all",
+    "backToMyAgencies": "Back to my agencies",
+    "project": "project",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "save": "Save",
+    "noDescription": "No description.",
+    "confirm": "Confirm",
+    "close": "Close",
+    "edit": "Edit",
+    "archive": "Archive",
+    "restore": "Restore",
+    "add": "Add",
+    "create": "Create",
+    "send": "Send",
+    "blocked": "Blocked",
+    "deletePermanently": "Delete permanently",
+    "gotIt": "Got it",
+    "unassigned": "Unassigned",
+    "today": "Today",
+    "clear": "Clear",
+    "chooseDate": "Choose a date",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "selectPlaceholder": "Select…",
+    "noOption": "No option",
+    "seeMoreCount": "See more ({count})"
+  },
   "Navigation": {
     "home": "Home",
     "features": "Features",
     "howItWorks": "How it works",
     "testimonials": "Testimonials",
-    "signUp": "Sign Up",
+    "signUp": "Sign up",
     "login": "Login",
     "openMenu": "Open menu",
-    "language": "Language"
+    "language": "Language",
+    "app": {
+      "myAgencies": "My agencies",
+      "myAgenciesShort": "Agency",
+      "createAgency": "Create an agency",
+      "notifications": "Notifications",
+      "myProfile": "My profile",
+      "profileShort": "Profile",
+      "settings": "Settings",
+      "aiAssistant": "AI assistant",
+      "aiAssistantShort": "Assistant",
+      "logout": "Log out",
+      "logoutShort": "Log out",
+      "closeMenu": "Close menu",
+      "noAgency": "No agency",
+      "createFirstAgency": "Create your first agency or accept an invitation to manage your projects.",
+      "dashboard": "Dashboard",
+      "projects": "Projects",
+      "myTasks": "My tasks",
+      "team": "Team",
+      "agencySettings": "Settings",
+      "agency": "Agency"
+    }
   },
   "Auth": {
     "signup": {
@@ -135,7 +189,7 @@
         "success": "Your password has been changed successfully.",
         "form": "Enter your new password below"
       },
-      "successLogin": "Sign in",
+      "successLogin": "Log in",
       "fields": {
         "password": "New password",
         "confirm": "Confirm new password",
@@ -196,9 +250,9 @@
         "member": "Member"
       },
       "notConnected": {
-        "message": "To join the agency, create your account or sign in — confirmation will happen automatically afterwards.",
+        "message": "To join the agency, create your account or log in — confirmation will happen automatically afterwards.",
         "createAccount": "Create my account",
-        "signIn": "I already have an account · Sign in"
+        "signIn": "I already have an account · Login"
       },
       "accept": {
         "idle": "Accept invitation",
@@ -207,19 +261,36 @@
       "connectedAs": "Signed in as {firstName} {lastName} ({email})"
     }
   },
-  "Validation": {},
+  "Validation": {
+    "invalidField": "Invalid field.",
+    "projectNameRequired": "The project name is required.",
+    "startDateRequired": "The start date is required.",
+    "startDateNotPast": "The start date cannot be earlier than today.",
+    "dueDateRequired": "The due date is required.",
+    "dueDateBeforeStart": "The due date must be later than or equal to the start date.",
+    "dueDateBeforeExisting": "The due date cannot be earlier than the deadline already set.",
+    "taskTitleRequired": "The task title is required.",
+    "startDateAfterProject": "Must be on or after the project start date ({date}).",
+    "dueDateBeforeProject": "Must be on or before the project due date ({date}).",
+    "commentRequired": "The comment cannot be empty.",
+    "subtaskTitleRequired": "The subtask title is required."
+  },
   "Errors": {
-    "generic": "Something went wrong. Please try again."
+    "generic": "Something went wrong. Please try again.",
+    "agencyNotFound": "Agency not found",
+    "agencyNotFoundDetail": "This agency does not exist or you are not part of it.",
+    "notAgencyMember": "You are not a member of this agency.",
+    "accessDenied": "Access denied"
   },
   "Landing": {
-     "hero": {
+    "hero": {
       "titleStart": "Manage your",
       "titleHighlight": "agencies and teams",
       "titleEnd": "with precision",
       "description": "MVP Studio brings your agencies, projects and tasks together in one elegant dashboard. Follow every mission, lead every team — simply.",
       "primaryCta": "Start for free",
       "secondaryCta": "Learn more"
-  },
+    },
     "mockup": {
       "project": "ABC Real Estate website",
       "columns": {
@@ -335,6 +406,135 @@
       "copyright": "© {year} MVP Studio. All rights reserved."
     }
   },
+  "Dashboard": {
+    "loading": "Loading...",
+    "notFound": "Agency not found",
+    "notMember": "You are not a member of this agency.",
+    "backToAgencies": "Back to My agencies",
+    "breadcrumb": "Dashboard",
+    "breadcrumbRoot": "My agencies",
+    "breadcrumbCurrent": "Dashboard",
+    "welcome": "Welcome, {name}! 👋",
+    "welcomeOwner": "As an owner, make informed decisions and unlock your team's potential.",
+    "welcomeAdmin": "As an administrator, organize, monitor and motivate your team.",
+    "welcomeMember": "Discover the best practices to excel in your work.",
+    "export": {
+      "button": "Export the report",
+      "preparing": "Preparing..."
+    },
+    "kpi": {
+      "totalProjects": "Total projects",
+      "totalTasks": "Total tasks",
+      "members": "Members",
+      "overdueTasks": "Overdue tasks",
+      "overdueProjects": "Overdue projects"
+    },
+    "statuses": {
+      "overdue": "Overdue"
+    },
+    "tasksByStatus": {
+      "title": "Tasks by status",
+      "subtitle": "Overview of the overall progress"
+    },
+    "weekly": {
+      "title": "Weekly report",
+      "subtitle": "Tasks completed per day",
+      "legendDone": "Completed tasks",
+      "legendAverage": "Daily average",
+      "completed": "{count, plural, one {# task completed} other {# tasks completed}}",
+      "delta": "{value}% this week"
+    },
+    "team": {
+      "title": "Team status",
+      "active": "Active members",
+      "inactive": "Inactive members",
+      "cumulative": "Cumulative tasks"
+    },
+    "activity": {
+      "title": "Recent activity",
+      "loading": "Loading activity...",
+      "empty": "No recent activity.",
+      "seeMore": "See more ({count})",
+      "seeLess": "See less"
+    },
+    "rights": {
+      "owner": "Owner view — full access",
+      "admin": "Administrator view — broader but limited access",
+      "ownerDesc": "You manage everything: team, projects, tasks and settings.",
+      "adminDesc": "You manage the team and the projects, but not the settings."
+    },
+    "practices": {
+      "goodTitle": "Best practices",
+      "badTitle": "Mistakes to avoid",
+      "good": {
+        "deadlines": {
+          "title": "Respect deadlines",
+          "desc": "Deliver every task on time to keep the team's trust."
+        },
+        "rigor": {
+          "title": "Work with rigor",
+          "desc": "The quality of your deliverables reflects your professionalism."
+        },
+        "teamwork": {
+          "title": "Collaborate with the team",
+          "desc": "Good communication improves the project's productivity."
+        }
+      },
+      "bad": {
+        "late": {
+          "title": "Don't fall behind",
+          "desc": "Delays slow the whole team down and hurt the schedule."
+        },
+        "details": {
+          "title": "Don't overlook the details",
+          "desc": "Incomplete deliverables block the project's progress."
+        },
+        "conflicts": {
+          "title": "Avoid conflicts",
+          "desc": "A healthy climate fosters collective success."
+        }
+      }
+    },
+    "projects": {
+      "title": "Your projects",
+      "seeAll": "See all",
+      "empty": "You are not part of any project for now. The projects you will be assigned to will show up here.",
+      "others": "{count, plural, one {# other project} other {# other projects}}..."
+    }
+  },
+  "Agencies": {
+    "title": "My agencies",
+    "subtitle": "The workspaces you belong to.",
+    "sectionTitle": "Your agencies",
+    "workspacesCount": "{count, plural, one {# workspace} other {# workspaces}}",
+    "createButton": "Create an agency",
+    "emptyTitle": "You don't have any agency yet.",
+    "emptySubtitle": "Create your first agency to start collaborating.",
+    "noMember": "No members",
+    "roleOwner": "Owner",
+    "roleAdmin": "Administrator",
+    "roleMember": "Member",
+    "projectsCount": "{count, plural, one {# project} other {# projects}}",
+    "runningCount": "{count} in progress",
+    "tasksCount": "{count, plural, one {# task} other {# tasks}}",
+    "createdAt": "Created on {date}",
+    "createTitle": "Create an agency",
+    "createSubtitle": "Create your workspace to manage projects, tasks and team.",
+    "createBack": "Back to my agencies",
+    "createNameLabel": "Agency name *",
+    "createNamePlaceholder": "e.g. MVP Studio",
+    "createDescriptionLabel": "Description (optional)",
+    "createDescriptionPlaceholder": "Describe your agency's activity...",
+    "createSubmit": "Create agency",
+    "createSubmitting": "Creating...",
+    "createNameRequired": "The agency name is required.",
+    "myAgenciesTitle": "My agencies",
+    "notMemberOfAny": "You are not a member of any agency.",
+    "projectsTitle": "Projects",
+    "planningOf": "Planning of {project}",
+    "planning": "Planning",
+    "othersCount": "{count, plural, one {+# other project} other {+# other projects}}"
+  },
 
   "Bienvenue": {
     "greeting": "Welcome, {name}",
@@ -349,16 +549,16 @@
   },
 
   "Sidebar": {
-    "Mes agences": "My agencies",
-    "Créer une agence": "Create an agency",
-    "Notifications": "Notifications",
-    "Mon profil": "My profile",
-    "Réglages": "Settings",
-    "Tableau de bord": "Dashboard",
-    "Projets": "Projects",
-    "Mes tâches": "My tasks",
-    "Équipe": "Team",
-    "Paramètres": "Settings",
+    "myAgencies": "My agencies",
+    "createAgency": "Create an agency",
+    "notifications": "Notifications",
+    "myProfile": "My profile",
+    "settings": "Settings",
+    "dashboard": "Dashboard",
+    "projects": "Projects",
+    "myTasks": "My tasks",
+    "team": "Team",
+    "agencySettings": "Settings",
     "assistantFull": "AI Assistant",
     "assistantShort": "Assistant",
     "profilShort": "Profile",
@@ -367,7 +567,8 @@
     "closeMenu": "Close menu",
     "agencyFallback": "Agency",
     "empty": "No agency",
-    "emptyHint": "Create your first agency or accept an invitation to manage your projects."
+    "emptyHint": "Create your first agency or accept an invitation to manage your projects.",
+    "openMenuAria": "MVP Studio"
   },
 
   "DeadlineAlerts": {
@@ -420,23 +621,396 @@
     "noResults": "No results for “{query}”."
   },
 
-"DeadlineAlerts": {
-    "title": "Deadline alerts",
-    "titleCount": "Deadline alerts ({count})",
-    "railShort": "Alerts",
-    "lateSuffix": "late",
-    "empty": "No deadline alerts.",
-    "seeAll": "See all alerts",
-    "projectFallback": "Project"
+  "Projects": {
+    "list": {
+      "loading": "Loading projects…",
+      "title": "Projects",
+      "subtitle": "{count, plural, one {# project in {agency}} other {# projects in {agency}}}",
+      "showAll": "All projects",
+      "archived": "Archived ({count})",
+      "newProject": "New project",
+      "createFirst": "Create your first project",
+      "emptyArchivedTitle": "No archived project",
+      "emptyArchivedText": "Archived projects will appear here so you can restore them.",
+      "emptyTitle": "No project yet",
+      "emptyAdminText": "Create your first project to start structuring the work.",
+      "emptyMemberText": "The projects you are assigned to will appear here.",
+      "progress": "Progress",
+      "taskCount": "{count, plural, one {# task} other {# tasks}}",
+      "unknownOwner": "Unknown owner",
+      "ownerUser": "User #{id}",
+      "restore": "Restore",
+      "deleteTitle": "Delete permanently",
+      "manageTitle": "Manage project (admin)",
+      "viewProject": "View project {name}",
+      "deleteDialogTitle": "Delete permanently?",
+      "deleteDialogText": "This project and all its tasks, subtasks, files and comments will be permanently deleted. This action is irreversible."
+    },
+    "detail": {
+      "edit": "Edit",
+      "restore": "Restore",
+      "archive": "Archive",
+      "exportPdf": "Export PDF",
+      "exportingPdf": "Preparing…",
+      "kanban": "Kanban",
+      "planning": "Schedule",
+      "membersTitle": "Project members",
+      "addMember": "Add a member",
+      "close": "Close",
+      "chooseMembers": "Choose the agency members to add:",
+      "add": "Add ({count})",
+      "adding": "Adding…",
+      "allMembersPresent": "All agency members are already in this project.",
+      "owner": "Owner",
+      "unknownMember": "this member",
+      "removeMemberTitle": "Remove this member from the project",
+      "editTitle": "Edit project",
+      "nameLabel": "Project name",
+      "descriptionLabel": "Description",
+      "statusLabel": "Status",
+      "startDateLabel": "Start date",
+      "dueDateLabel": "Due date",
+      "wallpaperLabel": "Kanban background",
+      "optional": "(optional)",
+      "defaultWallpaper": "Default",
+      "saving": "Saving…",
+      "archiveDialogTitle": "Archive the project?",
+      "archiveDialogText": "“{name}” will be archived along with its tasks. You can always restore it from this page.",
+      "deleteDialogTitle": "Delete permanently?",
+      "deleteDialogText": "“{name}” and its {count, plural, one {# task} other {# tasks}}, subtasks, files and comments will be permanently deleted. This action is irreversible.",
+      "removeMemberDialogTitle": "Remove this member?",
+      "removeMemberDialogText": "This member has ongoing tasks on this project.",
+      "forceRemove": "Remove anyway",
+      "removing": "Removing…",
+      "deleting": "Deleting…",
+      "archiving": "Archiving…"
+    },
+    "new": {
+      "title": "New project",
+      "subtitle": "Create a project in {agency}. The status starts as “{status}”.",
+      "successTitle": "Project created successfully.",
+      "membersAdded": "{count, plural, one {# member added} other {# members added}}.",
+      "membersFailed": "{count, plural, one {# not added: {emails}} other {# not added: {emails}}}",
+      "redirecting": "Redirecting to the project…",
+      "nameLabel": "Project name",
+      "namePlaceholder": "E.g. Website 2026",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Describe the project goal…",
+      "startDateLabel": "Start date",
+      "dueDateLabel": "Due date",
+      "membersLabel": "Assigned members",
+      "membersHint": "Selected members will be added to the project after it is created.",
+      "wallpaperLabel": "Kanban background",
+      "optional": "(optional)",
+      "defaultWallpaper": "Default",
+      "submit": "Create project",
+      "submitting": "Creating…"
+    },
+    "kanban": {
+      "taskCount": "{count, plural, one {# task} other {# tasks}}",
+      "newTask": "New task",
+      "select": "Select",
+      "emptyColumn": "No tasks",
+      "filtersTitle": "Filter",
+      "archiveHide": "Hide archive",
+      "archiveShow": "{count, plural, one {Archived task (#)} other {Archived tasks (#)}}",
+      "archiveDescription": "Removed from the board, they can be restored at any time.",
+      "overdueTitle": "Project deadline reached",
+      "overdueMessage": "This project's deadline has passed. You can no longer add a task with past dates: update the project due date first to continue.",
+      "overdueMessageWithDate": "This project's deadline has passed ({date}). You can no longer add a task with past dates: update the project due date first to continue.",
+      "viewProject": "View project",
+      "bulkSelected": "{count, plural, one {# selected} other {# selected}}",
+      "bulkStatus": "Status…",
+      "bulkPriority": "Priority…",
+      "bulkAssignee": "Assignee…",
+      "bulkTag": "+ Tag…",
+      "createSubmitting": "Creating…",
+      "createSubmit": "Create task",
+      "tooltipSelect": "Click to select",
+      "tooltipDrag": "Click for details — drag to change column",
+      "tooltipRestricted": "Moving is restricted to the assignee or an admin — click for details",
+      "tooltipFollow": "You are only following this task — only the assignee or an admin can move it",
+      "blockedTitle": "Task blocked by a dependency",
+      "blockedMessage": "“{title}” cannot be moved to a terminal status because it depends on another unfinished task. You must complete its prerequisites first.",
+      "forceTitle": "Complete anyway?",
+      "forceTaskMessage": "This task has unchecked subtasks.",
+      "forceBulkMessage": "Some tasks have unchecked subtasks.",
+      "forceConfirm": "Complete anyway",
+      "cascadeTitle": "Reopen dependent tasks?",
+      "cascadeMessage": "Reopening this task will also reopen {count, plural, one {# completed task that depends on it} other {# completed tasks that depend on it}}:",
+      "cascadeConfirm": "Reopen dependents",
+      "deleteTitle": "Delete permanently?",
+      "deleteMessage": "“{title}” and all its data (subtasks, files, comments) will be permanently deleted. This action is irreversible.",
+      "subtasksNotChecked": "Cannot complete: some subtasks are unchecked.",
+      "cascadeBulk": "Some tasks have completed dependents: reopen them one card at a time."
+    },
+    "errors": {
+      "projectNotFound": "Project not found",
+      "accessDeniedProjectDetail": "Only the agency admin can view a project's details.",
+      "accessDeniedCreate": "This page is reserved for the agency owner and admins. Only they can create a project.",
+      "backToProjects": "Back to projects"
+    }
   },
-
-
-  "Dashboard": {},
-  "Agencies": {},
-  "Projects": {},
-  "Tasks": {},
-  "Team": {},
+  "Tasks": {
+    "activity": {
+      "actions": {
+        "creation": "Creation",
+        "status_changed": "Status change",
+        "task_completed": "Task completed",
+        "reopened": "Reopened",
+        "assignee_changed": "Assignee change",
+        "priority_changed": "Priority change",
+        "due_date_changed": "Due date change",
+        "comment_added": "Comment",
+        "project_created": "Project created",
+        "member_added": "Member added"
+      },
+      "fragments": {
+        "creation": "created task “{task}”",
+        "status_changed": "changed the status of task “{task}” to {status}",
+        "status_changed_no_status": "changed the status of task “{task}”",
+        "task_completed": "marked task “{task}” as complete",
+        "reopened": "reopened task “{task}”: its prerequisite “{prerequisite}” is no longer complete",
+        "reopened_no_prerequisite": "reopened task “{task}”",
+        "assignee_changed": "changed the assignee of task “{task}”",
+        "priority_changed": "changed the priority of task “{task}” to {priority}",
+        "priority_changed_no_priority": "changed the priority of task “{task}”",
+        "due_date_changed": "changed the due date of task “{task}”",
+        "comment_added": "commented on task “{task}”",
+        "project_created": "created project “{project}”",
+        "member_added": "invited “{email}” to join the agency",
+        "member_added_no_email": "added a member to the agency"
+      },
+      "sentence": "{actor} {action}{project}",
+      "onProject": " on project “{project}”",
+      "somebody": "Someone",
+      "someAction": "performed an action"
+    },
+    "detail": {
+      "accessDeniedDetail": "Only project members can open a task's details.",
+      "taskNotFound": "Task not found",
+      "backToKanban": "Back to the Kanban board",
+      "documentTitle": "{title} — Task details",
+      "documentTitleFallback": "Task details",
+      "kanban": "Kanban",
+      "historyTitle": "History",
+      "historyLoading": "Loading history…",
+      "historyEmpty": "No activity yet.",
+      "progressTitle": "Task progress",
+      "archivedTitle": "Archived task",
+      "archivedMessage": "Archived on {date}. It is removed from the Kanban board.",
+      "tagsTitle": "Tags",
+      "tagsNone": "None",
+      "tagsManage": "Manage",
+      "tagsEmpty": "No tags in this project. Create one below.",
+      "tagsDeleteTitle": "Delete tag “{name}”",
+      "tagsNewPlaceholder": "New tag…",
+      "assigneeLabel": "Assigned owner",
+      "creatorLabel": "Created by",
+      "subtasksTitle": "Subtasks",
+      "subtasksLoading": "Loading subtasks…",
+      "subtasksEmpty": "No subtasks yet.",
+      "subtasksMarkDone": "Mark as completed",
+      "subtasksMarkUndone": "Mark as not completed",
+      "subtasksImposedAria": "Subtask imposed by an administrator: only an admin can delete it",
+      "subtasksDeleteTitle": "Delete this subtask",
+      "subtasksPlaceholder": "Add a subtask…",
+      "dependenciesTitle": "Dependencies",
+      "dependenciesLoading": "Loading dependencies…",
+      "dependenciesDependsOn": "Depends on",
+      "dependenciesNone": "No prerequisites.",
+      "dependenciesRemoveTitle": "Remove this dependency",
+      "dependenciesRequiredBy": "Required by",
+      "dependenciesNoneDependents": "No task depends on this one.",
+      "dependenciesLockedAria": "This link is removed from the prerequisite task",
+      "dependenciesPlaceholder": "Add a prerequisite…",
+      "attachmentsTitle": "Attachments",
+      "attachmentsAdd": "Add a file",
+      "attachmentsUploading": "Uploading…",
+      "attachmentsLoading": "Loading attachments…",
+      "attachmentsEmpty": "No file attached to this task.",
+      "attachmentsDownload": "Download",
+      "commentsTitle": "Comments",
+      "commentsLoading": "Loading comments…",
+      "commentsEmpty": "No comments on this task.",
+      "commentsDeleteTitle": "Delete this comment",
+      "commentsExpand": "View comment",
+      "commentsReduce": "Reduce",
+      "commentsPlaceholder": "Write a comment… Type @ to mention someone",
+      "commentsSend": "Send",
+      "commentsAdd": "Send a comment",
+      "commentsPreviewTitle": "Comment preview",
+      "editTitle": "Edit task",
+      "editSaving": "Saving…",
+      "archiveDialogTitle": "Archive this task?",
+      "archiveDialogMessage": "“{name}” will be archived and removed from the Kanban board. You can restore it at any time.",
+      "archiveDialogConfirm": "Archive",
+      "archiveDialogBusy": "Archiving…",
+      "deleteDialogTitle": "Delete permanently?",
+      "deleteDialogMessage": "“{name}” and all its data (subtasks, files, comments) will be permanently deleted. This action is irreversible.",
+      "deleteDialogBusy": "Deleting…",
+      "dependencyWarningTitle": "Inconsistent prerequisite deadline",
+      "dependencyWarningMessage": "The task “{candidateTitle}” you selected is due on {candidateDue}. Your current task is due on {taskDue}. Adding this prerequisite will force the task to remain blocked until it is completed.",
+      "dependencyWarningConfirm": "Add anyway"
+    },
+    "form": {
+      "titleLabel": "Title *",
+      "titlePlaceholder": "Task title",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Task details (optional)",
+      "startDateLabel": "Start date *",
+      "dueDateLabel": "Due date *",
+      "assigneeLabel": "Assigned to"
+    },
+    "list": {
+      "subtitleAll": "All tasks in {agency}",
+      "subtitleMine": "Your assigned tasks in {agency}",
+      "allTasks": "All tasks",
+      "statusView": "View by status",
+      "statusFilterHint": "Click a status to filter",
+      "filterBy": "Filter: {label}",
+      "filterEmptyStatus": "No tasks with this status",
+      "allFilter": "All",
+      "emptyOverdueTitle": "No overdue tasks",
+      "emptyAllTitle": "No tasks in this agency",
+      "emptyMineTitle": "No assigned tasks",
+      "emptyOverdueText": "Good news: nothing is overdue!",
+      "emptyAllText": "Create tasks from a project's Kanban board.",
+      "emptyMineText": "Tasks assigned to you in this agency will appear here.",
+      "colTask": "Task",
+      "colStatus": "Status",
+      "colDueDate": "Due date",
+      "colProject": "Project",
+      "noDueDate": "No due date",
+      "me": "Me"
+    }
+  },
+  "Team": {
+    "title": "Team",
+    "subtitle": "<num>{count}</num> {count, plural, one {member} other {members}} in <agency>{name}</agency>",
+    "tagline": "Manage your team members and support every project effectively.",
+    "loadingInvitations": "Loading invitations...",
+    "alone": {
+      "title": "You are the only member for now",
+      "text": "Invite team members to start collaborating."
+    },
+    "filters": {
+      "all": "All",
+      "admin": "Administrator",
+      "membre": "Member"
+    },
+    "search": {
+      "label": "Search for a member by name or email",
+      "placeholder": "Search by name, email..."
+    },
+    "table": {
+      "caption": "Agency members: job title, role, assigned tasks and status.",
+      "columns": {
+        "member": "Member",
+        "jobTitle": "Job title",
+        "role": "Role",
+        "tasks": "Tasks",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "noResults": "No member matches your search.",
+      "resetFilters": "Reset filters",
+      "viewPhoto": "View {name}'s photo",
+      "since": "Since {date}"
+    },
+    "roles": {
+      "proprietaire": "Owner",
+      "admin": "Administrator",
+      "membre": "Member"
+    },
+    "roleShort": {
+      "admin": "Admin",
+      "membre": "Member"
+    },
+    "status": {
+      "actif": "Active",
+      "en_attente": "Pending",
+      "inactif": "Inactive"
+    },
+    "menu": {
+      "actions": "Management actions",
+      "promote": "Promote to Admin",
+      "demote": "Demote to Member",
+      "reactivate": "Reactivate account",
+      "deactivate": "Deactivate account"
+    },
+    "invitations": {
+      "pending": "Pending invitations",
+      "expired": "Expired",
+      "expiresOn": "Expires on {date}",
+      "resend": "Resend"
+    },
+    "invite": {
+      "badge": "Invite a member",
+      "emailPlaceholder": "Email of the member to invite",
+      "submit": "Invite",
+      "sent": "Invitation sent to {email}.",
+      "sentDetail": "An email has been sent to them to join {agency}."
+    },
+    "modals": {
+      "inviteConfirm": {
+        "title": "Confirm invitation",
+        "text": "Send an invitation to join <strong>{agency}</strong> at the address:"
+      },
+      "promote": {
+        "title": "Promote this member",
+        "description": "Confirm the promotion of <strong>{name}</strong> to Admin?",
+        "confirm": "Promote"
+      },
+      "demote": {
+        "title": "Demote this member",
+        "description": "Confirm the demotion of <strong>{name}</strong> to Member? They will lose their admin rights.",
+        "confirm": "Demote"
+      },
+      "deactivate": {
+        "title": "Deactivate this account",
+        "description": "Deactivate <strong>{name}</strong>'s account? This member will no longer receive new tasks.",
+        "confirm": "Deactivate"
+      },
+      "reactivate": {
+        "title": "Reactivate this account",
+        "description": "Reactivate <strong>{name}</strong>'s account? They will be able to receive tasks again.",
+        "confirm": "Reactivate"
+      },
+      "remove": {
+        "title": "Remove this member",
+        "description": "Remove <strong>{name}</strong> from the agency? This action is <strong>irreversible</strong>."
+      },
+      "forced": {
+        "title": "Remove this member?",
+        "warning": "If you continue, this member will be removed from the agency and from <danger>all projects</danger> they belong to.",
+        "confirm": "Remove anyway"
+      },
+      "cancelInvitation": {
+        "title": "Cancel the invitation",
+        "description": "Cancel the invitation sent to <strong>{email}</strong>? {email} will no longer be able to confirm their address and the invitation will be permanently deleted.",
+        "confirm": "Cancel the invitation"
+      }
+    },
+    "success": {
+      "roleChanged": "“{name}” is now {role}.",
+      "accountReactivated": "“{name}”'s account has been reactivated.",
+      "accountDeactivated": "“{name}”'s account has been deactivated.",
+      "memberRemoved": "“{name}” has been removed from the agency.",
+      "reminderSent": "Reminder sent to {email}.",
+      "invitationCancelled": "Invitation to {email} cancelled."
+    },
+    "errors": {
+      "cannotChangeOwnRole": "You cannot change your own role.",
+      "cannotChangeOwnStatus": "You cannot change your own status.",
+      "cannotRemoveSelf": "You cannot delete your own account.",
+      "cannotInviteSelf": "You cannot invite yourself.",
+      "alreadyExists": "An invitation or a member already exists for {email}.",
+      "forcedDefault": "This member has ongoing tasks in the agency's projects."
+    }
+  },
   "Planning": {},
+
   "Notifications": {
     "typeInvitation": "Invitation",
     "typeTaskAssigned": "Task assigned",
@@ -504,93 +1078,119 @@
     "emptyForUser": "No notifications yet, {firstName}.",
     "emptyDefault": "No notifications."
   },
-  "Deadlines": {},
+  "Deadlines": {
+    "overdue": "Overdue",
+    "dueSoon": "Due soon",
+    "titleOverdue": "Overdue task",
+    "titleDueSoon": "Due soon",
+    "messageOverdue": "The task “{task}” is overdue. It was due on {date}. It is not completed yet.",
+    "messageDueSoon": "Heads up. The task “{task}” is due {day}, on {date}. Better not leave it too late.",
+    "labelOverdue": "Overdue",
+    "labelDue": "Due {day}",
+    "menuTitle": "Deadline alerts",
+    "menuTitleWithCount": "Deadline alerts ({count})",
+    "menuShort": "Alerts",
+    "seeAll": "See all alerts",
+    "empty": "No deadline alerts.",
+    "lateCount": "{count} overdue",
+    "all": "All",
+    "loading": "Loading alerts...",
+    "watchCount": "{count, plural, one {# task to watch} other {# tasks to watch}}",
+    "dueOn": "Due: {date}",
+    "viewTask": "View the task",
+    "emptyTitle": "No deadline alerts.",
+    "emptyFilterTitle": "No task in this category.",
+    "emptyText": "No task is overdue or close to its deadline.",
+    "emptyFilterText": "Choose another filter."
+  },
   "Profile": {
-    "success": {
-      "updated": "Profile updated"
-    },
-    "errors": {
-      "save": "Unable to save your changes.",
-      "savePhoto": "Unable to save the photo."
-    },
-    "avatar": {
-      "alt": "Profile photo",
-      "viewTitle": "View profile photo",
-      "change": "Change photo",
-      "view": "View",
-      "crop": "Crop this photo"
-    },
-    "role": {
-      "owner": "Owner",
-      "admin": "Administrator",
-      "adminShort": "Admin",
-      "member": "Member"
-    },
-    "actions": {
-      "edit": "Edit",
-      "save": "Save"
-    },
-    "personal": {
-      "title": "Personal information",
-      "firstName": "First name",
-      "lastName": "Last name",
-      "email": "Email",
-      "phone": "Phone",
-      "city": "City / Country",
-      "bio": "Bio",
-      "jobTitle": "Job title"
-    },
-    "professional": {
-      "title": "Professional information",
-      "memberSince": "Member since {date}",
-      "memberSinceRecently": "Recently joined",
-      "agenciesTitle": "My agencies",
-      "noAgencies": "You are not a member of any agency yet.",
-      "createAgency": "Create an agency"
-    },
-    "tasks": {
-      "title": "My tasks",
-      "assignedCount": "{count, plural, =0 {No assigned tasks} one {# task assigned} other {# tasks assigned}}",
-      "stats": {
-        "assigned": "Assigned tasks",
-        "done": "Completed tasks",
-        "late": "Overdue tasks"
-      },
-      "table": {
-        "task": "Task",
-        "project": "Project",
-        "agency": "Agency",
-        "deadline": "Deadline",
-        "status": "Status"
-      },
-      "status": {
-        "assigned": "Assigned",
-        "done": "Completed",
-        "late": "Overdue"
-      },
-      "empty": "No tasks are assigned to you yet."
-    },
-    "security": {
-      "title": "Security",
-      "changePassword": "Change my password",
-      "twoFactor": {
-        "title": "Two-factor authentication",
-        "enabledHint": "A code is sent by email after your password.",
-        "disabledHint": "Add an email code to secure your sign-in.",
-        "note": "Signing in with an email code remains available and is not affected.",
-        "passwordPlaceholder": "Your password",
-        "enabling": "Enabling...",
-        "confirm": "Confirm"
-      }
-    },
-    "crop": {
-      "title": "Adjust photo",
-      "close": "Close",
-      "cancel": "Cancel",
-      "processing": "Processing...",
-      "apply": "Apply"
+  "saved": "Profile updated",
+  "avatar": {
+    "view": "View profile picture",
+    "change": "Change picture",
+    "viewShort": "View"
+  },
+  "roles": {
+    "owner": "Owner",
+    "admin": "Administrator",
+    "membre": "Member"
+  },
+  "roleShort": {
+    "owner": "Owner",
+    "admin": "Admin",
+    "membre": "Member"
+  },
+  "personal": {
+    "title": "Personal information"
+  },
+  "fields": {
+    "firstName": "First name",
+    "lastName": "Last name",
+    "email": "Email",
+    "phone": "Phone",
+    "city": "City / Country",
+    "bio": "Bio",
+    "jobTitle": "Job title"
+  },
+  "professional": {
+    "title": "Professional information"
+  },
+  "memberSince": "Joined {date}",
+  "memberSinceRecent": "Joined recently",
+  "agencies": {
+    "title": "My agencies",
+    "empty": "You are not in any agency yet.",
+    "create": "Create an agency"
+  },
+  "tasks": {
+    "title": "My tasks",
+    "assignedCount": "{count, plural, =0 {No assigned task} one {# assigned task} other {# assigned tasks}}",
+    "empty": "No task is assigned to you yet."
+  },
+  "stats": {
+    "assigned": "Assigned tasks",
+    "done": "Completed tasks",
+    "late": "Overdue tasks"
+  },
+  "table": {
+    "columns": {
+      "task": "Task",
+      "project": "Project",
+      "agency": "Agency",
+      "due": "Due date",
+      "status": "Status"
     }
   },
+  "status": {
+    "assigned": "Assigned",
+    "done": "Completed",
+    "late": "Overdue"
+  },
+  "security": {
+    "title": "Security",
+    "changePassword": "Change my password"
+  },
+  "twoFactor": {
+    "title": "Two-factor authentication",
+    "enabledHint": "A code is sent by email after your password.",
+    "disabledHint": "Add an email code to secure your login.",
+    "emailStillAvailable": "Email code login remains available and is not affected.",
+    "passwordPlaceholder": "Your password",
+    "activating": "Activating..."
+  },
+  "crop": {
+    "title": "Adjust the photo",
+    "apply": "Confirm",
+    "processing": "Processing..."
+  },
+  "errors": {
+    "saveFailed": "Unable to save your changes.",
+    "photoFailed": "Unable to save the photo.",
+    "imageLoad": "Unable to load the image.",
+    "canvas": "Canvas is not supported.",
+    "export": "Failed to export the image."
+  }
+},
   "Settings": {
     "title": "Settings",
     "subtitle": "Preferences that apply to all your agencies.",
@@ -612,63 +1212,217 @@
       "label": "Interface theme",
       "description": "Choose between light and dark appearance.",
       "light": "Light",
-      "dark": "Dark",
-      "title": "Theme",
-      "custom": "Custom color",
-      "accentColor": "Accent color {name}",
-      "saveError": "Unable to save the accent color."
+      "dark": "Dark"
     },
-    "colors": {
-      "default": "Default",
-      "blue": "Blue",
-      "sky": "Sky blue",
-      "cyan": "Cyan",
-      "turquoise": "Turquoise",
-      "menthe": "Mint",
-      "emerald": "Emerald green",
-      "green": "Green",
-      "forest": "Forest green",
-      "lime": "Lime",
-      "olive": "Olive",
-      "yellow": "Yellow",
-      "amber": "Amber",
-      "mustard": "Mustard",
-      "orange": "Orange",
-      "burnt-orange": "Burnt orange",
-      "red": "Red",
-      "raspberry": "Raspberry red",
-      "coral": "Coral",
-      "burgundy": "Burgundy",
-      "pink": "Pink",
-      "salmon": "Salmon",
-      "fuchsia": "Fuchsia",
-      "magenta": "Magenta",
-      "violet": "Violet",
-      "indigo": "Indigo",
-      "royal-blue": "Royal blue",
-      "dark-blue": "Dark blue",
-      "navy": "Navy",
-      "teal": "Teal",
-      "aqua": "Aqua",
-      "slate": "Slate gray",
-      "gray": "Gray",
-      "light-gray": "Light gray",
-      "black": "Black",
-      "brown": "Brown",
-      "chocolate": "Chocolate brown",
-      "gold": "Gold"
+    "agency": {
+      "title": "Settings",
+      "ownerBadge": "Owner of {agency} — full access",
+      "viewTeam": "View team",
+      "saved": "Settings saved",
+      "ownerOnlyTitle": "Only the owner can manage the settings",
+      "ownerOnlyDescription": "You must be the owner of {agency} to change these settings.",
+      "backToDashboard": "Back to the dashboard",
+      "info": {
+        "title": "Agency information",
+        "nameLabel": "Agency name",
+        "descriptionLabel": "Description",
+        "saving": "Saving..."
+      },
+      "permissions": {
+        "owner": "Owner only",
+        "admin": "Owner and Admins",
+        "all": "All members"
+      },
+      "invitations": {
+        "title": "Invitations",
+        "description": "Define who can invite new members to this agency.",
+        "options": {
+          "owner": {
+            "label": "Owner only",
+            "description": "Only the agency creator can send invitations"
+          },
+          "admin": {
+            "label": "Owner and Admins",
+            "description": "Promoted admins can also invite"
+          },
+          "all": {
+            "label": "All members",
+            "description": "Any member can invite"
+          }
+        },
+        "defaultRole": {
+          "label": "Role granted to new members",
+          "options": {
+            "membre": {
+              "label": "Member",
+              "description": "No administration rights"
+            },
+            "admin": {
+              "label": "Admin",
+              "description": "Can manage users, projects and tasks"
+            }
+          },
+          "hint": "Applies to every member who accepts an invitation."
+        }
+      },
+      "pending": {
+        "title": "Pending invitations",
+        "description": "Invitations sent that have not been accepted or declined yet. You can cancel them at any time.",
+        "empty": "No pending invitations right now.",
+        "roleAdmin": "Admin",
+        "roleMember": "Member",
+        "expired": "Expired",
+        "expiresOn": "Expires on {date}",
+        "resend": "Resend",
+        "cancelling": "Cancelling...",
+        "cancelConfirm": "Cancel the invitation sent to {email}?"
+      },
+      "projects": {
+        "title": "Projects",
+        "description": "Control who can create projects.",
+        "whoCanCreate": "Who can create projects"
+      },
+      "danger": {
+        "title": "Danger zone",
+        "description": "Deleting the agency is <strong>irreversible</strong>. All members, projects, tasks and related data will be permanently lost.",
+        "delete": "Delete this agency",
+        "deleting": "Deleting...",
+        "modalTitle": "Delete the agency?",
+        "modalDescription": "You are about to permanently delete <strong>{agency}</strong>. This action cannot be undone."
+      }
     },
-    "appearance": {
-      "title": "Appearance",
-      "description": "Your appearance is saved to your account: it follows you on all your devices.",
-      "saveError": "Unable to save the theme."
+    "personal": {
+      "title": "Settings",
+      "subtitle": "Preferences that apply to all your agencies.",
+      "preferences": {
+        "title": "Preferences",
+        "description": "Theme (colors), language and notifications, across all your agencies."
+      },
+      "language": {
+        "label": "Language",
+        "french": "Français",
+        "english": "English"
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Assignments, comments, mentions and deadline reminders.",
+        "loadError": "Unable to load your notification preferences."
+      },
+      "theme": {
+        "title": "Theme",
+        "default": "Default ({hex})",
+        "customColor": "Custom color",
+        "accentAria": "Accent color {label}",
+        "saveError": "Unable to save the accent color."
+      },
+      "appearance": {
+        "title": "Appearance",
+        "description": "Your appearance is saved to your account: it follows you on all your devices.",
+        "saveError": "Unable to save the theme."
+      }
     }
   },
-  "Statuses": {},
-  "Priorities": {},
-  "ProjectStatuses": {},
-  "DeadlineStatuses": {},
+  "Statuses": {
+    "a_faire": "To do",
+    "en_cours": "In progress",
+    "en_revision": "In review",
+    "terminee": "Done",
+    "explain": {
+      "appearsIn": "These columns appear in the Kanban, planning and task details.",
+      "terminal": "A column marked <strong>closed</strong> is considered to complete the task."
+    },
+    "empty": {
+      "hint": "No customization yet: the four default columns apply. Adding columns below complements them without replacing them."
+    },
+    "form": {
+      "name": "Column name",
+      "color": "Color",
+      "placeholder": "e.g. Waiting for client"
+    },
+    "actions": {
+      "add": "Add a column",
+      "create": "Create",
+      "customize": "Customize",
+      "rename": "Rename {name}",
+      "delete": "Delete {name}",
+      "cancel": "Cancel",
+      "save": "Save"
+    },
+    "badge": {
+      "terminal": "Closed",
+      "open": "Open"
+    },
+    "validation": {
+      "mustKeepTerminal": "An agency must keep at least one status that completes a task."
+    },
+    "defaultSuffix": " · default column",
+    "copySuffix": " (copy)",
+    "customizeFrom": "Create a custom column from this one",
+    "delete": {
+      "title": "Delete \"{name}\"",
+      "warning": "If tasks still use this column, move them first: otherwise deletion will be refused.",
+      "moveTo": "Move tasks to",
+      "moveAndDelete": "Move and delete"
+    }
+  },
+  "Priorities": {
+    "label": "Priority",
+    "basse": "Low",
+    "moyenne": "Medium",
+    "haute": "High",
+    "urgente": "Urgent"
+  },
+  "ProjectStatuses": {
+    "a_venir": "Upcoming",
+    "en_cours": "In progress",
+    "en_retard": "Overdue",
+    "termine": "Completed",
+    "archive": "Archived"
+  },
+  "DeadlineStatuses": {
+    "a_echeance": "Due",
+    "en_retard": "Overdue"
+  },
   "NotificationTypes": {},
-  "Colors": {},
+  "Colors": {
+    "default": "Default",
+    "blue": "Blue",
+    "sky": "Sky blue",
+    "cyan": "Cyan",
+    "turquoise": "Turquoise",
+    "menthe": "Mint",
+    "emerald": "Emerald green",
+    "green": "Green",
+    "forest": "Forest green",
+    "lime": "Lime",
+    "olive": "Olive",
+    "yellow": "Yellow",
+    "amber": "Amber",
+    "mustard": "Mustard",
+    "orange": "Orange",
+    "burnt-orange": "Burnt orange",
+    "red": "Red",
+    "raspberry": "Raspberry red",
+    "coral": "Coral",
+    "burgundy": "Burgundy",
+    "pink": "Pink",
+    "salmon": "Salmon",
+    "fuchsia": "Fuchsia",
+    "magenta": "Magenta",
+    "violet": "Violet",
+    "indigo": "Indigo",
+    "royal-blue": "Royal blue",
+    "dark-blue": "Dark blue",
+    "navy": "Navy",
+    "teal": "Teal",
+    "aqua": "Aqua",
+    "slate": "Slate gray",
+    "gray": "Gray",
+    "light-gray": "Light gray",
+    "black": "Black",
+    "brown": "Brown",
+    "chocolate": "Chocolate brown",
+    "gold": "Gold"
+  },
   "Dates": {}
 }

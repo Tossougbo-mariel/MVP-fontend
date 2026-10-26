@@ -777,23 +777,41 @@ const fileNameFromDisposition = (disposition: unknown, fallback: string): string
   return match ? decodeURIComponent(match[1]) : fallback;
 };
 
-export const exportProjectReportPdf = async (project: Project): Promise<void> => {
+const reportLocale = (locale: string): "fr" | "en" => (locale === "en" ? "en" : "fr");
+
+export const exportProjectReportPdf = async (
+  project: Project,
+  locale: string,
+): Promise<void> => {
+  const target = reportLocale(locale);
   const { data, headers } = await api.get(`/projects/${project.id}/report`, {
     responseType: "blob",
+    params: { locale: target },
   });
   triggerBlobDownload(
     data as Blob,
-    fileNameFromDisposition(headers["content-disposition"], "rapport-projet.pdf"),
+    fileNameFromDisposition(
+      headers["content-disposition"],
+      target === "en" ? "project-report.pdf" : "rapport-projet.pdf",
+    ),
   );
 };
 
-export const exportAgencyReportPdf = async (agency: Agency): Promise<void> => {
+export const exportAgencyReportPdf = async (
+  agency: Agency,
+  locale: string,
+): Promise<void> => {
+  const target = reportLocale(locale);
   const { data, headers } = await api.get(`/agencies/${agency.id}/report`, {
     responseType: "blob",
+    params: { locale: target },
   });
   triggerBlobDownload(
     data as Blob,
-    fileNameFromDisposition(headers["content-disposition"], "rapport-agence.pdf"),
+    fileNameFromDisposition(
+      headers["content-disposition"],
+      target === "en" ? "agency-report.pdf" : "rapport-agence.pdf",
+    ),
   );
 };
 

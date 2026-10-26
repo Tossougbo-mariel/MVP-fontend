@@ -1,13 +1,12 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { usePathname } from "@/i18n/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 
 export function useActiveAgencyId(): string | null {
-  const pathname = usePathname();
+  const params = useParams<{ agencyId?: string }>();
   const searchParams = useSearchParams();
-  const match = pathname.match(/^\/agences\/([^/]+)\//);
-  return match ? match[1] : searchParams.get("agency");
+  const fromRoute = params?.agencyId;
+  return typeof fromRoute === "string" ? fromRoute : searchParams.get("agency");
 }
 
 /**

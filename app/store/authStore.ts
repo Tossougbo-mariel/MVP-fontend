@@ -69,6 +69,17 @@ type AuthState = {
   fetchMe: () => Promise<void>;
   clearAuth: () => void;
   updateUser: (patch: Partial<User>) => Promise<void>;
+  /**
+   * Vrai quand les données du compte ont été confirmées par l'API.
+   *
+   * Tant qu'elles ne le sont pas, la session persistée peut être périmée :
+   * l'apparence (accent, thème) ne doit alors pas être réinitialisée, sinon
+   * l'application clignote en bleu par défaut le temps de la réponse.
+   *
+   * Volontairement non persisté : à chaque chargement, on repart du principe
+   * que le compte n'est pas encore connu.
+   */
+  userSynced: boolean;
   twoFactorEnabled: boolean;
   fetchTwoFactor: () => Promise<boolean>;
   toggleTwoFactor: (enabled: boolean, password?: string) => Promise<LoginResult>;
@@ -81,6 +92,7 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
       status: "idle",
+      userSynced: false,
       twoFactorEnabled: false,
       setThemeColorLocal: (color) => {
         const user = get().user;
@@ -100,7 +112,7 @@ export const useAuthStore = create<AuthState>()(
             return { ok: true, twoFactor: data, error: null };
           }
 
-          set({ user: apiUserToLocalUser(data.user), token: data.token, status: "authenticated" });
+          set({ user: apiUserToLocalUser(data.user), token: data.token, status: "authenticated", userSynced: true });
           return { ok: true, twoFactor: null, error: null };
         } catch (error) {
           set({ status: "guest" });
@@ -118,6 +130,7 @@ export const useAuthStore = create<AuthState>()(
             user: apiUserToLocalUser(session.user),
             token: session.token,
             status: "authenticated",
+            userSynced: true,
           });
           return { ok: true, error: null };
         } catch (error) {
@@ -141,10 +154,10 @@ export const useAuthStore = create<AuthState>()(
         set({ token, status: "loading" });
         try {
           const { data } = await api.get<ApiUser>("/me");
-          set({ user: apiUserToLocalUser(data), token, status: "authenticated" });
+          set({ user: apiUserToLocalUser(data), token, status: "authenticated", userSynced: true });
           return { ok: true, error: null };
         } catch (error) {
-          set({ user: null, token: null, status: "guest" });
+          set({ user: null, token: null, status: "guest", userSynced: true });
           return { ok: false, error: getApiErrorMessage(error) };
         }
       },
@@ -179,27 +192,27 @@ export const useAuthStore = create<AuthState>()(
           }
         }
         console.log("[authStore] Déconnexion");
-        set({ user: null, token: null, status: "guest" });
+        set({ user: null, token: null, status: "guest", userSynced: true });
       },
 
       // GET /api/me — réhydrate le user au démarrage et valide le token
       fetchMe: async () => {
         if (!get().token) {
-          set({ user: null, token: null, status: "guest" });
+          set({ user: null, token: null, status: "guest", userSynced: true });
           return;
         }
         set({ status: "loading" });
         try {
           const { data } = await api.get<ApiUser>("/me");
-          set({ user: apiUserToLocalUser(data), status: "authenticated" });
+          set({ user: apiUserToLocalUser(data), status: "authenticated", userSynced: true });
         } catch {
           // Token invalide/expiré → session réinitialisée
-          set({ user: null, token: null, status: "guest" });
+          set({ user: null, token: null, status: "guest", userSynced: true });
         }
       },
 
       clearAuth: () => {
-        set({ user: null, token: null, status: "guest" });
+        set({ user: null, token: null, status: "guest", userSynced: true });
       },
 
       fetchTwoFactor: async () => {
@@ -242,7 +255,7 @@ export const useAuthStore = create<AuthState>()(
           ...(patch.avatar !== undefined ? { avatar: patch.avatar } : {}),
         });
           const local = apiUserToLocalUser(data);
-          set({ user: local });
+          set({ user: local, userSynced: true });
         } catch (error) {
           set({ user: prev });
           throw error;

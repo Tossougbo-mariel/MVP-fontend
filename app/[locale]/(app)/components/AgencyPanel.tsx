@@ -1,8 +1,10 @@
 "use client";
 
 import { Link } from "@/i18n/navigation";
-import { usePathname } from "@/i18n/navigation";
+import { kanbanHref, planningHref, projectsHref } from "@/lib/projectHref";
+import { useNormalizedPathname } from "@/lib/useNormalizedPathname";
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   LayoutDashboard, CheckSquare, FolderKanban, Users, Hash, CalendarDays,
   ChevronDown, Plus, Settings,
@@ -13,25 +15,26 @@ import { userAgencies, userRoleInAgency, type AgencyRole } from "@/lib/types";
 
 // Les réglages d'agence vivent dans ce panneau : ils ne concernent que
 // l'agence affichée, donc ils ne figurent pas sur le rail principal, qui est
-// commun à toutes les agences.
+// commun à toutes les agences. Les libellés sont des clés, traduites au rendu.
 const AGENCY_ITEMS = [
-  { suffix: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
-  { suffix: "projets", label: "Projets", icon: FolderKanban },
-  { suffix: "mes-taches", label: "Mes tâches", icon: CheckSquare },
-  { suffix: "equipe", label: "Équipe", icon: Users },
+  { suffix: "dashboard", labelKey: "app.dashboard", icon: LayoutDashboard },
+  { suffix: "projets", labelKey: "app.projects", icon: FolderKanban },
+  { suffix: "mes-taches", labelKey: "app.myTasks", icon: CheckSquare },
+  { suffix: "equipe", labelKey: "app.team", icon: Users },
 ];
 
 // La page des réglages d'agence n'est accessible qu'au propriétaire : l'entrée
 // n'apparaît donc que pour ce rôle, comme le faisait le rail principal.
 const OWNER_AGENCY_ITEMS = [
   ...AGENCY_ITEMS,
-  { suffix: "parametres", label: "Paramètres", icon: Settings },
+  { suffix: "parametres", labelKey: "app.agencySettings", icon: Settings },
 ];
 
-const ROLE_LABEL: Record<AgencyRole, string> = {
-  owner: "Propriétaire",
-  admin: "Administrateur",
-  membre: "Membre",
+// Rôles → clés du namespace « Agencies ».
+const ROLE_KEY: Record<AgencyRole, string> = {
+  owner: "roleOwner",
+  admin: "roleAdmin",
+  membre: "roleMember",
 };
 
 const initials = (name: string) =>
@@ -49,12 +52,14 @@ const initials = (name: string) =>
  * --panel-*, volontairement distinctes du chrome --rail-*.
  */
 export default function AgencyPanel({ agencyId }: { agencyId: string }) {
-  const pathname = usePathname();
+  const pathname = useNormalizedPathname();
+  const t = useTranslations("Navigation");
+  const ta = useTranslations("Agencies");
   const user = useAuthStore((s) => s.user);
   const { data, agencyById, projectsByAgency } = useAppData();
 
   const agency = agencyById(agencyId);
-  const agencyName = agency?.name ?? "Agence";
+  const agencyName = agency?.name ?? t("app.agency");
   const role: AgencyRole = agency && user ? userRoleInAgency(agency, user.email) : "membre";
   const items = role === "owner" ? OWNER_AGENCY_ITEMS : AGENCY_ITEMS;
   const projects = projectsByAgency(agencyId);
@@ -128,7 +133,7 @@ export default function AgencyPanel({ agencyId }: { agencyId: string }) {
                     : "var(--sidebar-accent-text)",
               }}
             >
-              {ROLE_LABEL[role]}
+              {ta(ROLE_KEY[role])}
             </span>
           </span>
           <ChevronDown
@@ -154,12 +159,12 @@ export default function AgencyPanel({ agencyId }: { agencyId: string }) {
               className="px-2.5 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-wide"
               style={{ color: "var(--text-muted)" }}
             >
-              Vos agences
+              {ta("myAgenciesTitle")}
             </p>
 
             {myAgencies.length === 0 && (
               <p className="px-2.5 py-3 text-xs" style={{ color: "var(--text-muted)" }}>
-                Vous n&apos;êtes membre d&apos;aucune agence.
+                {ta("notMemberOfAny")}
               </p>
             )}
 
@@ -205,7 +210,7 @@ export default function AgencyPanel({ agencyId }: { agencyId: string }) {
                 className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors"
                 style={{ color: "var(--text-secondary)" }}
               >
-                <Plus size={15} /> Créer une agence
+                <Plus size={15} /> {t("app.createAgency")}
               </Link>
             </div>
           </div>
@@ -215,8 +220,13 @@ export default function AgencyPanel({ agencyId }: { agencyId: string }) {
       <nav className="flex-1 min-h-0 overflow-y-auto mt-3">
         <ul className="space-y-0.5">
           {items.map((item) => {
-            const href = `/agences/${agencyId}/${item.suffix}`;
-            const active = pathname === href || pathname.startsWith(`${href}/`);
+            const href =
+              item.suffix === "projets"
+                ? projectsHref(agencyId)
+                : `/agences/${agencyId}/${item.suffix}`;
+            const sectionPath = `/agences/${agencyId}/${item.suffix}`;
+            const active =
+              pathname === sectionPath || pathname.startsWith(`${sectionPath}/`);
             return (
               <li key={item.suffix}>
                 <Link
@@ -225,7 +235,7 @@ export default function AgencyPanel({ agencyId }: { agencyId: string }) {
                   style={linkStyle(active)}
                 >
                   <item.icon className="w-[18px] h-[18px] shrink-0" />
-                  <span className="text-sm font-medium">{item.label}</span>
+                  <span className="text-sm font-medium">{t(item.labelKey)}</span>
                 </Link>
               </li>
             );
@@ -241,7 +251,7 @@ export default function AgencyPanel({ agencyId }: { agencyId: string }) {
               className="px-2.5 pb-1.5 text-[10px] font-bold uppercase tracking-wide"
               style={{ color: "var(--sidebar-text-muted)" }}
             >
-              Projets
+              {ta("projectsTitle")}
             </p>
             <ul className="space-y-0.5">
               {projects.slice(0, maxProjects).map((project) => {
@@ -252,7 +262,7 @@ export default function AgencyPanel({ agencyId }: { agencyId: string }) {
                   <li key={project.id} className="pb-1">
                     <div className="flex items-center gap-1">
                       <Link
-                        href={`/agences/${agencyId}/projets/${project.id}/kanban`}
+                        href={kanbanHref(agencyId, project.id)}
                         className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm flex-1 min-w-0 transition-colors hover:bg-[var(--sidebar-hover)]"
                         style={linkStyle(active)}
                       >
@@ -263,9 +273,9 @@ export default function AgencyPanel({ agencyId }: { agencyId: string }) {
                         <span className="truncate font-medium">{project.name}</span>
                       </Link>
                       <Link
-                        href={`/agences/${agencyId}/projets/${project.id}/planning`}
-                        aria-label={`Planning de ${project.name}`}
-                        title="Planning"
+                        href={planningHref(agencyId, project.id)}
+                        aria-label={ta("planningOf", { project: project.name })}
+                        title={ta("planning")}
                         className="p-1.5 rounded-lg shrink-0 transition-colors hover:bg-[var(--sidebar-hover)]"
                         style={{ color: "var(--sidebar-text-muted)" }}
                       >
@@ -282,9 +292,7 @@ export default function AgencyPanel({ agencyId }: { agencyId: string }) {
                 className="px-2.5 pt-1.5 text-[11px] font-medium"
                 style={{ color: "var(--sidebar-text-muted)" }}
               >
-                + {projects.length - maxProjects} autre
-                {projects.length - maxProjects > 1 ? "s" : ""} projet
-                {projects.length - maxProjects > 1 ? "s" : ""}
+                {ta("othersCount", { count: projects.length - maxProjects })}
               </p>
             )}
           </div>

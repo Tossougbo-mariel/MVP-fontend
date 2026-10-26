@@ -34,7 +34,8 @@ export default function ReglagesPage() {
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
   const locale = useLocale();
-  const t = useTranslations("Settings");
+  const t = useTranslations("Settings.personal");
+  const tColors = useTranslations("Colors");
   const switchLocale = useLocaleSwitch();
   const [showThemes, setShowThemes] = useState(false);
   const [accentError, setAccentError] = useState<string | null>(null);
@@ -213,13 +214,16 @@ export default function ReglagesPage() {
                 <div className="mt-3 grid grid-cols-6 gap-x-1.5 gap-y-2">
                   {[{ key: "default", hex: DEFAULT_ACCENT }, ...PRESET_COLORS].map((preset) => {
                     const active = userAccent.toLowerCase() === preset.hex.toLowerCase();
-                    const label = t(`colors.${preset.key}`);
+                    const label =
+                      preset.key === "default"
+                        ? t("theme.default", { hex: DEFAULT_ACCENT })
+                        : tColors(preset.key);
                     return (
                       <button
                         key={preset.key}
                         onClick={() => handleAccentSelect(preset.hex)}
                         title={label}
-                        aria-label={t("theme.accentColor", { name: label })}
+                        aria-label={t("theme.accentAria", { label })}
                         className="h-9 w-9 justify-self-center rounded-full flex items-center justify-center transition-transform hover:scale-110"
                         style={{
                           background: preset.hex,
@@ -237,13 +241,13 @@ export default function ReglagesPage() {
                   style={{ background: "var(--hover-soft)", border: "1px solid var(--border-subtle)" }}
                 >
                   <span className="text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-                    <Palette size={15} style={{ color: "var(--text-secondary)" }} /> {t("theme.custom")}
+                    <Palette size={15} style={{ color: "var(--text-secondary)" }} /> {t("theme.customColor")}
                   </span>
                   <input
                     type="color"
                     value={userAccent}
                     onChange={(e) => handleAccentSelect(e.target.value)}
-                    aria-label={t("theme.custom")}
+                    aria-label={t("theme.customColor")}
                     className="ml-auto h-9 w-12 cursor-pointer rounded-lg border-none bg-transparent p-0"
                   />
                 </label>

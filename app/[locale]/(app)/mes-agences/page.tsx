@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@/i18n/navigation";
-import { useLocale } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { motion, type Variants } from "framer-motion";
 import { Plus, Building2, ChevronRight } from "lucide-react";
 import { useAuthStore } from "@/app/store/authStore";
@@ -11,11 +11,11 @@ import {
   userRoleInAgency,
   colorizeMembers,
   memberInitials,
+  type AgencyRole,
   type DisplayMember,
 } from "@/lib/types";
-import { getApiErrorMessage } from "@/lib/services";
-import { formatDateShort } from "@/lib/dates";
 import { agencyGradientOf, agencyDarkGradientOf } from "@/app/lib/agencyDecor";
+import { agencyDashboardHref } from "@/lib/agencyHref";
 import { useIsDarkMode } from "@/app/lib/useIsDarkMode";
 
 const container: Variants = {
@@ -30,11 +30,12 @@ const item: Variants = {
 // motion() est deprecie depuis framer-motion 12 au profit de motion.create().
 const MotionLink = motion.create(Link);
 
-// createdAt est un timestamp ISO complet (ex: 2026-09-17T08:00:00.000000Z)
-const formatCreatedAt = (date: string, locale: string = "fr") => {
-  const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return date;
-  return formatDateShort(d, locale);
+// Le rôle métier ("owner" | "admin" | "membre") est une valeur technique, pas
+// un libellé : on la mappe vers une clé de traduction sémantique.
+const ROLE_KEY: Record<AgencyRole, string> = {
+  owner: "roleOwner",
+  admin: "roleAdmin",
+  membre: "roleMember",
 };
 
 function Avatar({
@@ -67,13 +68,14 @@ function Avatar({
 
 // Pastilles empilées : la façon lisible de montrer l'effectif d'une agence.
 function AvatarStack({ members, max = 5, size = 28 }: { members: DisplayMember[]; max?: number; size?: number }) {
+  const t = useTranslations("Agencies");
   const shown = members.slice(0, max);
   const rest = members.length - shown.length;
   const overlap = Math.round(size * 0.28);
   if (shown.length === 0) {
     return (
       <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-        Aucun membre
+        {t("noMember")}
       </span>
     );
   }
@@ -121,7 +123,15 @@ export default function MesAgencesPage() {
   const { data, projectsByAgency, tasksByProject } = useAppData();
   const allAgencies = data.agencies;
   const isDark = useIsDarkMode();
-  const locale = useLocale();
+  const t = useTranslations("Agencies");
+  const format = useFormatter();
+
+  // createdAt est un timestamp ISO complet (ex: 2026-09-17T08:00:00.000000Z)
+  const formatCreatedAt = (date: string) => {
+    const d = new Date(date);
+    if (Number.isNaN(d.getTime())) return date;
+    return format.dateTime(d, { day: "numeric", month: "short", year: "numeric" });
+  };
 
   const agencies = userAgencies(allAgencies, user?.email ?? "");
 
@@ -166,10 +176,10 @@ export default function MesAgencesPage() {
         <motion.div variants={item} className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl lg:text-3xl font-black" style={{ color: "var(--text-primary)" }}>
-              Mes agences
+              {t("title")}
             </h1>
             <p style={{ color: "var(--text-secondary)" }}>
-              Les espaces de travail auxquels vous appartenez.
+              {t("subtitle")}
             </p>
           </div>
           <Link
@@ -181,7 +191,7 @@ export default function MesAgencesPage() {
             }}
           >
             <Plus className="w-4 h-4" />
-            Créer une agence
+            {t("createButton")}
           </Link>
         </motion.div>
       )}
@@ -193,10 +203,10 @@ export default function MesAgencesPage() {
         >
           <div className="text-center">
             <p className="text-3xl lg:text-4xl font-black leading-tight" style={{ color: "var(--text-primary)" }}>
-              {"Vous n'avez aucune agence pour le moment."}
+              {t("emptyTitle")}
             </p>
             <p className="mt-3 text-lg" style={{ color: "var(--text-secondary)" }}>
-              Créez votre première agence pour commencer à collaborer.
+              {t("emptySubtitle")}
             </p>
           </div>
           <Link
@@ -208,7 +218,7 @@ export default function MesAgencesPage() {
             }}
           >
             <Plus className="w-5 h-5" />
-            Créer une agence
+            {t("createButton")}
           </Link>
         </motion.div>
       ) : (
@@ -216,10 +226,10 @@ export default function MesAgencesPage() {
           <motion.section variants={item} className="space-y-4">
             <div className="flex items-baseline justify-between gap-4">
               <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-                Vos agences
+                {t("sectionTitle")}
               </h2>
               <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                {agencies.length} espace{agencies.length > 1 ? "s" : ""} de travail
+                {t("workspacesCount", { count: agencies.length })}
               </span>
             </div>
 
@@ -229,7 +239,7 @@ export default function MesAgencesPage() {
                 return (
                   <MotionLink
                     key={a.id}
-                    href={`/agences/${a.id}/dashboard`}
+                    href={agencyDashboardHref(a.id)}
                     variants={item}
                     whileHover={{ y: -6 }}
                     transition={{ duration: 0.25, ease: "easeOut" }}
@@ -277,7 +287,7 @@ export default function MesAgencesPage() {
                                     }
                               }
                             >
-                              {role === "owner" ? "Propriétaire" : role === "admin" ? "Administrateur" : "Membre"}
+                              {t(ROLE_KEY[role])}
                             </span>
                           </div>
                         </div>
@@ -307,15 +317,15 @@ export default function MesAgencesPage() {
 
                       <div className="flex items-center justify-between gap-3 pt-2 text-[11px]" style={{ borderTop: "1px solid var(--border-subtle)", color: "var(--text-muted)" }}>
                         <span>
-                          {projectCount} projet{projectCount > 1 ? "s" : ""}
-                          {runningCount > 0 && ` · ${runningCount} en cours`}
+                          {t("projectsCount", { count: projectCount })}
+                          {runningCount > 0 && ` · ${t("runningCount", { count: runningCount })}`}
                         </span>
                         <span>
-                          {taskCount} tâche{taskCount > 1 ? "s" : ""}
+                          {t("tasksCount", { count: taskCount })}
                         </span>
                       </div>
                       <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                        Créée le {formatCreatedAt(a.createdAt, locale)}
+                        {t("createdAt", { date: formatCreatedAt(a.createdAt) })}
                       </div>
                     </div>
                   </MotionLink>

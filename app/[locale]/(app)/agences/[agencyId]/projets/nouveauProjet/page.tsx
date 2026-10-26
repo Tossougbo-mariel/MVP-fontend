@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { Link } from "@/i18n/navigation";
+import { projectHref, projectsHref } from "@/lib/projectHref";
 import { motion, type Variants } from "framer-motion";
 import {
   AlertTriangle,
@@ -43,6 +45,13 @@ export default function NouveauProjetPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const { reload, agencyById, data } = useAppData();
+  const t = useTranslations("Projects.new");
+  const tStatus = useTranslations("ProjectStatuses");
+  const tErrors = useTranslations("Projects.errors");
+  const te = useTranslations("Errors");
+  const tc = useTranslations("Common");
+  const tv = useTranslations("Validation");
+  const tn = useTranslations("Navigation.app");
 
   const agency = agencyById(agencyId);
 
@@ -85,15 +94,15 @@ export default function NouveauProjetPage() {
     setApiError(null);
 
     const fe: Record<string, string> = {};
-    if (!name.trim()) fe.name = "Le nom du projet est obligatoire.";
+    if (!name.trim()) fe.name = tv("projectNameRequired");
     if (!startDate) {
-      fe.startDate = "La date de début est obligatoire.";
+      fe.startDate = tv("startDateRequired");
     } else if (startDate < todayISO) {
-      fe.startDate = "La date de début ne peut pas être antérieure à aujourd'hui.";
+      fe.startDate = tv("startDateNotPast");
     } else if (!dueDate) {
-      fe.dueDate = "La date d'échéance est obligatoire.";
+      fe.dueDate = tv("dueDateRequired");
     } else if (dueDate < startDate) {
-      fe.dueDate = "La date d'échéance doit être postérieure ou égale à la date de début.";
+      fe.dueDate = tv("dueDateBeforeStart");
     }
     if (Object.keys(fe).length > 0) {
       setFieldErrors(fe);
@@ -123,7 +132,7 @@ export default function NouveauProjetPage() {
       await reload();
       setAddResult({ added: memberEmails.length - failed.length, failed });
       setTimeout(() => {
-        router.push(`/agences/${agencyId}/projets/${project.id}`);
+        router.push(projectHref(agencyId, project.id));
       }, 1500);
     } catch (err) {
       const axiosErr = err as {
@@ -138,7 +147,7 @@ export default function NouveauProjetPage() {
             : field === "due_date" ? "dueDate"
             : field === "name" ? "name"
             : field;
-          fe[key] = messages[0] ?? "Champ invalide.";
+          fe[key] = messages[0] ?? tv("invalidField");
         }
         setFieldErrors(fe);
       } else {
@@ -152,7 +161,7 @@ export default function NouveauProjetPage() {
   if (data.loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>{tc("loading")}</p>
       </div>
     );
   }
@@ -162,14 +171,14 @@ export default function NouveauProjetPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Agence introuvable
+          {te("agencyNotFound")}
         </p>
         <Link
           href="/mes-agences"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Mes agences
+          <ArrowLeft size={16} /> {tn("myAgencies")}
         </Link>
       </div>
     );
@@ -180,14 +189,14 @@ export default function NouveauProjetPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Vous n&apos;êtes pas membre de cette agence.
+          {te("notAgencyMember")}
         </p>
         <Link
           href="/mes-agences"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Retour à Mes agences
+          <ArrowLeft size={16} /> {tc("backToMyAgencies")}
         </Link>
       </div>
     );
@@ -204,17 +213,17 @@ export default function NouveauProjetPage() {
           <ShieldAlert className="w-8 h-8" style={{ color: "var(--color-error)" }} />
         </div>
         <p className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>
-          Accès refusé
+          {te("accessDenied")}
         </p>
         <p className="max-w-sm" style={{ color: "var(--text-secondary)" }}>
-          Cette page est réservée au propriétaire et aux admins de l&apos;agence. Seuls eux peuvent créer un projet.
+          {tErrors("accessDeniedCreate")}
         </p>
         <Link
-          href={`/agences/${agencyId}/projets`}
+          href={projectsHref(agencyId)}
           className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Retour aux projets
+          <ArrowLeft size={16} /> {tErrors("backToProjects")}
         </Link>
       </div>
     );
@@ -243,10 +252,10 @@ export default function NouveauProjetPage() {
           </div>
           <div>
             <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
-              Nouveau projet
+              {t("title")}
             </h1>
             <p className="mt-0.5 text-sm" style={{ color: "var(--text-secondary)" }}>
-              Créer un projet dans {agency.name}. Le statut démarre à « À venir ».
+              {t("subtitle", { agency: agency.name, status: tStatus("a_venir") })}
             </p>
           </div>
         </div>
@@ -273,21 +282,22 @@ export default function NouveauProjetPage() {
           )}
           <div>
             <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
-              Projet créé avec succès.
+              {t("successTitle")}
             </p>
             <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-              {addResult.added} membre{addResult.added > 1 ? "s" : ""} ajouté
-              {addResult.added > 1 ? "s" : ""}.
+              {t("membersAdded", { count: addResult.added })}
               {addResult.failed.length > 0 && (
                 <span style={{ color: "var(--color-error)" }}>
                   {" "}
-                  {addResult.failed.length} non ajouté{addResult.failed.length > 1 ? "s" : ""} :
-                  {addResult.failed.map((e) => ` ${e}`)}
+                  {t("membersFailed", {
+                    count: addResult.failed.length,
+                    emails: addResult.failed.join(", "),
+                  })}
                 </span>
               )}
             </p>
             <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-              Redirection vers le projet…
+              {t("redirecting")}
             </p>
           </div>
         </motion.div>
@@ -297,7 +307,7 @@ export default function NouveauProjetPage() {
         {/* Nom */}
         <div>
           <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-            Nom du projet <span style={{ color: "var(--color-error)" }}>*</span>
+            {t("nameLabel")} <span style={{ color: "var(--color-error)" }}>*</span>
           </label>
           <input
             type="text"
@@ -306,7 +316,7 @@ export default function NouveauProjetPage() {
               setName(e.target.value);
               clearFieldError("name");
             }}
-            placeholder="Ex : Site vitrine 2026"
+            placeholder={t("namePlaceholder")}
             className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
             style={inputStyle}
           />
@@ -320,12 +330,12 @@ export default function NouveauProjetPage() {
         {/* Description */}
         <div>
           <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-            Description
+            {t("descriptionLabel")}
           </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Décrivez l'objectif du projet…"
+            placeholder={t("descriptionPlaceholder")}
             rows={3}
             className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none resize-none"
             style={inputStyle}
@@ -336,7 +346,7 @@ export default function NouveauProjetPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-              <Calendar size={14} /> Date de début <span style={{ color: "var(--color-error)" }}>*</span>
+              <Calendar size={14} /> {t("startDateLabel")} <span style={{ color: "var(--color-error)" }}>*</span>
             </label>
             <DatePicker
               value={startDate}
@@ -356,7 +366,7 @@ export default function NouveauProjetPage() {
           </div>
           <div>
             <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-              <CalendarPlus size={14} /> Date d&apos;échéance <span style={{ color: "var(--color-error)" }}>*</span>
+              <CalendarPlus size={14} /> {t("dueDateLabel")} <span style={{ color: "var(--color-error)" }}>*</span>
             </label>
             <DatePicker
               value={dueDate}
@@ -377,7 +387,7 @@ export default function NouveauProjetPage() {
         {/* Membres assignés */}
         <div>
           <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-            <Users size={14} /> Membres assignés
+            <Users size={14} /> {t("membersLabel")}
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {activeMembers.map((m) => {
@@ -417,14 +427,14 @@ export default function NouveauProjetPage() {
             })}
           </div>
           <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-            Les membres sélectionnés seront ajoutés au projet après sa création.
+            {t("membersHint")}
           </p>
         </div>
 
         {/* Fond d'écran du Kanban (optionnel) */}
         <div>
           <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-            <ImageIcon size={14} /> Fond d&apos;écran du Kanban <span className="font-normal" style={{ color: "var(--text-muted)" }}>(optionnel)</span>
+            <ImageIcon size={14} /> {t("wallpaperLabel")} <span className="font-normal" style={{ color: "var(--text-muted)" }}>{t("optional")}</span>
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             <button
@@ -438,7 +448,7 @@ export default function NouveauProjetPage() {
               }
             >
               <ImageOff size={18} />
-              Par défaut
+              {t("defaultWallpaper")}
             </button>
             {WALLPAPERS.map((wp) => {
               const active = wallpaperId === wp.id;
@@ -478,11 +488,11 @@ export default function NouveauProjetPage() {
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between pt-2">
           <Link
-            href={`/agences/${agencyId}/projets`}
+            href={projectsHref(agencyId)}
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
             style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
           >
-            <ArrowLeft size={16} /> Annuler
+            <ArrowLeft size={16} /> {tc("cancel")}
           </Link>
           <button
             type="submit"
@@ -490,7 +500,7 @@ export default function NouveauProjetPage() {
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
             style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
           >
-            <Send size={16} /> {submitting ? "Création…" : "Créer le projet"}
+            <Send size={16} /> {submitting ? t("submitting") : t("submit")}
           </button>
         </div>
       </motion.form>

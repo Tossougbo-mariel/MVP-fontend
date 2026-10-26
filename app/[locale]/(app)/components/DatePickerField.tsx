@@ -9,7 +9,7 @@ import {
   X,
   Check,
 } from "lucide-react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { formatDateLong, monthName, weekdayShort } from "@/lib/dates";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -36,7 +36,7 @@ const isSameDay = (y: number, m: number, d: number, iso: string | null | undefin
   return !!p && p.y === y && p.m === m && p.d === d;
 };
 
-const formatDisplay = (s: string | null | undefined, locale: string = "fr"): string => {
+const formatDisplay = (s: string | null | undefined, locale: string): string => {
   const p = parseISO(s);
   if (!p) return "";
   const d = new Date(p.y, p.m, p.d);
@@ -48,7 +48,7 @@ export default function DatePickerField({
   onChange,
   min,
   max,
-  placeholder = "Choisir une date",
+  placeholder,
   className = "",
   style,
 }: {
@@ -66,6 +66,8 @@ export default function DatePickerField({
   const btnRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const locale = useLocale();
+  const t = useTranslations("Common");
+  const resolvedPlaceholder = placeholder ?? t("chooseDate");
 
   const weekdays = Array.from({ length: 7 }, (_, i) => weekdayShort(new Date(2024, 0, 1 + i), locale));
 
@@ -106,7 +108,6 @@ export default function DatePickerField({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const nav = (dir: 1 | -1) => {
@@ -124,7 +125,7 @@ export default function DatePickerField({
     for (let d = 1; d <= daysInMonth; d++) cells.push(d);
   }
 
-  const display = formatDisplay(value, locale) || placeholder;
+  const display = formatDisplay(value, locale) || resolvedPlaceholder;
 
   return (
     <div className={`relative ${className}`}>
@@ -167,7 +168,7 @@ export default function DatePickerField({
                 onClick={() => nav(-1)}
                 className="w-8 h-8 rounded-lg inline-flex items-center justify-center transition-colors hover:bg-[var(--hover-soft)]"
                 style={{ color: "var(--text-secondary)" }}
-                aria-label="Mois précédent"
+                aria-label={t("previousMonth")}
               >
                 <ChevronLeft size={16} />
               </button>
@@ -179,7 +180,7 @@ export default function DatePickerField({
                 onClick={() => nav(1)}
                 className="w-8 h-8 rounded-lg inline-flex items-center justify-center transition-colors hover:bg-[var(--hover-soft)]"
                 style={{ color: "var(--text-secondary)" }}
-                aria-label="Mois suivant"
+                aria-label={t("nextMonth")}
               >
                 <ChevronRight size={16} />
               </button>
@@ -235,7 +236,7 @@ export default function DatePickerField({
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors hover:bg-[var(--hover-soft)]"
                 style={{ color: "var(--accent-text)" }}
               >
-                <Check size={12} /> Aujourd&apos;hui
+                <Check size={12} /> {t("today")}
               </button>
               <button
                 type="button"
@@ -243,7 +244,7 @@ export default function DatePickerField({
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors hover:bg-[var(--hover-soft)]"
                 style={{ color: "var(--text-muted)" }}
               >
-                <X size={12} /> Effacer
+                <X size={12} /> {t("clear")}
               </button>
             </div>
           </div>

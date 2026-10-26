@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
 import { Link } from "@/i18n/navigation";
-import { useLocale } from "next-intl";
+import { kanbanHref, planningHref, projectsHref } from "@/lib/projectHref";
+import { useLocale, useTranslations } from "next-intl";
 import { motion, type Variants } from "framer-motion";
 import {
   ArrowLeft,
@@ -26,7 +27,6 @@ import {
 } from "lucide-react";
 import { useAppData, useAsync } from "@/lib/appData";
 import { userRoleInAgency, getProjectStatusFromTasks, type ProjectStatus, type ProjectMember } from "@/lib/types";
-import { useTaskStatuses } from "@/lib/useTaskStatuses";
 import DatePickerField from "@/app/[locale]/(app)/components/DatePickerField";
 import CustomSelectField from "@/app/[locale]/(app)/components/CustomSelectField";
 import { useAuthStore } from "@/app/store/authStore";
@@ -51,18 +51,16 @@ const item: Variants = {
   show: { y: 0, opacity: 1, transition: { duration: 0.5, ease: "easeOut" } },
 };
 
-const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: string; border?: string }> = {
+const statusConfig: Record<ProjectStatus, { color: string; bg: string; border?: string }> = {
   a_venir: {
-    label: "À venir",
     color: "var(--text-secondary)",
     bg: "transparent",
     border: "1px solid var(--border-subtle)",
   },
-  en_cours: { label: "En cours", color: "var(--blue)", bg: "var(--accent-soft)" },
-  en_retard: { label: "En retard", color: "#D85A30", bg: "rgba(216,90,48,0.14)" },
-  termine: { label: "Terminé", color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
+  en_cours: { color: "var(--blue)", bg: "var(--accent-soft)" },
+  en_retard: { color: "#D85A30", bg: "rgba(216,90,48,0.14)" },
+  termine: { color: "var(--color-success)", bg: "rgba(16,185,129,0.12)" },
   archive: {
-    label: "Archivé",
     color: "var(--text-muted)",
     bg: "transparent",
     border: "1px solid var(--border-subtle)",
@@ -82,7 +80,13 @@ export default function ProjectDetailPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const { reload, agencyById, getProject, tasksByProject, data } = useAppData();
-  const { statuses } = useTaskStatuses();
+  const t = useTranslations("Projects.detail");
+  const tStatus = useTranslations("ProjectStatuses");
+  const tErrors = useTranslations("Projects.errors");
+  const te = useTranslations("Errors");
+  const tc = useTranslations("Common");
+  const tv = useTranslations("Validation");
+  const tn = useTranslations("Navigation.app");
 
   const agency = agencyById(agencyId);
   const project = getProject(projectId);
@@ -146,12 +150,12 @@ export default function ProjectDetailPage() {
     if (!project) return;
 
     const fe: Record<string, string> = {};
-    if (!editName.trim()) fe.name = "Le nom du projet est obligatoire.";
+    if (!editName.trim()) fe.name = tv("projectNameRequired");
     if (editStartDate && editDueDate && editDueDate < editStartDate) {
-      fe.dueDate = "La date d'échéance doit être postérieure ou égale à la date de début.";
+      fe.dueDate = tv("dueDateBeforeStart");
     }
     if (project.dueDate && (!editDueDate || editDueDate < project.dueDate)) {
-      fe.dueDate = "La date d'échéance ne peut pas être antérieure à l'échéance déjà définie.";
+      fe.dueDate = tv("dueDateBeforeExisting");
     }
     if (Object.keys(fe).length > 0) {
       setEditFieldErrors(fe);
@@ -184,7 +188,7 @@ export default function ProjectDetailPage() {
             : field === "name" ? "name"
             : field === "status" ? "status"
             : field;
-          fe[key] = messages[0] ?? "Champ invalide.";
+          fe[key] = messages[0] ?? tv("invalidField");
         }
         setEditFieldErrors(fe);
       } else {
@@ -202,7 +206,7 @@ export default function ProjectDetailPage() {
       await apiUpdateProject(project.id, { status: "archive" });
       setConfirmingDelete(false);
       await reload();
-      router.push(`/agences/${agencyId}/projets`);
+      router.push(projectsHref(agencyId));
     } catch (err) {
       setConfirmingDelete(false);
       alert(getApiErrorMessage(err));
@@ -230,7 +234,7 @@ export default function ProjectDetailPage() {
     try {
       await apiDeleteProject(project.id);
       await reload();
-      router.replace(`/agences/${agencyId}/projets`);
+      router.replace(projectsHref(agencyId));
     } catch (err) {
       alert(getApiErrorMessage(err));
     } finally {
@@ -281,11 +285,11 @@ export default function ProjectDetailPage() {
         const pm = projectMembers.find((m) => m.id === projectMemberId);
         const memberName = pm
           ? `${pm.user.firstName} ${pm.user.lastName}`.trim() || pm.user.email
-          : "ce membre";
+          : t("unknownMember");
         setPendingRemoval({
           memberId: projectMemberId,
           memberName,
-          message: axiosErr.response.data.message ?? `Ce membre a des tâches en cours sur ce projet.`,
+          message: t("removeMemberDialogText"),
         });
       } else {
         alert(getApiErrorMessage(err));
@@ -297,7 +301,7 @@ export default function ProjectDetailPage() {
     if (!project || exportingPdf) return;
     setExportingPdf(true);
     try {
-      await exportProjectReportPdf(project);
+      await exportProjectReportPdf(project, locale);
     } catch (err) {
       alert(getApiErrorMessage(err));
     } finally {
@@ -308,7 +312,7 @@ export default function ProjectDetailPage() {
   if (data.loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Chargement…</p>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>{tc("loading")}</p>
       </div>
     );
   }
@@ -318,14 +322,14 @@ export default function ProjectDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Agence introuvable
+          {te("agencyNotFound")}
         </p>
         <Link
           href="/mes-agences"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Mes agences
+          <ArrowLeft size={16} /> {tn("myAgencies")}
         </Link>
       </div>
     );
@@ -337,14 +341,14 @@ export default function ProjectDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Vous n&apos;êtes pas membre de cette agence.
+          {te("notAgencyMember")}
         </p>
         <Link
           href="/mes-agences"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Retour à Mes agences
+          <ArrowLeft size={16} /> {tc("backToMyAgencies")}
         </Link>
       </div>
     );
@@ -355,14 +359,14 @@ export default function ProjectDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Projet introuvable
+          {tErrors("projectNotFound")}
         </p>
         <Link
-          href={`/agences/${agencyId}/projets`}
+          href={projectsHref(agencyId)}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Retour aux projets
+          <ArrowLeft size={16} /> {tErrors("backToProjects")}
         </Link>
       </div>
     );
@@ -373,17 +377,17 @@ export default function ProjectDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
         <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Accès refusé
+          {te("accessDenied")}
         </p>
         <p className="max-w-sm" style={{ color: "var(--text-secondary)" }}>
-          Seul l&apos;admin de l&apos;agence peut consulter le détail d&apos;un projet.
+          {tErrors("accessDeniedProjectDetail")}
         </p>
         <Link
-          href={`/agences/${agencyId}/projets`}
+          href={projectsHref(agencyId)}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-button)" }}
         >
-          <ArrowLeft size={16} /> Retour aux projets
+          <ArrowLeft size={16} /> {tErrors("backToProjects")}
         </Link>
       </div>
     );
@@ -397,7 +401,9 @@ export default function ProjectDetailPage() {
     .filter((v): v is string => !!v)
     .sort()
     .pop();
-  const badge = statusConfig[getProjectStatusFromTasks(project.status, projectTasks, undefined, project.dueDate)];
+  const projectStatus = getProjectStatusFromTasks(project.status, projectTasks, undefined, project.dueDate);
+  const badge = statusConfig[projectStatus];
+  const badgeLabel = tStatus(projectStatus);
 
   // Membres de l'agence pas encore dans le projet (pour l'ajout)
   const addableMembers = (agency.members ?? []).filter(
@@ -410,11 +416,11 @@ export default function ProjectDetailPage() {
       {/* Lien retour */}
       <motion.div variants={item}>
         <Link
-          href={`/agences/${agencyId}/projets`}
+          href={projectsHref(agencyId)}
           className="inline-flex items-center gap-2 text-sm font-semibold hover:opacity-80"
           style={{ color: "var(--text-secondary)" }}
         >
-          <ArrowLeft size={16} /> Projets
+          <ArrowLeft size={16} /> {tn("projects")}
         </Link>
       </motion.div>
 
@@ -437,7 +443,7 @@ export default function ProjectDetailPage() {
                   className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
                   style={{ color: badge.color, background: badge.bg, border: badge.border }}
                 >
-                  {badge.label}
+                  {badgeLabel}
                 </span>
               </div>
             </div>
@@ -449,7 +455,7 @@ export default function ProjectDetailPage() {
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5"
                     style={{ background: "var(--accent-soft)", color: "var(--accent-text)", boxShadow: "0 2px 6px -2px rgba(var(--blue-rgb),0.35)" }}
                   >
-                    <Pencil size={13} /> Modifier
+                    <Pencil size={13} /> {t("edit")}
                   </button>
                   {project.status === "archive" ? (
                   <button
@@ -457,7 +463,7 @@ export default function ProjectDetailPage() {
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5"
                     style={{ background: "var(--color-success)", color: "#fff", boxShadow: "0 2px 6px -2px rgba(16,185,129,0.35)" }}
                   >
-                    <ArchiveRestore size={13} /> Restaurer
+                    <ArchiveRestore size={13} /> {t("restore")}
                   </button>
                 ) : (
                   <button
@@ -465,12 +471,12 @@ export default function ProjectDetailPage() {
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all hover:scale-[1.03] hover:-translate-y-0.5"
                     style={{ background: "rgba(239,68,68,0.10)", color: "var(--color-error)", boxShadow: "0 2px 6px -2px rgba(239,68,68,0.3)" }}
                   >
-                    <Archive size={13} /> Archiver
+                    <Archive size={13} /> {t("archive")}
                   </button>
                 )}
                 <button
                   onClick={() => setConfirmingHardDelete(true)}
-                  title="Supprimer définitivement"
+                  title={t("deleteDialogTitle")}
                   className="inline-flex items-center justify-center w-9 h-9 rounded-lg transition-all hover:scale-[1.03] hover:-translate-y-0.5"
                   style={{ background: "rgba(239,68,68,0.12)", color: "var(--color-error)", border: "1px solid rgba(239,68,68,0.3)" }}
                 >
@@ -486,23 +492,23 @@ export default function ProjectDetailPage() {
           </div>
 
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            {project.description || "Aucune description."}
+            {project.description || tc("noDescription")}
           </p>
 
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <Link
-              href={`/agences/${agencyId}/projets/${projectId}/kanban`}
+              href={kanbanHref(agencyId, projectId)}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-[1.02]"
               style={{ background: "var(--gradient-button)" }}
             >
-              <FolderKanban size={15} /> Kanban
+              <FolderKanban size={15} /> {t("kanban")}
             </Link>
             <Link
-              href={`/agences/${agencyId}/projets/${projectId}/planning`}
+              href={planningHref(agencyId, projectId)}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
               style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
             >
-              <CalendarClock size={15} /> Planning
+              <CalendarClock size={15} /> {t("planning")}
             </Link>
             <button
               onClick={handleExportPdf}
@@ -510,7 +516,7 @@ export default function ProjectDetailPage() {
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
               style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
             >
-              <FileDown size={15} /> {exportingPdf ? "Préparation…" : "Exporter PDF"}
+              <FileDown size={15} /> {exportingPdf ? t("exportingPdf") : t("exportPdf")}
             </button>
           </div>
         </div>
@@ -520,7 +526,7 @@ export default function ProjectDetailPage() {
       <motion.div variants={item} className="glass rounded-2xl p-6" style={{ boxShadow: "var(--shadow-card)" }}>
         <div className="flex items-center justify-between gap-3 mb-4">
           <h2 className="font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-            <Users size={18} /> Membres du projet
+            <Users size={18} /> {t("membersTitle")}
           </h2>
 
           {canManageMembers && (
@@ -529,7 +535,7 @@ export default function ProjectDetailPage() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105"
               style={{ background: "var(--gradient-button)" }}
             >
-              <UserPlus size={15} /> {adding ? "Fermer" : "Ajouter un membre"}
+              <UserPlus size={15} /> {adding ? t("close") : t("addMember")}
             </button>
           )}
         </div>
@@ -543,7 +549,7 @@ export default function ProjectDetailPage() {
             <div className="rounded-xl p-4 space-y-2" style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}>
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                  Choisissez les membres de l&apos;agence à ajouter :
+                  {t("chooseMembers")}
                 </span>
                 <button
                   onClick={handleAddSelected}
@@ -552,12 +558,12 @@ export default function ProjectDetailPage() {
                   style={{ background: "var(--gradient-button)" }}
                 >
                   <UserPlus size={13} />
-                  {actionLoading ? "Ajout…" : `Ajouter (${selectedToAdd.length})`}
+                  {actionLoading ? t("adding") : t("add", { count: selectedToAdd.length })}
                 </button>
               </div>
               {addableMembers.length === 0 ? (
                 <p className="text-sm py-2 text-center" style={{ color: "var(--text-muted)" }}>
-                  Tous les membres de l&apos;agence sont déjà dans ce projet.
+                  {t("allMembersPresent")}
                 </p>
               ) : (
                 addableMembers.map((m) => {
@@ -636,7 +642,7 @@ export default function ProjectDetailPage() {
                     {pm.user.email}
                     {isOwner && (
                       <span className="font-semibold" style={{ color: "var(--accent-text)" }}>
-                        • Responsable
+                        • {t("owner")}
                       </span>
                     )}
                   </div>
@@ -646,7 +652,7 @@ export default function ProjectDetailPage() {
                     onClick={() => handleRemoveMember(pm.id)}
                     className="p-1.5 rounded-lg transition-colors hover:opacity-70 shrink-0"
                     style={{ color: "var(--color-error)" }}
-                    title="Retirer ce membre du projet"
+                    title={t("removeMemberTitle")}
                   >
                     <X size={14} />
                   </button>
@@ -677,16 +683,16 @@ export default function ProjectDetailPage() {
           >
             <div className="flex items-center justify-between">
               <h2 className="font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-                <Pencil size={18} /> Modifier le projet
+                <Pencil size={18} /> {t("editTitle")}
               </h2>
-              <button type="button" onClick={() => setEditing(false)} aria-label="Fermer">
+              <button type="button" onClick={() => setEditing(false)} aria-label={t("close")}>
                 <X className="w-5 h-5" style={{ color: "var(--text-secondary)" }} />
               </button>
             </div>
 
             <div>
               <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                Nom du projet <span style={{ color: "var(--color-error)" }}>*</span>
+                {t("nameLabel")} <span style={{ color: "var(--color-error)" }}>*</span>
               </label>
               <input
                 type="text"
@@ -707,7 +713,7 @@ export default function ProjectDetailPage() {
 
             <div>
               <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                Description
+                {t("descriptionLabel")}
               </label>
               <textarea
                 value={editDescription}
@@ -720,26 +726,26 @@ export default function ProjectDetailPage() {
 
             <div>
               <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                Statut
+                {t("statusLabel")}
               </label>
 <CustomSelectField
                   value={editStatus}
                   onChange={(v) => setEditStatus(v as ProjectStatus)}
                   options={[
-                    { value: "a_venir", label: "À venir" },
-                    { value: "en_cours", label: "En cours" },
-                    { value: "termine", label: "Terminé" },
-                    { value: "archive", label: "Archivé" },
+                    { value: "a_venir", label: tStatus("a_venir") },
+                    { value: "en_cours", label: tStatus("en_cours") },
+                    { value: "termine", label: tStatus("termine") },
+                    { value: "archive", label: tStatus("archive") },
                   ]}
                   className="w-full"
-ariaLabel="Statut du projet"
+                  ariaLabel={t("statusLabel")}
                 />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                  <Calendar size={14} /> Date de début
+                  <Calendar size={14} /> {t("startDateLabel")}
                 </label>
 <DatePickerField
                   value={editStartDate}
@@ -760,7 +766,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
               </div>
               <div>
                 <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                  <CalendarClock size={14} /> Date d&apos;échéance
+                  <CalendarClock size={14} /> {t("dueDateLabel")}
                 </label>
 <DatePickerField
                   value={editDueDate}
@@ -783,7 +789,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
             {/* Fond d'écran du Kanban (optionnel — non persisté par le backend) */}
             <div>
               <label className="flex items-center gap-1.5 text-sm font-semibold mb-1.5" style={{ color: "var(--text-primary)" }}>
-                <ImageIcon size={14} /> Fond d&apos;écran du Kanban <span className="font-normal" style={{ color: "var(--text-muted)" }}>(optionnel)</span>
+                <ImageIcon size={14} /> {t("wallpaperLabel")} <span className="font-normal" style={{ color: "var(--text-muted)" }}>{t("optional")}</span>
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                 <button
@@ -797,7 +803,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                   }
                 >
                   <ImageOff size={18} />
-                  Par défaut
+                  {t("defaultWallpaper")}
                 </button>
                 {WALLPAPERS.map((wp) => {
                   const active = editWallpaper === wp.id;
@@ -840,7 +846,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
               >
-                Annuler
+                {tc("cancel")}
               </button>
               <button
                 type="submit"
@@ -848,7 +854,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
                 style={{ background: "var(--gradient-button)", boxShadow: "0 8px 18px -8px rgba(var(--blue-rgb),0.4)" }}
               >
-                <Save size={16} /> {actionLoading ? "Enregistrement…" : "Enregistrer"}
+                <Save size={16} /> {actionLoading ? t("saving") : tc("save")}
               </button>
             </div>
           </motion.form>
@@ -880,10 +886,10 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
             </div>
             <div>
               <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-                Archiver le projet&nbsp;?
+                {t("archiveDialogTitle")}
               </h2>
               <p className="text-sm mt-1.5" style={{ color: "var(--text-secondary)" }}>
-                «&nbsp;{project.name}&nbsp;» sera archivé avec ses tâches. Vous pourrez toujours le restaurer depuis cette page.
+                {t("archiveDialogText", { name: project.name })}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-1">
@@ -892,7 +898,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
               >
-                Annuler
+                {tc("cancel")}
               </button>
               <button
                 onClick={handleArchive}
@@ -900,7 +906,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
                 style={{ background: "var(--accent-text)" }}
               >
-                <Archive size={15} /> {actionLoading ? "Archivage…" : "Archiver"}
+                <Archive size={15} /> {actionLoading ? t("archiving") : t("archive")}
               </button>
             </div>
           </motion.div>
@@ -932,10 +938,10 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
             </div>
             <div>
               <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-                Supprimer définitivement ?
+                {t("deleteDialogTitle")}
               </h2>
               <p className="text-sm mt-1.5" style={{ color: "var(--text-secondary)" }}>
-                «&nbsp;{project.name}&nbsp;» et ses {allProjectTaskCount} tâche{allProjectTaskCount > 1 ? "s" : ""}, sous-tâches, fichiers et commentaires seront définitivement supprimés. Cette action est irréversible.
+                {t("deleteDialogText", { name: project.name, count: allProjectTaskCount })}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-1">
@@ -944,7 +950,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
               >
-                Annuler
+                {tc("cancel")}
               </button>
               <button
                 onClick={handleDelete}
@@ -952,7 +958,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
                 style={{ background: "var(--color-error)" }}
               >
-                <Trash2 size={15} /> {actionLoading ? "Suppression…" : "Supprimer"}
+                <Trash2 size={15} /> {actionLoading ? t("deleting") : tc("delete")}
               </button>
             </div>
           </motion.div>
@@ -984,7 +990,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
             </div>
             <div>
               <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-                Retirer ce membre&nbsp;?
+                {t("removeMemberDialogTitle")}
               </h2>
               <p className="text-sm mt-1.5" style={{ color: "var(--text-secondary)" }}>
                 {pendingRemoval.message}
@@ -996,7 +1002,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
                 style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-secondary)" }}
               >
-                Annuler
+                {tc("cancel")}
               </button>
               <button
                 onClick={() => handleRemoveMember(pendingRemoval.memberId, true)}
@@ -1004,7 +1010,7 @@ style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)",
                 className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-105 disabled:opacity-60"
                 style={{ background: "var(--color-error)" }}
               >
-                <X size={15} /> {actionLoading ? "Retrait…" : "Retirer quand même"}
+                <X size={15} /> {actionLoading ? t("removing") : t("forceRemove")}
               </button>
             </div>
           </motion.div>

@@ -46,7 +46,7 @@ export default function Header({
 
   // ✅ Contexte d'agence active pour le lien "Mon profil" : le badge de rôle
   // sur la page profil dépend de l'agence dans laquelle on navigue. On le lit
-  // depuis le pathname (/agences/{id}/...) ou depuis ?agency= sur /profil.
+  // depuis le paramètre de route agencyId ou depuis ?agency= sur /profil.
   // profileHrefFor est la définition partagée avec le rail principal : les deux
   // mènent donc au même écran avec le même contexte.
   const contextAgencyId = useActiveAgencyId();
