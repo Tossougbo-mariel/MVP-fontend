@@ -166,7 +166,6 @@ export default function ProfilPage() {
   const agencies = data.agencies;
   const myAgencies = user ? userAgencies(agencies, user.email) : [];
   const locale = useLocale();
-  const t = useTranslations("Profile");
 
   // ✅ Agence active : transmise via ?agency= depuis le Header quand on navigue
   // depuis une agence. Sans contexte → rôle agrégé et tâches de toutes les agences.
