@@ -90,7 +90,7 @@ function InscriptionContent() {
 
   // ✅ Invitation éventuellement liée au lien de confirmation (création de compte requise)
   const searchParams = useSearchParams();
-  const invitationId = searchParams.get("invitation") ?? "";
+  const invitationId = searchParams.get("invitation") ?? searchParams.get("token") ?? "";
 
   // ====== États recadrage photo ======
   const [selectedImage, setSelectedImage] = useState<string | null>(null);

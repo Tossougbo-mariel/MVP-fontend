@@ -286,7 +286,8 @@
     "errorTitle": "Une erreur est survenue",
     "errorDescription": "Le chargement de cette page a échoué. Vous pouvez réessayer ou revenir à vos agences.",
     "globalErrorTitle": "Une erreur inattendue est survenue",
-    "globalErrorDescription": "L'application n'a pas pu s'afficher. Réessayez ou rechargez la page."
+    "globalErrorDescription": "L'application n'a pas pu s'afficher. Réessayez ou rechargez la page.",
+    "serverUnavailable": "Le serveur ne répond pas. Réessayez plus tard."
   },
   "Landing": {
     "hero": {

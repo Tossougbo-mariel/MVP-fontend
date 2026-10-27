@@ -48,7 +48,7 @@ function ConnexionContent() {
   const [step, setStep] = useState<Step>({ kind: "password" });
   const router = useRouter();
   const searchParams = useSearchParams();
-  const invitationId = searchParams.get("invitation") ?? "";
+  const invitationId = searchParams.get("invitation") ?? searchParams.get("token") ?? "";
   const [googleError, setGoogleError] = useState<string | null>(
     searchParams.get("erreur"),
   );

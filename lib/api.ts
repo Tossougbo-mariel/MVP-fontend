@@ -83,6 +83,13 @@ export const getApiErrorMessage = (
   if (data?.error) return data.error;
   const status = (error as ApiErrorShape)?.response?.status;
   if (typeof status === "number" && status >= 500) {
+    if (typeof window !== "undefined") {
+      const segment = window.location.pathname.split("/")[1];
+      const locale = segment === "en" ? "en" : "fr";
+      return locale === "en"
+        ? "The server is not responding. Please try again later."
+        : "Le serveur ne répond pas. Réessayez plus tard.";
+    }
     return fallbacks.server ?? "Le serveur ne répond pas. Réessayez plus tard.";
   }
   return fallbacks.generic ?? "Errors.generic";

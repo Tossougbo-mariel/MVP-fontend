@@ -278,15 +278,16 @@
   "Errors": {
     "generic": "Something went wrong. Please try again.",
     "agencyNotFound": "Agency not found",
-    "agencyNotFoundDetail": "This agency does not exist or you are not part of it.",
+    "agencyNotFoundDetail": "This agency does not exist or you are not a member.",
     "notAgencyMember": "You are not a member of this agency.",
     "accessDenied": "Access denied",
     "notFoundTitle": "Page not found",
-    "notFoundDescription": "This address does not match anything. It may have changed, or the link you used is invalid.",
+    "notFoundDescription": "This page does not exist. It may have been moved, or the link you used is invalid.",
     "errorTitle": "Something went wrong",
-    "errorDescription": "This page failed to load. You can try again or go back to your agencies.",
+    "errorDescription": "This page failed to load. You can try again or return to your agencies.",
     "globalErrorTitle": "An unexpected error occurred",
-    "globalErrorDescription": "The application could not be displayed. Try again or reload the page."
+    "globalErrorDescription": "The application could not be displayed. Please try again or reload the page.",
+    "serverUnavailable": "The server is not responding. Please try again later."
   },
   "Landing": {
     "hero": {

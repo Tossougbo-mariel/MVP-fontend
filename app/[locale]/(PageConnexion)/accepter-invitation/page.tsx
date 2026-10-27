@@ -257,14 +257,14 @@ function AcceptInvitationContent() {
                 {t("notConnected.message")}
               </div>
               <Link
-                href={{ pathname: "/inscription", query: { invitation: token } }}
+                href={{ pathname: "/inscription", query: { invitation: token, token } }}
                 className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white transition-transform hover:scale-[1.01] active:scale-[0.99]"
                 style={{ background: "var(--gradient-button)", boxShadow: "0 10px 30px -10px rgba(var(--blue-rgb),0.55)" }}
               >
                 {t("notConnected.createAccount")} <ArrowRight size={16} />
               </Link>
               <Link
-                href={{ pathname: "/connexion", query: { invitation: token } }}
+                href={{ pathname: "/connexion", query: { invitation: token, token } }}
                 className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold transition-all"
                 style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
               >
