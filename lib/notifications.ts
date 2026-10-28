@@ -237,6 +237,31 @@ export const belongsToAgency = (n: AppNotification, agencyId: number | string): 
   return (n.link ?? "").startsWith(`/agences/${agencyId}/`);
 };
 
+const notificationTimestamp = (n: AppNotification): number => {
+  const raw = (n.createdAt ?? "").trim();
+  if (!raw) return 0;
+  // Les notifications SQL arrivent en "YYYY-MM-DD HH:mm:ss", les autres en
+  // ISO 8601. `Date.parse` accepte les deux une fois l'espace remplacé.
+  const parsed = Date.parse(raw.includes("T") ? raw : raw.replace(" ", "T"));
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+/**
+ * Ordre du centre de notifications : les invitations passent devant, puis
+ * chaque groupe est trié du plus récent au plus ancien. L'utilisateur voit
+ * ainsi une invitation arriver tout en haut, même si d'autres notifications
+ * ont été créées entre-temps.
+ */
+export const sortNotificationsForDisplay = (
+  notifications: readonly AppNotification[],
+): AppNotification[] =>
+  [...notifications].sort((a, b) => {
+    const aInvitation = a.type === "invitation" ? 0 : 1;
+    const bInvitation = b.type === "invitation" ? 0 : 1;
+    if (aInvitation !== bInvitation) return aInvitation - bInvitation;
+    return notificationTimestamp(b) - notificationTimestamp(a) || b.id - a.id;
+  });
+
 export const relativeTime = (dateStr: string, locale: string = "fr"): string => {
   if (!dateStr) return "—";
   const date = new Date(dateStr);

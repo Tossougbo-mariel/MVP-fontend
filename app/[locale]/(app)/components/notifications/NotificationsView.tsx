@@ -16,6 +16,7 @@ import {
   matchesFilter,
   notificationAction,
   relativeTime,
+  sortNotificationsForDisplay,
   type NotificationAction,
 } from "@/lib/notifications";
 import { useNotificationContent } from "@/lib/useNotificationContent";
@@ -244,10 +245,7 @@ export default function NotificationsView({
     [notifications, agencyId],
   );
 
-  const sorted = useMemo(
-    () => [...scoped].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-    [scoped],
-  );
+  const sorted = useMemo(() => sortNotificationsForDisplay(scoped), [scoped]);
 
   const unreadCount = useMemo(() => sorted.filter(isUnread).length, [sorted]);
 

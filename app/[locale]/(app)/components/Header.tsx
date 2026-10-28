@@ -9,7 +9,7 @@ import { Menu, Bell, LogOut, User, ImageIcon, CheckCheck, AtSign, Sparkles, Chev
 import { useAuthStore } from "@/app/store/authStore";
 import { useAppData } from "@/lib/appData";
 import { markAllNotificationsRead, markNotificationRead } from "@/lib/services";
-import { getNotificationMeta, relativeTime } from "@/lib/notifications";
+import { getNotificationMeta, relativeTime, sortNotificationsForDisplay } from "@/lib/notifications";
 import { useNotificationContent } from "@/lib/useNotificationContent";
 import type { AppNotification } from "@/lib/types";
 import { useActiveAgencyId, profileHrefFor } from "@/lib/useActiveAgencyId";
@@ -64,7 +64,10 @@ export default function Header({
   const menuRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<HTMLDivElement>(null);
 
-  const notifications = data.notifications.slice(0, 6);
+  const notifications = useMemo(
+    () => sortNotificationsForDisplay(data.notifications).slice(0, 6),
+    [data.notifications],
+  );
   const mentionUnread = useMemo(
     () => data.notifications.some((n) => !n.readAt && n.type === "mention"),
     [data.notifications],

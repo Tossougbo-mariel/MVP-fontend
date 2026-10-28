@@ -99,29 +99,33 @@ type BootstrapPayload = {
 const DATA_STORAGE_KEY = "mvp-app-data";
 const DATA_TTL = 24 * 60 * 60 * 1000;
 
-type PersistedData = BootstrapPayload & { savedAt: number };
+type PersistedData = BootstrapPayload & { savedAt: number; userId: number };
 
-const readPersistedData = (): PersistedData | null => {
+const readPersistedData = (userId: number): PersistedData | null => {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(DATA_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PersistedData;
     if (!parsed || typeof parsed.savedAt !== "number") return null;
+    // Le cache est partagé entre les sessions du navigateur : sans cette garde,
+    // un compte invité pouvait hériter des notifications du compte précédent.
+    if (parsed.userId !== userId) return null;
     if (Date.now() - parsed.savedAt > DATA_TTL) return null;
     if (!Array.isArray(parsed.agencies) || !Array.isArray(parsed.projects)) return null;
+    if (!Array.isArray(parsed.notifications)) return null;
     return parsed;
   } catch {
     return null;
   }
 };
 
-const writePersistedData = (payload: BootstrapPayload) => {
+const writePersistedData = (payload: BootstrapPayload, userId: number) => {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(
       DATA_STORAGE_KEY,
-      JSON.stringify({ ...payload, savedAt: Date.now() } satisfies PersistedData),
+      JSON.stringify({ ...payload, savedAt: Date.now(), userId } satisfies PersistedData),
     );
   } catch {
     // quota plein ou stockage indisponible : le cache est un confort, pas un dû
@@ -186,7 +190,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     // Cache persistant : au rechargement complet de la page, la dernière copie
     // connue est relue de façon synchrone (localStorage) et affichée tout de
     // suite, sans écran « Chargement… ».
-    const persisted = token ? readPersistedData() : null;
+    const persisted = token && userId != null ? readPersistedData(userId) : null;
     if (!persisted) return EMPTY;
     return {
       agencies: persisted.agencies,
@@ -249,14 +253,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         lastLoadedAt: Date.now(),
       }));
       // Mémorise la copie pour le prochain rechargement : affichage immédiat.
-      writePersistedData(boot);
+      if (userId != null) writePersistedData(boot, userId);
     } catch (err) {
       // En silencieux, on ignore l'erreur : les données existantes restent affichées.
       if (!silent) {
         setData((prev) => ({ ...prev, loading: false, error: getApiErrorMessage(err) }));
       }
     }
-  }, []);
+  }, [userId]);
 
   // Deux clics rapprochés, ou une page qui enchaîne deux rechargements après
   // coup, ne doivent pas déclencher deux balayages complets du backend : le
