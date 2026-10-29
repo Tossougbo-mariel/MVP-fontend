@@ -137,6 +137,12 @@ const clearPersistedData = () => {
   }
 };
 
+export const invalidateAppDataCache = () => {
+  cachedData = null;
+  cachedUserId = null;
+  clearPersistedData();
+};
+
 /**
  * Repli sur les routes unitaires, pour les backends qui n'exposent pas encore
  * GET /api/bootstrap. Un 404 sur /bootstrap ne doit pas laisser l'application

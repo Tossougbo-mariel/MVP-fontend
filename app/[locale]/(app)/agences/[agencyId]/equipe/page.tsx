@@ -1101,7 +1101,7 @@ export default function EquipePage() {
 
                       {/* Actions */}
                       <td className="px-4 py-3 text-right">
-                        {canManageUsers && !isOwnerMember(m) ? (
+                        {canManageUsers && !isOwnerMember(m) && m.user.id !== user?.id ? (
                           <MemberMenu
                             member={m}
                             onChangeRole={() => requestChangeRole(m)}

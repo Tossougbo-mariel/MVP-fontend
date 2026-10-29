@@ -11,6 +11,7 @@ import {
   ArrowLeft, Sparkles, Mail, Lock, Eye, EyeOff, CheckCircle2, Rocket, Users,
 } from "lucide-react";
 import AuthCard from "../components/AuthCard";
+import AuthThemeToggle from "../components/AuthThemeToggle";
 import CodeStep from "../components/CodeStep";
 import GoogleButton from "../components/GoogleButton";
 import MagneticButton from "../components/MagneticButton";
@@ -304,6 +305,7 @@ function ConnexionContent() {
           <ArrowLeft className="w-4 h-4" />
           {t("backToHome")}
         </Link>
+        <AuthThemeToggle />
         {/* Halo derrière la carte */}
         <div
           className="absolute w-[340px] h-[340px] rounded-full blur-3xl pointer-events-none"
