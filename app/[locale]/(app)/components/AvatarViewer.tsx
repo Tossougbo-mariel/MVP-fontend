@@ -2,8 +2,9 @@
 
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Crop } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { X, Crop } from "lucide-react";
+
 
 interface AvatarViewerProps {
   open: boolean;

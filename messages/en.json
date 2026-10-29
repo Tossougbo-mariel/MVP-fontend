@@ -1279,6 +1279,22 @@
   }
 },
   "Settings": {
+    "title": "Settings",
+    "subtitle": "Preferences that apply to all your agencies.",
+    "preferences": {
+      "title": "Preferences",
+      "description": "Theme (colors), language and notifications, across all your agencies."
+    },
+    "language": {
+      "label": "Language",
+      "french": "Français",
+      "english": "English"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Assignments, comments, mentions and deadline reminders.",
+      "loadError": "Unable to load your notification preferences."
+    },
     "theme": {
       "label": "Interface theme",
       "description": "Choose between light and dark appearance.",

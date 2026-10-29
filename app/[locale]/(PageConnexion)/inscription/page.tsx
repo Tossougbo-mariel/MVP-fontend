@@ -9,6 +9,7 @@ import { motion } from "framer-motion";
 import Cropper from "react-easy-crop";
 import { Sparkles, Eye, EyeOff, Camera, User, X, ZoomIn, CheckCircle2, ArrowLeft } from "lucide-react";
 import AuthCard from "../components/AuthCard";
+import AuthThemeToggle from "../components/AuthThemeToggle";
 import { useAuthStore } from "@/app/store/authStore";
 import CustomSlider from "@/app/[locale]/(app)/components/CustomSlider";
 import { useTranslations } from "next-intl";
@@ -245,6 +246,7 @@ function InscriptionContent() {
           <ArrowLeft className="w-4 h-4" />
           {t("backToHome")}
         </Link>
+        <AuthThemeToggle />
         <div className="flex-1 min-h-0 no-scrollbar overflow-y-auto pt-10">
           <div className="min-h-full flex">
             <div className="w-full my-auto">

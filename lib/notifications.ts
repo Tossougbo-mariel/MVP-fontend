@@ -27,14 +27,18 @@ export function parseInvitationText(n: AppNotification): {
   role?: "member" | "admin";
 } {
   const source = `${n.title ?? ""} ${n.message ?? ""}`;
+  // L'inviteur doit être lu uniquement dans le message : le titre backend
+  // ("Invitation à rejoindre …") précède le message et serait sinon avalé
+  // par le `^` du regex, puis réinjecté dans la traduction du corps.
+  const message = n.message ?? "";
   // Agence : gère "l'agence « ... »", "l'agence \"...\"", "agence ..."
   const agencyMatch =
     source.match(/(?:l['’]|\b)agence\s*[«"']([^»"']+)[»"']/i) ||
     source.match(/(?:the\s+)?agency\s*[«"']([^»"']+)[»"']/i);
   // Inviteur : "Daniel ODAH vous invite", "Daniel ODAH invites you"
   const inviterMatch =
-    source.match(/^(.+?)\s+vous\s+invite/i) ||
-    source.match(/^(.+?)\s+invites\s+/i);
+    message.match(/^(.+?)\s+vous\s+invite/i) ||
+    message.match(/^(.+?)\s+invites\s+/i);
   const roleMatch =
     source.match(/en\s+tant\s+que\s+(membre|administrateur)/i) ||
     source.match(/as\s+(?:a\s+)?(member|administrator)/i);

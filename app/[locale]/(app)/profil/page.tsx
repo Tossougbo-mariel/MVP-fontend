@@ -72,7 +72,7 @@ const displayStatus = (t: MyTask): TacheStatus => {
   return "assigned";
 };
 
-const formatEcheance = (d: string | null, locale: string = "fr"): string => {
+const formatEcheance = (d: string | null, locale: string): string => {
   if (!d) return "—";
   const date = new Date(d + "T00:00:00");
   if (Number.isNaN(date.getTime())) return d;

@@ -353,6 +353,7 @@ export default function NouveauProjetPage() {
               min={todayISO}
               onChange={(v) => {
                 setStartDate(v);
+                if (dueDate && dueDate < v) setDueDate("");
                 clearFieldError("startDate");
                 clearFieldError("dueDate");
               }}
@@ -370,6 +371,7 @@ export default function NouveauProjetPage() {
             </label>
             <DatePicker
               value={dueDate}
+              min={startDate || todayISO}
               onChange={(v) => {
                 setDueDate(v);
                 clearFieldError("dueDate");

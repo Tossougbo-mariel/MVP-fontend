@@ -1277,6 +1277,22 @@
   }
 },
   "Settings": {
+    "title": "Réglages",
+    "subtitle": "Les préférences qui s'appliquent à toutes vos agences.",
+    "preferences": {
+      "title": "Préférences",
+      "description": "Le thème (couleurs), la langue et les notifications, sur toutes vos agences."
+    },
+    "language": {
+      "label": "Langue",
+      "french": "Français",
+      "english": "English"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Affectations, commentaires, mentions et rappels d'échéance.",
+      "loadError": "Impossible de charger vos préférences de notifications."
+    },
     "theme": {
       "label": "Thème de l'interface",
       "description": "Choisissez entre l'apparence claire et sombre.",

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import AuthCard from "../components/AuthCard";
 import { useAuthStore } from "@/app/store/authStore";
+import { invalidateAppDataCache } from "@/lib/appData";
 import { acceptInvitation, fetchInvitationPreview, getApiErrorMessage } from "@/lib/services";
 import { agencyTeamHref } from "@/lib/agencyHref";
 import type { InvitationPreview } from "@/lib/types";
@@ -89,6 +90,7 @@ function AcceptInvitationContent() {
     setError(null);
     try {
       await acceptInvitation(token);
+      invalidateAppDataCache();
       setAccepted(true);
       const dest = preview?.agency?.id
         ? agencyTeamHref(preview.agency.id)
