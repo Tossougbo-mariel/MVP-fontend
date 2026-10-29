@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useSyncExternalStore,
+} from "react";
 
 const STORAGE_KEY = "theme";
 
@@ -19,6 +27,8 @@ const ThemeContext = createContext<ThemeContextValue>({
 });
 
 const ATTRIBUTE = "data-theme";
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 const readDomTheme = (): Theme =>
   document.documentElement.getAttribute(ATTRIBUTE) === "light" ? "light" : "dark";
@@ -60,6 +70,17 @@ export default function ThemeProvider({
   children: React.ReactNode;
 }) {
   const theme = useSyncExternalStore(subscribeToTheme, readDomTheme, getServerTheme);
+
+  useIsomorphicLayoutEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (stored === "light" || stored === "dark") {
+        document.documentElement.setAttribute(ATTRIBUTE, stored);
+      }
+    } catch {
+      // Le thème déjà présent sur le document reste appliqué.
+    }
+  }, []);
 
   const setTheme = useCallback((next: Theme) => {
     const apply = () => {
