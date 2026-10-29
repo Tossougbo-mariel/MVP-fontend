@@ -12,7 +12,7 @@ import AuthCard from "../components/AuthCard";
 import { useAuthStore } from "@/app/store/authStore";
 import { invalidateAppDataCache } from "@/lib/appData";
 import { acceptInvitation, fetchInvitationPreview, getApiErrorMessage } from "@/lib/services";
-import { agencyTeamHref } from "@/lib/agencyHref";
+import { agencyDashboardHref } from "@/lib/agencyHref";
 import type { InvitationPreview } from "@/lib/types";
 import { useTranslations } from "next-intl";
 
@@ -85,16 +85,14 @@ function AcceptInvitationContent() {
   }, [preview, user, token, router]);
 
   const handleAccept = async () => {
-    if (!user) return;
+    if (!user || !preview) return;
     setProcessing(true);
     setError(null);
     try {
       await acceptInvitation(token);
       invalidateAppDataCache();
       setAccepted(true);
-      const dest = preview?.agency?.id
-        ? agencyTeamHref(preview.agency.id)
-        : "/mes-agences";
+      const dest = agencyDashboardHref(preview.agency.id);
       setTimeout(() => router.push(dest), 1400);
     } catch (err) {
       setError(getApiErrorMessage(err));
