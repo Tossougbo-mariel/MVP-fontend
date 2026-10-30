@@ -16,6 +16,8 @@ import ThemeToggle from "@/app/[locale]/(PageConnexion)/components/ThemeToggle";
 import Select from "@/app/[locale]/(app)/components/Select";
 import { useLocaleSwitch } from "@/app/lib/LanguageSwitcher";
 
+const PENDING_THEME_STORAGE_KEY = "theme-pending-sync";
+
 const container: Variants = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.07, delayChildren: 0.04 } },
@@ -89,8 +91,24 @@ export default function ReglagesPage() {
   const handleThemeChange = async (theme: "light" | "dark") => {
     setThemeError(null);
     try {
-      await updateUser({ theme });
+      window.localStorage.setItem(PENDING_THEME_STORAGE_KEY, theme);
     } catch {
+      // The server preference can still be saved if local storage is blocked.
+    }
+
+    try {
+      await updateUser({ theme });
+      try {
+        window.localStorage.removeItem(PENDING_THEME_STORAGE_KEY);
+      } catch {
+        // The saved account value remains the source of truth.
+      }
+    } catch {
+      try {
+        window.localStorage.setItem(PENDING_THEME_STORAGE_KEY, theme);
+      } catch {
+        // The current page still keeps the selected theme in the DOM.
+      }
       setThemeError(t("appearance.saveError"));
     }
   };
