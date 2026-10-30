@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "@/i18n/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { motion, type Variants } from "framer-motion";
@@ -278,6 +278,24 @@ export default function NotificationsView({
     () => sorted.filter((n) => matchesFilter(n, activeFilter)),
     [sorted, activeFilter],
   );
+  const selectAllRef = useRef<HTMLInputElement>(null);
+  const allVisibleSelected = visible.length > 0 && visible.every((n) => selected.has(n.id));
+  const someVisibleSelected = visible.some((n) => selected.has(n.id));
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someVisibleSelected && !allVisibleSelected;
+    }
+  }, [allVisibleSelected, someVisibleSelected]);
+
+  const toggleSelectAllVisible = () => {
+    setSelected((previous) => {
+      const next = new Set(previous);
+      if (allVisibleSelected) visible.forEach((n) => next.delete(n.id));
+      else visible.forEach((n) => next.add(n.id));
+      return next;
+    });
+  };
 
   const markRead = async (id: number) => {
     setBusy(true);
@@ -493,6 +511,31 @@ export default function NotificationsView({
               </button>
             );
           })}
+        </motion.div>
+      )}
+
+      {selecting && visible.length > 0 && (
+        <motion.div
+          variants={item}
+          className="flex items-center rounded-xl px-4 py-3"
+          style={{ background: "var(--chrome-card)", border: "1px solid var(--chrome-border)" }}
+        >
+          <label
+            className="inline-flex cursor-pointer items-center gap-2.5 text-sm font-semibold"
+            style={{ color: "var(--chrome-text)" }}
+          >
+            <input
+              ref={selectAllRef}
+              type="checkbox"
+              checked={allVisibleSelected}
+              onChange={toggleSelectAllVisible}
+              disabled={busy}
+              aria-label={t("selectAll")}
+              className="h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
+              style={{ accentColor: "var(--blue)" }}
+            />
+            <span>{t("selectAll")}</span>
+          </label>
         </motion.div>
       )}
 
