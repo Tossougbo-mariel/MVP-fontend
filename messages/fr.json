@@ -1105,6 +1105,7 @@
     "actions": "Actions",
     "openNotification": "Ouvrir la notification",
     "selectNotification": "Sélectionner",
+    "selectAll": "Tout sélectionner",
     "deselectNotification": "Désélectionner",
     "notificationActions": "Actions de la notification",
     "delete": "Supprimer",
