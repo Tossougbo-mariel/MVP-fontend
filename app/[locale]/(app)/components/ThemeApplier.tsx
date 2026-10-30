@@ -16,12 +16,31 @@ const STORAGE_KEY = "theme";
  */
 export default function ThemeApplier() {
   const theme = useAuthStore((s) => s.user?.theme);
+  const userSynced = useAuthStore((s) => s.userSynced);
 
   useEffect(() => {
-    if (!theme) return;
-    document.documentElement.setAttribute(ATTRIBUTE, theme);
-    localStorage.setItem(STORAGE_KEY, theme);
-  }, [theme]);
+    // Do not let a stale persisted account value replace the local choice
+    // before the current account has been refreshed from the API.
+    if (!userSynced) return;
+
+    let pendingTheme: string | null = null;
+    try {
+      pendingTheme = localStorage.getItem("theme-pending-sync");
+    } catch {
+      // The server account theme is still usable when local storage is blocked.
+    }
+
+    const nextTheme =
+      pendingTheme === "light" || pendingTheme === "dark" ? pendingTheme : theme;
+    if (!nextTheme) return;
+
+    document.documentElement.setAttribute(ATTRIBUTE, nextTheme);
+    try {
+      localStorage.setItem(STORAGE_KEY, nextTheme);
+    } catch {
+      // The theme remains applied for this session.
+    }
+  }, [theme, userSynced]);
 
   return null;
 }

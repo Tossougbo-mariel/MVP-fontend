@@ -73,7 +73,11 @@ export default function ThemeProvider({
 
   useIsomorphicLayoutEffect(() => {
     try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
+      const pending = window.localStorage.getItem("theme-pending-sync");
+      const stored =
+        pending === "light" || pending === "dark"
+          ? pending
+          : window.localStorage.getItem(STORAGE_KEY);
       if (stored === "light" || stored === "dark") {
         document.documentElement.setAttribute(ATTRIBUTE, stored);
       }
